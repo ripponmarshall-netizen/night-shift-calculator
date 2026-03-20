@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>WCO JFB Night Shift Calculator</title>
+  <style>
+    :root {
+      --bg:           #0a0a0f;
+      --surface:      #13131a;
+      --surface2:     #1c1c26;
+      --border:       rgba(255,255,255,0.08);
+      --border-focus: rgba(255,255,255,0.22);
+      --accent:       #e8e2d5;
+      --accent-warm:  #d4a96a;
+      --text:         #f0ede8;
+      --text-sub:     rgba(240,237,232,0.5);
+      --text-muted:   rgba(240,237,232,0.3);
+      --green:        #4ade80;
+      --green-dim:    rgba(74,222,128,0.12);
+      --red:          #f87171;
+      --radius:       16px;
+      --radius-sm:    10px;
+      --font-display: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --font-body:    -apple-system, "SF Pro Text",    "Helvetica Neue", sans-serif;
+    }
+
+```
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 0 60px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(212,169,106,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(74,222,128,0.04) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── LAYOUT ─── */
+.app {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  padding: 0 20px;
+}
+
+/* ─── PAGES ─── */
+.page { display: none; animation: fadeUp 0.4s ease; }
+.page.active { display: block; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── HEADER ─── */
+.page-header {
+  text-align: center;
+  padding: 56px 0 36px;
+}
+
+.logo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(212,169,106,0.1);
+  border: 1px solid rgba(212,169,106,0.18);
+  border-radius: 30px;
+  padding: 5px 14px 5px 10px;
+  margin-bottom: 22px;
+}
+
+.logo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-warm);
+  box-shadow: 0 0 8px rgba(212,169,106,0.7);
+  animation: pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.85); }
+}
+
+.logo-badge span {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--accent-warm);
+  text-transform: uppercase;
+}
+
+/* Shared title base — size overridden per page */
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.page-title--input   { font-size: clamp(40px, 10vw, 52px); }
+.page-title--results { font-size: clamp(34px, 9vw, 46px); }
+
+/* ─── CARD ─── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 24px;
+  margin-bottom: 14px;
+}
+
+/* ─── FIELDS ─── */
+.field {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.field:first-child { padding-top: 0; }
+.field:last-child  { border-bottom: none; padding-bottom: 0; }
+
+/* Shared uppercase label style used in both input and results */
+.field-label,
+.result-label,
+.section-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-sub);
+}
+
+.field-label   { margin-bottom: 8px; }
+.section-label { color: var(--text-muted); text-align: center; margin-bottom: 10px; letter-spacing: 0.12em; }
+
+.field-input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  color: var(--text);
+  outline: none;
+  text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field-input::placeholder { color: var(--text-muted); }
+
+.field-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.04);
+}
+
+.field-input.error { border-color: var(--red); }
+
+/* Hide number spinners */
+.field-input::-webkit-outer-spin-button,
+.field-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.field-input[type=number] { -moz-appearance: textfield; }
+
+/* ─── DISTANCE TOGGLE ─── */
+.toggle-group { display: flex; gap: 8px; }
+
+.toggle-btn {
+  flex: 1;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.toggle-btn.active-short {
+  background: rgba(74,222,128,0.1);
+  border-color: rgba(74,222,128,0.35);
+  color: var(--green);
+}
+
+.toggle-btn.active-long {
+  background: rgba(212,169,106,0.1);
+  border-color: rgba(212,169,106,0.35);
+  color: var(--accent-warm);
+}
+
+/* ─── BUTTONS ─── */
+.submit-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  color: #0a0a0f;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  margin-top: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.submit-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+.back-btn {
+  width: 100%;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border-focus);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-btn:active { background: var(--surface2); transform: scale(0.98); }
+
+.back-arrow { font-size: 18px; line-height: 1; margin-top: -1px; }
+
+/* ─── FOOTER ─── */
+.page-footer {
+  text-align: center;
+  padding-top: 12px;
+  margin-top: 40px;
+}
+
+.full-name {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.creator {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  letter-spacing: 0.06em;
+}
+
+/* ─── RESULTS ─── */
+.results-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 14px;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.result-row:last-child { border-bottom: none; padding-bottom: 0; }
+
+.result-value {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent-warm);
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+  background: var(--surface2);
+  border: 1px solid rgba(212,169,106,0.18);
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+
+.total-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-warm);
+}
+
+.total-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-warm);
+  letter-spacing: -0.02em;
+}
+
+/* ─── DISTANCE BADGE ─── */
+.distance-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.distance-tag.short {
+  background: var(--green-dim);
+  color: var(--green);
+  border: 1px solid rgba(74,222,128,0.2);
+}
+
+.distance-tag.long {
+  background: rgba(212,169,106,0.1);
+  color: var(--accent-warm);
+  border: 1px solid rgba(212,169,106,0.2);
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+
+.shake { animation: shake 0.35s ease; }
+```
+
+  </style>
+</head>
+<body>
+  <div class="app">
+
+```
+<!-- ═══ INPUT PAGE ═══ -->
+<div class="page active" id="input-page">
+  <div class="page-header">
+    <div class="logo-badge">
+      <div class="logo-dot"></div>
+      <span>Night Shift</span>
+    </div>
+    <h1 class="page-title page-title--input">Calculator</h1>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label class="field-label" for="reg-3pm">Regular 3PM Shifts</label>
+      <input class="field-input" id="reg-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="extra-3pm">Extra 3PM Shifts</label>
+      <input class="field-input" id="extra-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="exch-3pm">Exchanges Worked for 3PM</label>
+      <input class="field-input" id="exch-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="reg-10pm">Regular 10PM Shifts</label>
+      <input class="field-input" id="reg-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="extra-10pm">Extra 10PM Shifts</label>
+      <input class="field-input" id="extra-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label" for="exch-10pm">Exchanges Worked for 10PM</label>
+      <input class="field-input" id="exch-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
+      <label class="field-label">Distance</label>
+      <div class="toggle-group">
+        <button class="toggle-btn active-short" id="btn-short" onclick="setDistance('SHORT')">Short</button>
+        <button class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="submit-btn" onclick="submitData()">Submit Data</button>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+
+<!-- ═══ RESULTS PAGE ═══ -->
+<div class="page" id="results-page">
+  <div class="page-header">
+    <div class="logo-badge">
+      <div class="logo-dot"></div>
+      <span>Results</span>
+    </div>
+    <h1 class="page-title page-title--results">Results</h1>
+  </div>
+
+  <p class="section-label">Breakdown</p>
+  <div class="results-card">
+    <div class="result-row">
+      <span class="result-label">SP1</span>
+      <span class="result-value" id="r-sp1">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">SP2</span>
+      <span class="result-value" id="r-sp2">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Meal</span>
+      <span class="result-value" id="r-meal">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Taxi</span>
+      <span class="result-value" id="r-taxi">—</span>
+    </div>
+    <div class="result-row">
+      <span class="result-label">Distance</span>
+      <span id="r-distance">—</span>
+    </div>
+  </div>
+
+  <div class="total-row">
+    <span class="total-label">Total</span>
+    <span class="total-value" id="r-total">—</span>
+  </div>
+
+  <button class="back-btn" onclick="goBack()">
+    <span class="back-arrow">←</span> Back to Input
+  </button>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+```
+
+  </div>
+
+  <script>
+    const FIELD_IDS = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm'];
+    let distance = 'SHORT';
+
+    // Cache DOM references once at load
+    const fields = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+
+    function val(id) { return parseFloat(fields[id].value) || 0; }
+
+    function fmt(n) {
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function setDistance(v) {
+      distance = v;
+      document.getElementById('btn-short').className = 'toggle-btn' + (v === 'SHORT' ? ' active-short' : '');
+      document.getElementById('btn-long').className  = 'toggle-btn' + (v === 'LONG'  ? ' active-long'  : '');
+    }
+
+    function submitData() {
+      let valid = true;
+
+      FIELD_IDS.forEach(id => {
+        const el = fields[id];
+        const v  = el.value.trim();
+        if (v !== '' && (isNaN(parseFloat(v)) || parseFloat(v) < 0 || parseFloat(v) > 99)) {
+          el.classList.add('error', 'shake');
+          setTimeout(() => el.classList.remove('shake'), 350);
+          valid = false;
+        } else {
+          el.classList.remove('error');
+        }
+      });
+
+      if (!valid) return;
+
+      const reg3    = val('reg-3pm');
+      const extra3  = val('extra-3pm');
+      const exch3   = val('exch-3pm');
+      const reg10   = val('reg-10pm');
+      const extra10 = val('extra-10pm');
+      const exch10  = val('exch-10pm');
+
+      const all3  = reg3 + extra3 + exch3;
+      const all10 = reg10 + extra10 + exch10;
+
+      const rSP1  = all3 * 4 * 16.65;
+      const rSP2  = all10 * 8 * 25;
+      const rMeal = (all3 + all10) * 950;
+      const rTaxi = (all3 + all10 - extra10 * 2) * (distance === 'SHORT' ? 950 : 2000);
+      const total = rSP1 + rSP2 + rMeal + rTaxi;
+
+      document.getElementById('r-sp1').textContent   = fmt(rSP1);
+      document.getElementById('r-sp2').textContent   = fmt(rSP2);
+      document.getElementById('r-meal').textContent  = fmt(rMeal);
+      document.getElementById('r-taxi').textContent  = fmt(rTaxi);
+      document.getElementById('r-total').textContent = fmt(total);
+      document.getElementById('r-distance').innerHTML = distance === 'SHORT'
+        ? '<span class="distance-tag short">Short</span>'
+        : '<span class="distance-tag long">Long</span>';
+
+      showPage('results-page');
+    }
+
+    function goBack() { showPage('input-page'); }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Clamp inputs to 0–99 and clear error state on input
+    FIELD_IDS.forEach(id => {
+      fields[id].addEventListener('input', () => {
+        const el = fields[id];
+        el.classList.remove('error');
+        if (el.value !== '') {
+          if (parseFloat(el.value) > 99) el.value = 99;
+          if (parseFloat(el.value) < 0)  el.value = 0;
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
