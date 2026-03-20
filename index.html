@@ -414,6 +414,10 @@ body::before {
       <input class="field-input" id="exch-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
     </div>
     <div class="field">
+      <label class="field-label" for="double-days">Days Worked both 3PM and 10PM Shifts</label>
+      <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+    </div>
+    <div class="field">
       <label class="field-label">Distance</label>
       <div class="toggle-group">
         <button class="toggle-btn active-short" id="btn-short" onclick="setDistance('SHORT')">Short</button>
@@ -483,7 +487,7 @@ body::before {
   </div>
 
   <script>
-    const FIELD_IDS = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm'];
+    const FIELD_IDS = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
     let distance = 'SHORT';
 
     // Cache DOM references once at load
@@ -524,6 +528,7 @@ body::before {
       const reg10   = val('reg-10pm');
       const extra10 = val('extra-10pm');
       const exch10  = val('exch-10pm');
+      const doubleDays = val('double-days');
 
       const all3  = reg3 + extra3 + exch3;
       const all10 = reg10 + extra10 + exch10;
@@ -531,7 +536,7 @@ body::before {
       const rSP1  = all3 * 4 * 16.65;
       const rSP2  = all10 * 8 * 25;
       const rMeal = (all3 + all10) * 950;
-      const rTaxi = (all3 + all10 - extra10 * 2) * (distance === 'SHORT' ? 950 : 2000);
+      const rTaxi = (all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? 950 : 2000);
       const total = rSP1 + rSP2 + rMeal + rTaxi;
 
       document.getElementById('r-sp1').textContent   = fmt(rSP1);
