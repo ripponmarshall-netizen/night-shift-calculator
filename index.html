@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WCO JFB Night Shift Calculator</title>
   <style>
     :root {
@@ -31,15 +31,17 @@
 
 body {
   min-height: 100vh;
+  width: 100%;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   padding: 0 0 60px;
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
 }
 
 body::before {
@@ -59,7 +61,8 @@ body::before {
   z-index: 1;
   width: 100%;
   max-width: 480px;
-  padding: 0 20px;
+  padding: 0 16px;
+  box-sizing: border-box;
 }
 
 /* ─── PAGES ─── */
@@ -128,7 +131,6 @@ body::before {
   border-radius: var(--radius);
   padding: 24px 16px;
   margin-bottom: 14px;
-  overflow: hidden;
 }
 
 /* ─── FIELDS ─── */
@@ -275,9 +277,8 @@ body::before {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 24px;
+  padding: 24px 16px;
   margin-bottom: 14px;
-  overflow: hidden;
 }
 
 .result-row {
