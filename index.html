@@ -12,9 +12,7 @@
       --separator:    #C6C6C8;
       --separator-lt: #E5E5EA;
       --accent:       #007AFF;
-      --accent-bg:    rgba(0,122,255,0.08);
       --red:          #FF3B30;
-      --green:        #34C759;
       --text:         #000000;
       --text-sub:     #6C6C70;
       --text-muted:   #AEAEB2;
@@ -74,13 +72,10 @@ body {
   font-size: 13px;
   color: var(--text-sub);
   margin-top: 6px;
-  letter-spacing: 0.01em;
 }
 
 /* ─── SECTION ─── */
-.section {
-  margin-bottom: 28px;
-}
+.section { margin-bottom: 28px; }
 
 .section-header {
   font-size: 13px;
@@ -91,26 +86,28 @@ body {
   padding: 0 20px 8px;
 }
 
-/* ─── FIELD LIST (cardless, full-bleed white rows) ─── */
+/* ─── FIELD LIST ─── */
 .field-list {
   background: var(--surface);
   border-top: 1px solid var(--separator-lt);
   border-bottom: 1px solid var(--separator-lt);
 }
 
-.field {
+/* Shared row layout for both input fields and result rows */
+.field,
+.result-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--separator-lt);
   gap: 12px;
+  border-bottom: 1px solid var(--separator-lt);
 }
-.field:last-child { border-bottom: none; }
+.field:last-child,
+.result-row:last-child { border-bottom: none; }
 
 .field-label {
   font-size: 15px;
-  font-weight: 400;
   color: var(--text);
   flex: 1;
   min-width: 0;
@@ -178,55 +175,43 @@ body {
 }
 
 /* ─── BUTTONS ─── */
-.btn-wrap { padding: 20px 20px 0; }
+.btn-wrap          { padding: 20px 20px 0; }
+.btn-wrap--results { padding: 20px 20px 0; }
 
-.submit-btn {
-  width: 100%;
-  padding: 15px;
-  border-radius: var(--radius);
-  background: var(--accent);
-  border: none;
-  color: #FFFFFF;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
-}
-.submit-btn:active { opacity: 0.8; transform: scale(0.98); }
-
+.submit-btn,
 .back-btn {
   width: 100%;
   padding: 15px;
   border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.submit-btn {
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.submit-btn:active { opacity: 0.8; transform: scale(0.98); }
+
+.back-btn {
   background: var(--surface);
   border: 1px solid var(--separator-lt);
   color: var(--accent);
-  font-family: var(--font-display);
-  font-size: 17px;
   font-weight: 500;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   transition: background 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
 }
 .back-btn:active { background: var(--separator-lt); transform: scale(0.98); }
 
-/* ─── RESULTS LIST ─── */
-.result-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 13px 20px;
-  border-bottom: 1px solid var(--separator-lt);
-  background: var(--surface);
-}
-.result-row:last-child { border-bottom: none; }
-
+/* ─── RESULTS ─── */
 .result-label {
   font-size: 15px;
   color: var(--text);
@@ -239,7 +224,6 @@ body {
   color: var(--accent);
 }
 
-/* ─── TOTAL ─── */
 .total-row {
   display: flex;
   align-items: center;
@@ -264,7 +248,6 @@ body {
   color: var(--accent);
 }
 
-/* ─── DISTANCE BADGE ─── */
 .distance-tag {
   font-size: 14px;
   font-weight: 500;
@@ -414,7 +397,7 @@ body {
     <span class="total-value" id="r-total">—</span>
   </div>
 
-  <div class="btn-wrap" style="margin-top: 20px;">
+  <div class="btn-wrap--results">
     <button class="back-btn" onclick="goBack()">← Back to Input</button>
   </div>
 
@@ -428,28 +411,40 @@ body {
   </div>
 
   <script>
-    const FIELD_IDS = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
+    // ─── Constants ───
+    const FIELD_IDS  = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
+    const SP1_RATE   = 4 * 16.65;   // 66.6
+    const SP2_RATE   = 8 * 25;      // 200
+    const MEAL_RATE  = 950;
+    const TAXI_SHORT = 950;
+    const TAXI_LONG  = 2000;
+
+    // ─── State ───
     let distance = 'SHORT';
 
-    // Cache all DOM references at load
-    const fields   = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
-    const results  = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
-    const pages    = document.querySelectorAll('.page');
-    const btnShort = document.getElementById('btn-short');
-    const btnLong  = document.getElementById('btn-long');
+    // ─── Cached DOM references ───
+    const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
+    const pageInput = document.getElementById('input-page');
+    const pageRes   = document.getElementById('results-page');
+    const btnShort  = document.getElementById('btn-short');
+    const btnLong   = document.getElementById('btn-long');
 
+    // ─── Helpers ───
     function val(id) { return parseFloat(fields[id].value) || 0; }
 
     function fmt(n) {
       return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    // ─── Distance toggle ───
     function setDistance(v) {
       distance = v;
       btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active-short' : '');
       btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active-long'  : '');
     }
 
+    // ─── Submit ───
     function submitData() {
       let valid = true;
 
@@ -470,12 +465,11 @@ body {
       const all3       = val('reg-3pm')  + val('extra-3pm')  + val('exch-3pm');
       const all10      = val('reg-10pm') + val('extra-10pm') + val('exch-10pm');
       const doubleDays = val('double-days');
-      const taxiRate   = distance === 'SHORT' ? 950 : 2000;
 
-      const rSP1  = all3  * 4 * 16.65;
-      const rSP2  = all10 * 8 * 25;
-      const rMeal = (all3 + all10) * 950;
-      const rTaxi = (all3 + all10 - doubleDays * 2) * taxiRate;
+      const rSP1  = all3  * SP1_RATE;
+      const rSP2  = all10 * SP2_RATE;
+      const rMeal = (all3 + all10) * MEAL_RATE;
+      const rTaxi = (all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
 
       results.sp1.textContent      = fmt(rSP1);
       results.sp2.textContent      = fmt(rSP2);
@@ -484,17 +478,20 @@ body {
       results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
       results.distance.textContent = distance === 'SHORT' ? 'Short' : 'Long';
 
-      showPage('results-page');
+      showPage(pageRes);
     }
 
-    function goBack() { showPage('input-page'); }
+    // ─── Navigation ───
+    function goBack() { showPage(pageInput); }
 
-    function showPage(id) {
-      pages.forEach(p => p.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
+    function showPage(el) {
+      pageInput.classList.remove('active');
+      pageRes.classList.remove('active');
+      el.classList.add('active');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // ─── Input clamping ───
     FIELD_IDS.forEach(id => {
       fields[id].addEventListener('input', () => {
         const el = fields[id];
