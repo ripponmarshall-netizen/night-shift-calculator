@@ -110,7 +110,6 @@ body::before {
   text-transform: uppercase;
 }
 
-/* Shared title base — size overridden per page */
 .page-title {
   font-family: var(--font-display);
   font-weight: 700;
@@ -119,9 +118,8 @@ body::before {
   color: var(--accent);
   margin-bottom: 10px;
 }
-
 .page-title--input   { font-size: clamp(40px, 10vw, 52px); }
-.page-title--results { font-size: clamp(34px, 9vw, 46px); }
+.page-title--results { font-size: clamp(34px, 9vw,  46px); }
 
 /* ─── CARD ─── */
 .card {
@@ -130,6 +128,7 @@ body::before {
   border-radius: var(--radius);
   padding: 28px 24px;
   margin-bottom: 14px;
+  overflow: hidden; /* prevents inputs from bleeding outside card bounds */
 }
 
 /* ─── FIELDS ─── */
@@ -140,7 +139,7 @@ body::before {
 .field:first-child { padding-top: 0; }
 .field:last-child  { border-bottom: none; padding-bottom: 0; }
 
-/* Shared uppercase label style used in both input and results */
+/* Shared label style */
 .field-label,
 .result-label,
 .section-label {
@@ -151,12 +150,12 @@ body::before {
   text-transform: uppercase;
   color: var(--text-sub);
 }
-
 .field-label   { margin-bottom: 8px; }
 .section-label { color: var(--text-muted); text-align: center; margin-bottom: 10px; letter-spacing: 0.12em; }
 
 .field-input {
   width: 100%;
+  max-width: 100%;
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -170,14 +169,11 @@ body::before {
   -webkit-appearance: none;
   appearance: none;
 }
-
 .field-input::placeholder { color: var(--text-muted); }
-
 .field-input:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px rgba(255,255,255,0.04);
 }
-
 .field-input.error { border-color: var(--red); }
 
 /* Hide number spinners */
@@ -204,13 +200,11 @@ body::before {
   transition: background 0.2s, border-color 0.2s, color 0.2s;
   -webkit-tap-highlight-color: transparent;
 }
-
 .toggle-btn.active-short {
   background: rgba(74,222,128,0.1);
   border-color: rgba(74,222,128,0.35);
   color: var(--green);
 }
-
 .toggle-btn.active-long {
   background: rgba(212,169,106,0.1);
   border-color: rgba(212,169,106,0.35);
@@ -218,45 +212,40 @@ body::before {
 }
 
 /* ─── BUTTONS ─── */
-.submit-btn {
-  width: 100%;
-  padding: 16px;
-  border-radius: var(--radius-sm);
-  background: var(--accent);
-  border: none;
-  color: #0a0a0f;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
-  margin-top: 6px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.submit-btn:active { opacity: 0.85; transform: scale(0.98); }
-
+.submit-btn,
 .back-btn {
   width: 100%;
   padding: 16px;
   border-radius: var(--radius-sm);
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.submit-btn {
+  background: var(--accent);
+  border: none;
+  color: #0a0a0f;
+  letter-spacing: 0.01em;
+  transition: opacity 0.2s, transform 0.1s;
+}
+.submit-btn:active { opacity: 0.85; transform: scale(0.98); }
+
+.back-btn {
   background: transparent;
   border: 1px solid var(--border-focus);
   color: var(--text);
-  font-family: var(--font-display);
   font-size: 15px;
   font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s, transform 0.1s;
-  margin-top: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, transform 0.1s;
 }
-
 .back-btn:active { background: var(--surface2); transform: scale(0.98); }
 
 .back-arrow { font-size: 18px; line-height: 1; margin-top: -1px; }
@@ -267,7 +256,6 @@ body::before {
   padding-top: 12px;
   margin-top: 40px;
 }
-
 .full-name {
   font-size: 11px;
   font-weight: 500;
@@ -275,7 +263,6 @@ body::before {
   text-transform: uppercase;
   color: var(--text-muted);
 }
-
 .creator {
   font-size: 10px;
   color: var(--text-muted);
@@ -290,6 +277,7 @@ body::before {
   border-radius: var(--radius);
   padding: 24px;
   margin-bottom: 14px;
+  overflow: hidden;
 }
 
 .result-row {
@@ -299,7 +287,6 @@ body::before {
   padding: 14px 0;
   border-bottom: 1px solid var(--border);
 }
-
 .result-row:last-child { border-bottom: none; padding-bottom: 0; }
 
 .result-value {
@@ -319,7 +306,6 @@ body::before {
   border-radius: var(--radius-sm);
   margin-bottom: 14px;
 }
-
 .total-label {
   font-size: 13px;
   font-weight: 600;
@@ -327,7 +313,6 @@ body::before {
   text-transform: uppercase;
   color: var(--accent-warm);
 }
-
 .total-value {
   font-family: var(--font-display);
   font-size: 22px;
@@ -347,13 +332,11 @@ body::before {
   padding: 3px 9px;
   border-radius: 20px;
 }
-
 .distance-tag.short {
   background: var(--green-dim);
   color: var(--green);
   border: 1px solid rgba(74,222,128,0.2);
 }
-
 .distance-tag.long {
   background: rgba(212,169,106,0.1);
   color: var(--accent-warm);
@@ -368,7 +351,6 @@ body::before {
   60%       { transform: translateX(-4px); }
   80%       { transform: translateX(4px); }
 }
-
 .shake { animation: shake 0.35s ease; }
 ```
 
@@ -490,8 +472,9 @@ body::before {
     const FIELD_IDS = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
     let distance = 'SHORT';
 
-    // Cache DOM references once at load
     const fields = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const btnShort = document.getElementById('btn-short');
+    const btnLong  = document.getElementById('btn-long');
 
     function val(id) { return parseFloat(fields[id].value) || 0; }
 
@@ -501,8 +484,8 @@ body::before {
 
     function setDistance(v) {
       distance = v;
-      document.getElementById('btn-short').className = 'toggle-btn' + (v === 'SHORT' ? ' active-short' : '');
-      document.getElementById('btn-long').className  = 'toggle-btn' + (v === 'LONG'  ? ' active-long'  : '');
+      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active-short' : '');
+      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active-long'  : '');
     }
 
     function submitData() {
@@ -510,30 +493,23 @@ body::before {
 
       FIELD_IDS.forEach(id => {
         const el = fields[id];
-        const v  = el.value.trim();
-        if (v !== '' && (isNaN(parseFloat(v)) || parseFloat(v) < 0 || parseFloat(v) > 99)) {
-          el.classList.add('error', 'shake');
+        const n  = parseFloat(el.value);
+        const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
+        el.classList.toggle('error', bad);
+        if (bad) {
+          el.classList.add('shake');
           setTimeout(() => el.classList.remove('shake'), 350);
           valid = false;
-        } else {
-          el.classList.remove('error');
         }
       });
 
       if (!valid) return;
 
-      const reg3    = val('reg-3pm');
-      const extra3  = val('extra-3pm');
-      const exch3   = val('exch-3pm');
-      const reg10   = val('reg-10pm');
-      const extra10 = val('extra-10pm');
-      const exch10  = val('exch-10pm');
+      const all3  = val('reg-3pm')  + val('extra-3pm')  + val('exch-3pm');
+      const all10 = val('reg-10pm') + val('extra-10pm') + val('exch-10pm');
       const doubleDays = val('double-days');
 
-      const all3  = reg3 + extra3 + exch3;
-      const all10 = reg10 + extra10 + exch10;
-
-      const rSP1  = all3 * 4 * 16.65;
+      const rSP1  = all3  * 4 * 16.65;
       const rSP2  = all10 * 8 * 25;
       const rMeal = (all3 + all10) * 950;
       const rTaxi = (all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? 950 : 2000);
@@ -559,7 +535,6 @@ body::before {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    // Clamp inputs to 0–99 and clear error state on input
     FIELD_IDS.forEach(id => {
       fields[id].addEventListener('input', () => {
         const el = fields[id];
