@@ -561,7 +561,7 @@ body {
     <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
     <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
     <div class="btn-divider"><span>or</span></div>
-    <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Calculator</button>
+    <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Basic</button>
   </div>
 
   <div class="page-footer">
@@ -823,9 +823,12 @@ body {
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
-    // ─── Input clamping ───
-    [...FIELD_IDS, ...ADV_FIELD_IDS].forEach(id => {
-      const el = fields[id] || advFields[id];
+    // ─── Input clamping + Enter key navigation ───
+    const standardInputs = FIELD_IDS.map(id => fields[id]);
+    const advancedInputs = ADV_FIELD_IDS.map(id => advFields[id]);
+    const allInputs      = [...standardInputs, ...advancedInputs];
+
+    allInputs.forEach(el => {
       el.addEventListener('input', () => {
         const n = parseFloat(el.value);
         el.classList.remove('error');
@@ -833,6 +836,25 @@ body {
           if (n > 99) el.value = 99;
           if (n < 0)  el.value = 0;
         }
+      });
+    });
+
+    // Enter navigates within the active page's inputs only
+    standardInputs.forEach((el, i) => {
+      el.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = standardInputs[i + 1];
+        if (next) next.focus();
+      });
+    });
+
+    advancedInputs.forEach((el, i) => {
+      el.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = advancedInputs[i + 1];
+        if (next) next.focus();
       });
     });
 
