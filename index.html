@@ -99,7 +99,6 @@ body {
   border-bottom: 1px solid var(--separator-lt);
 }
 
-/* Shared row layout for both input fields and result rows */
 .field,
 .result-row {
   display: flex;
@@ -173,8 +172,7 @@ body {
   transition: background 0.15s, border-color 0.15s, color 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
-.toggle-btn.active-short,
-.toggle-btn.active-long {
+.toggle-btn.active {
   background: var(--accent);
   border-color: var(--accent);
   color: #FFFFFF;
@@ -302,44 +300,16 @@ body {
   </div>
 
   <div class="section">
-    <p class="section-header">3PM Shifts</p>
+    <p class="section-header">Shifts</p>
     <div class="field-list">
       <div class="field">
-        <label class="field-label" for="reg-3pm">Regular</label>
-        <input class="field-input" id="reg-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+        <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
+        <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
-        <label class="field-label" for="extra-3pm">Extra</label>
-        <input class="field-input" id="extra-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+        <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
+        <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
-      <div class="field">
-        <label class="field-label" for="exch-3pm">Exchanges Worked</label>
-        <input class="field-input" id="exch-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <p class="section-header">10PM Shifts</p>
-    <div class="field-list">
-      <div class="field">
-        <label class="field-label" for="reg-10pm">Regular</label>
-        <input class="field-input" id="reg-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="extra-10pm">Extra</label>
-        <input class="field-input" id="extra-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-      </div>
-      <div class="field">
-        <label class="field-label" for="exch-10pm">Exchanges Worked</label>
-        <input class="field-input" id="exch-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <p class="section-header">Other</p>
-    <div class="field-list">
       <div class="field">
         <label class="field-label" for="double-days">Days Worked Both 3PM & 10PM</label>
         <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
@@ -347,7 +317,7 @@ body {
       <div class="field">
         <label class="field-label">Distance</label>
         <div class="toggle-group">
-          <button type="button" class="toggle-btn active-short" id="btn-short" onclick="setDistance('SHORT')">Short</button>
+          <button type="button" class="toggle-btn active" id="btn-short" onclick="setDistance('SHORT')">Short</button>
           <button type="button" class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
         </div>
       </div>
@@ -417,9 +387,9 @@ body {
 
   <script>
     // ─── Constants ───
-    const FIELD_IDS  = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
-    const SP1_RATE   = 66.6;    // 4 × $16.65
-    const SP2_RATE   = 200;     // 8 × $25
+    const FIELD_IDS  = ['total-3pm', 'total-10pm', 'double-days'];
+    const SP1_RATE   = 66.6;   // 4 × $16.65
+    const SP2_RATE   = 200;    // 8 × $25
     const MEAL_RATE  = 950;
     const TAXI_SHORT = 950;
     const TAXI_LONG  = 2000;
@@ -445,8 +415,8 @@ body {
     // ─── Distance toggle ───
     function setDistance(v) {
       distance = v;
-      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active-short' : '');
-      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active-long'  : '');
+      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
+      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
     }
 
     // ─── Submit ───
@@ -467,8 +437,8 @@ body {
 
       if (!valid) return;
 
-      const all3       = val('reg-3pm')  + val('extra-3pm')  + val('exch-3pm');
-      const all10      = val('reg-10pm') + val('extra-10pm') + val('exch-10pm');
+      const all3       = val('total-3pm');
+      const all10      = val('total-10pm');
       const doubleDays = val('double-days');
 
       const rSP1  = all3  * SP1_RATE;
