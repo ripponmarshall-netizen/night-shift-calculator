@@ -60,8 +60,29 @@ body {
 
 /* ─── HEADER ─── */
 .page-header {
+  position: relative;
   text-align: center;
   padding: 52px 20px 28px;
+}
+
+.hint-btn {
+  position: absolute;
+  top: 52px;
+  right: 20px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .page-title {
@@ -78,6 +99,82 @@ body {
   font-size: 13px;
   color: var(--text-sub);
   margin-top: 6px;
+}
+
+/* ─── HINT MODAL ─── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+  animation: fadeUp 0.25s ease;
+  margin: auto;
+}
+
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.modal-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 16px 0 10px;
+}
+.modal-section-title--first { margin-top: 0; }
+
+.modal-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.modal-item--last { margin-bottom: 20px; }
+
+.modal-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.modal-text {
+  font-size: 14px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+.modal-text strong { color: var(--text); font-weight: 600; }
+
+.modal-close {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* ─── SECTION ─── */
@@ -182,7 +279,8 @@ body {
 .btn-wrap { padding: 20px 20px 0; }
 
 .submit-btn,
-.back-btn {
+.back-btn,
+.advanced-btn {
   width: 100%;
   padding: 15px;
   border-radius: var(--radius);
@@ -201,6 +299,7 @@ body {
 }
 .submit-btn:active { opacity: 0.8; transform: scale(0.98); }
 
+.advanced-btn,
 .back-btn {
   background: var(--surface);
   border: 1px solid var(--separator-lt);
@@ -210,8 +309,10 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  margin-top: 12px;
   transition: background 0.15s, transform 0.1s;
 }
+.advanced-btn:active,
 .back-btn:active { background: var(--separator-lt); transform: scale(0.98); }
 
 /* ─── RESULTS ─── */
@@ -297,6 +398,7 @@ body {
   <div class="page-header">
     <h1 class="page-title page-title--input">Calculator</h1>
     <p class="page-subtitle">WCO JFB Night Shift</p>
+    <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
   </div>
 
   <div class="section">
@@ -311,7 +413,7 @@ body {
         <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
-        <label class="field-label" for="double-days">Worked Both 3PM & 10PM ON SAMEDAY (10PM Cancellations)</label>
+        <label class="field-label" for="double-days">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
         <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
@@ -326,6 +428,62 @@ body {
 
   <div class="btn-wrap">
     <button type="button" class="submit-btn" onclick="submitData()">Calculate</button>
+    <button type="button" class="advanced-btn" onclick="showPage(pageAdv)">Advanced</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+
+<!-- ═══ ADVANCED PAGE ═══ -->
+<div class="page" id="advanced-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--input">Advanced</h1>
+    <p class="page-subtitle">Short & Long Distance Combined</p>
+    <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
+  </div>
+
+  <div class="section">
+    <p class="section-header">Short Distance Shifts</p>
+    <div class="field-list">
+      <div class="field">
+        <label class="field-label" for="adv-3pm-s">Total 3PM Shifts</label>
+        <input class="field-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-10pm-s">Total 10PM Shifts</label>
+        <input class="field-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-dd-s">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
+        <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-header">Long Distance Shifts</p>
+    <div class="field-list">
+      <div class="field">
+        <label class="field-label" for="adv-3pm-l">Total 3PM Shifts</label>
+        <input class="field-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-10pm-l">Total 10PM Shifts</label>
+        <input class="field-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-dd-l">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
+        <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="submit-btn" onclick="submitAdvanced()">Calculate</button>
+    <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Calculator</button>
   </div>
 
   <div class="page-footer">
@@ -385,46 +543,86 @@ body {
 
   </div>
 
+  <!-- ═══ HINT MODAL ═══ -->
+
+  <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
+    <div class="modal">
+      <p class="modal-title">How to Use</p>
+
+```
+  <p class="modal-section-title modal-section-title--first">Standard</p>
+  <div class="modal-item">
+    <span class="modal-icon">🕒</span>
+    <p class="modal-text"><strong>Total 3PM Shifts</strong> — Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">🕙</span>
+    <p class="modal-text"><strong>Total 10PM Shifts</strong> — Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">📅</span>
+    <p class="modal-text"><strong>Total Days Worked Both 3PM & 10PM</strong> — Enter the number of days where you worked both a 3PM and a 10PM shift on the same day. This deducts 2 from the taxi count per day.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">📍</span>
+    <p class="modal-text"><strong>Distance</strong> — Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
+  </div>
+
+  <p class="modal-section-title">Advanced</p>
+  <div class="modal-item">
+    <span class="modal-icon">⚡️</span>
+    <p class="modal-text"><strong>Advanced</strong> — Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
+  </div>
+
+  <p class="modal-section-title">Install</p>
+  <div class="modal-item modal-item--last">
+    <span class="modal-icon">📲</span>
+    <p class="modal-text"><strong>Add to Home Screen</strong> — On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
+  </div>
+
+  <button type="button" class="modal-close" onclick="closeHint()">Got It</button>
+</div>
+```
+
+  </div>
+
   <script>
     // ─── Constants ───
-    const FIELD_IDS  = ['total-3pm', 'total-10pm', 'double-days'];
-    const SP1_RATE   = 66.6;   // 4 × $16.65
-    const SP2_RATE   = 200;    // 8 × $25
-    const MEAL_RATE  = 950;
-    const TAXI_SHORT = 950;
-    const TAXI_LONG  = 2000;
+    const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
+    const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
+    const SP1_RATE      = 66.6;   // 4 × $16.65
+    const SP2_RATE      = 200;    // 8 × $25
+    const MEAL_RATE     = 950;
+    const TAXI_SHORT    = 950;
+    const TAXI_LONG     = 2000;
 
     // ─── State ───
     let distance = 'SHORT';
+    let prevPage = null;
 
     // ─── Cached DOM references ───
     const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const advFields = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
     const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
     const pageInput = document.getElementById('input-page');
+    const pageAdv   = document.getElementById('advanced-page');
     const pageRes   = document.getElementById('results-page');
     const btnShort  = document.getElementById('btn-short');
     const btnLong   = document.getElementById('btn-long');
+    const hintModal = document.getElementById('hint-modal');
+    const pages     = [pageInput, pageAdv, pageRes];
 
     // ─── Helpers ───
-    function val(id) { return parseFloat(fields[id].value) || 0; }
+    function val(id, map) { return parseFloat((map !== undefined ? map : fields)[id].value) || 0; }
 
     function fmt(n) {
       return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // ─── Distance toggle ───
-    function setDistance(v) {
-      distance = v;
-      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
-      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
-    }
-
-    // ─── Submit ───
-    function submitData() {
+    function validate(ids, map) {
       let valid = true;
-
-      FIELD_IDS.forEach(id => {
-        const el  = fields[id];
+      ids.forEach(id => {
+        const el  = (map || fields)[id];
         const n   = parseFloat(el.value);
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
@@ -434,8 +632,33 @@ body {
           valid = false;
         }
       });
+      return valid;
+    }
 
-      if (!valid) return;
+    function renderResults(rSP1, rSP2, rMeal, rTaxi, distLabel) {
+      results.sp1.textContent      = fmt(rSP1);
+      results.sp2.textContent      = fmt(rSP2);
+      results.meal.textContent     = fmt(rMeal);
+      results.taxi.textContent     = fmt(rTaxi);
+      results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
+      results.distance.textContent = distLabel;
+    }
+
+    // ─── Hint modal ───
+    function openHint()  { hintModal.classList.add('open'); }
+    function closeHint() { hintModal.classList.remove('open'); }
+    function closeHintOnOverlay(e) { if (e.target === hintModal) closeHint(); }
+
+    // ─── Distance toggle ───
+    function setDistance(v) {
+      distance = v;
+      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
+      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
+    }
+
+    // ─── Standard submit ───
+    function submitData() {
+      if (!validate(FIELD_IDS)) return;
 
       const all3       = val('total-3pm');
       const all10      = val('total-10pm');
@@ -444,33 +667,49 @@ body {
       const rSP1  = all3  * SP1_RATE;
       const rSP2  = all10 * SP2_RATE;
       const rMeal = (all3 + all10) * MEAL_RATE;
-      const rTaxi = (all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
+      const rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
 
-      results.sp1.textContent      = fmt(rSP1);
-      results.sp2.textContent      = fmt(rSP2);
-      results.meal.textContent     = fmt(rMeal);
-      results.taxi.textContent     = fmt(rTaxi);
-      results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
-      results.distance.textContent = distance === 'SHORT' ? 'Short' : 'Long';
+      renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
+      prevPage = pageInput;
+      showPage(pageRes);
+    }
 
+    // ─── Advanced submit ───
+    function submitAdvanced() {
+      if (!validate(ADV_FIELD_IDS, advFields)) return;
+
+      const s3  = val('adv-3pm-s', advFields);
+      const s10 = val('adv-10pm-s', advFields);
+      const sdd = val('adv-dd-s',  advFields);
+      const l3  = val('adv-3pm-l', advFields);
+      const l10 = val('adv-10pm-l', advFields);
+      const ldd = val('adv-dd-l',  advFields);
+
+      const rSP1  = (s3  + l3)  * SP1_RATE;
+      const rSP2  = (s10 + l10) * SP2_RATE;
+      const rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
+      const rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
+                  + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
+
+      renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
+      prevPage = pageAdv;
       showPage(pageRes);
     }
 
     // ─── Navigation ───
-    function goBack() { showPage(pageInput); }
+    function goBack() { showPage(prevPage || pageInput); }
 
     function showPage(el) {
-      pageInput.classList.remove('active');
-      pageRes.classList.remove('active');
+      pages.forEach(p => p.classList.remove('active'));
       el.classList.add('active');
       window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
     // ─── Input clamping ───
-    FIELD_IDS.forEach(id => {
-      fields[id].addEventListener('input', () => {
-        const el = fields[id];
-        const n  = parseFloat(el.value);
+    [...FIELD_IDS, ...ADV_FIELD_IDS].forEach(id => {
+      const el = fields[id] || advFields[id];
+      el.addEventListener('input', () => {
+        const n = parseFloat(el.value);
         el.classList.remove('error');
         if (!isNaN(n)) {
           if (n > 99) el.value = 99;
@@ -478,6 +717,11 @@ body {
         }
       });
     });
+
+    // ─── Service worker registration ───
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
+    }
   </script>
 
 </body>
