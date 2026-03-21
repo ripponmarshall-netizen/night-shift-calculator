@@ -18,6 +18,8 @@
       --separator:    #C6C6C8;
       --separator-lt: #E5E5EA;
       --accent:       #007AFF;
+      --green:        #34C759;
+      --warm:         #FF9500;
       --red:          #FF3B30;
       --text:         #000000;
       --text-sub:     #6C6C70;
@@ -60,15 +62,25 @@ body {
 
 /* ─── HEADER ─── */
 .page-header {
-  position: relative;
   text-align: center;
-  padding: 52px 20px 28px;
+  padding: 52px 20px 20px;
+}
+
+.hint-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.hint-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.01em;
 }
 
 .hint-btn {
-  position: absolute;
-  top: 52px;
-  right: 20px;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -82,8 +94,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: opacity 0.15s, transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
+.hint-btn:active { opacity: 0.75; transform: scale(0.9); }
 
 .page-title {
   font-family: var(--font-display);
@@ -174,8 +188,10 @@ body {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
+  transition: opacity 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
+.modal-close:active { opacity: 0.8; }
 
 /* ─── SECTION ─── */
 .section { margin-bottom: 28px; }
@@ -189,12 +205,20 @@ body {
   padding: 0 20px 8px;
 }
 
+/* Advanced page colour-coded section headers */
+.section-header--short { color: var(--accent); }
+.section-header--long  { color: var(--warm); }
+
 /* ─── FIELD LIST ─── */
 .field-list {
   background: var(--surface);
   border-top: 1px solid var(--separator-lt);
   border-bottom: 1px solid var(--separator-lt);
 }
+
+/* Colour-tinted field lists for Advanced page */
+.field-list--short { border-top-color: rgba(0,122,255,0.2); border-bottom-color: rgba(0,122,255,0.2); }
+.field-list--long  { border-top-color: rgba(255,149,0,0.2); border-bottom-color: rgba(255,149,0,0.2); }
 
 .field,
 .result-row {
@@ -278,9 +302,32 @@ body {
 /* ─── BUTTONS ─── */
 .btn-wrap { padding: 20px 20px 0; }
 
+/* Divider between Calculate and Advanced */
+.btn-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 2px;
+}
+.btn-divider::before,
+.btn-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--separator-lt);
+}
+.btn-divider span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 .submit-btn,
 .back-btn,
-.advanced-btn {
+.advanced-btn,
+.reset-btn {
   width: 100%;
   padding: 15px;
   border-radius: var(--radius);
@@ -295,12 +342,14 @@ body {
   background: var(--accent);
   border: none;
   color: #FFFFFF;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: background 0.2s, opacity 0.15s, transform 0.1s;
 }
-.submit-btn:active { opacity: 0.8; transform: scale(0.98); }
+.submit-btn:active  { opacity: 0.8; transform: scale(0.98); }
+.submit-btn.success { background: var(--green); }
 
 .advanced-btn,
-.back-btn {
+.back-btn,
+.reset-btn {
   background: var(--surface);
   border: 1px solid var(--separator-lt);
   color: var(--accent);
@@ -313,7 +362,14 @@ body {
   transition: background 0.15s, transform 0.1s;
 }
 .advanced-btn:active,
-.back-btn:active { background: var(--separator-lt); transform: scale(0.98); }
+.back-btn:active,
+.reset-btn:active { background: var(--separator-lt); transform: scale(0.98); }
+
+.reset-btn {
+  color: var(--red);
+  border-color: rgba(255,59,48,0.2);
+  margin-top: 12px;
+}
 
 /* ─── RESULTS ─── */
 .result-label {
@@ -328,28 +384,40 @@ body {
   color: var(--accent);
 }
 
+/* Staggered fade-in for result rows */
+.result-row {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.result-row.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .total-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  padding: 18px 20px;
   background: var(--surface);
-  border-top: 1px solid var(--separator);
-  border-bottom: 1px solid var(--separator);
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--separator-lt);
   margin-top: 2px;
 }
 
 .total-label {
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
 }
 
 .total-value {
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--accent);
+  letter-spacing: -0.02em;
 }
 
 .distance-tag {
@@ -398,7 +466,10 @@ body {
   <div class="page-header">
     <h1 class="page-title page-title--input">Calculator</h1>
     <p class="page-subtitle">WCO JFB Night Shift</p>
-    <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
+    <div class="hint-wrap">
+      <span class="hint-label">How to Use</span>
+      <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+    </div>
   </div>
 
   <div class="section">
@@ -427,8 +498,10 @@ body {
   </div>
 
   <div class="btn-wrap">
-    <button type="button" class="submit-btn" onclick="submitData()">Calculate</button>
+    <button type="button" class="submit-btn" id="calc-btn" onclick="submitData()">Calculate</button>
+    <div class="btn-divider"><span>or</span></div>
     <button type="button" class="advanced-btn" onclick="showPage(pageAdv)">Advanced</button>
+    <button type="button" class="reset-btn" onclick="resetFields(FIELD_IDS, fields)">Clear All</button>
   </div>
 
   <div class="page-footer">
@@ -442,12 +515,15 @@ body {
   <div class="page-header">
     <h1 class="page-title page-title--input">Advanced</h1>
     <p class="page-subtitle">Short & Long Distance Combined</p>
-    <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
+    <div class="hint-wrap">
+      <span class="hint-label">How to Use</span>
+      <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+    </div>
   </div>
 
   <div class="section">
-    <p class="section-header">Short Distance Shifts</p>
-    <div class="field-list">
+    <p class="section-header section-header--short">Short Distance Shifts</p>
+    <div class="field-list field-list--short">
       <div class="field">
         <label class="field-label" for="adv-3pm-s">Total 3PM Shifts</label>
         <input class="field-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
@@ -464,8 +540,8 @@ body {
   </div>
 
   <div class="section">
-    <p class="section-header">Long Distance Shifts</p>
-    <div class="field-list">
+    <p class="section-header section-header--long">Long Distance Shifts</p>
+    <div class="field-list field-list--long">
       <div class="field">
         <label class="field-label" for="adv-3pm-l">Total 3PM Shifts</label>
         <input class="field-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
@@ -482,7 +558,9 @@ body {
   </div>
 
   <div class="btn-wrap">
-    <button type="button" class="submit-btn" onclick="submitAdvanced()">Calculate</button>
+    <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
+    <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
+    <div class="btn-divider"><span>or</span></div>
     <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Calculator</button>
   </div>
 
@@ -502,36 +580,36 @@ body {
   <div class="section">
     <p class="section-header">Breakdown</p>
     <div class="field-list">
-      <div class="result-row">
+      <div class="result-row" id="row-sp1">
         <span class="result-label">SP1</span>
         <span class="result-value" id="r-sp1">—</span>
       </div>
-      <div class="result-row">
+      <div class="result-row" id="row-sp2">
         <span class="result-label">SP2</span>
         <span class="result-value" id="r-sp2">—</span>
       </div>
-      <div class="result-row">
+      <div class="result-row" id="row-meal">
         <span class="result-label">Meal</span>
         <span class="result-value" id="r-meal">—</span>
       </div>
-      <div class="result-row">
+      <div class="result-row" id="row-taxi">
         <span class="result-label">Taxi</span>
         <span class="result-value" id="r-taxi">—</span>
       </div>
-      <div class="result-row">
+      <div class="result-row" id="row-dist">
         <span class="result-label">Distance</span>
         <span class="distance-tag" id="r-distance">—</span>
       </div>
     </div>
   </div>
 
-  <div class="total-row">
+  <div class="total-row" id="total-row" style="opacity:0;transition:opacity 0.3s ease;">
     <span class="total-label">Total</span>
     <span class="total-value" id="r-total">—</span>
   </div>
 
   <div class="btn-wrap">
-    <button type="button" class="back-btn" onclick="goBack()">← Back to Input</button>
+    <button type="button" class="back-btn" onclick="goBack()">← Back</button>
   </div>
 
   <div class="page-footer">
@@ -590,6 +668,7 @@ body {
     // ─── Constants ───
     const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
     const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
+    const RESULT_ROWS   = ['row-sp1', 'row-sp2', 'row-meal', 'row-taxi', 'row-dist'];
     const SP1_RATE      = 66.6;   // 4 × $16.65
     const SP2_RATE      = 200;    // 8 × $25
     const MEAL_RATE     = 950;
@@ -604,11 +683,15 @@ body {
     const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
     const advFields = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
     const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
+    const rows      = RESULT_ROWS.map(id => document.getElementById(id));
+    const totalRow  = document.getElementById('total-row');
     const pageInput = document.getElementById('input-page');
     const pageAdv   = document.getElementById('advanced-page');
     const pageRes   = document.getElementById('results-page');
     const btnShort  = document.getElementById('btn-short');
     const btnLong   = document.getElementById('btn-long');
+    const calcBtn   = document.getElementById('calc-btn');
+    const advCalcBtn= document.getElementById('adv-calc-btn');
     const hintModal = document.getElementById('hint-modal');
     const pages     = [pageInput, pageAdv, pageRes];
 
@@ -622,7 +705,7 @@ body {
     function validate(ids, map) {
       let valid = true;
       ids.forEach(id => {
-        const el  = (map || fields)[id];
+        const el  = (map !== undefined ? map : fields)[id];
         const n   = parseFloat(el.value);
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
@@ -642,6 +725,41 @@ body {
       results.taxi.textContent     = fmt(rTaxi);
       results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
       results.distance.textContent = distLabel;
+    }
+
+    // Reset result rows so they re-animate next time
+    function resetResultRows() {
+      rows.forEach(r => r.classList.remove('visible'));
+      totalRow.style.opacity = '0';
+    }
+
+    // Stagger result rows into view
+    function animateResults() {
+      rows.forEach((r, i) => {
+        setTimeout(() => r.classList.add('visible'), i * 60);
+      });
+      setTimeout(() => { totalRow.style.opacity = '1'; }, rows.length * 60 + 60);
+    }
+
+    // Success flash on Calculate button then navigate
+    function flashAndNavigate(btn, targetPage) {
+      btn.classList.add('success');
+      setTimeout(() => {
+        btn.classList.remove('success');
+        resetResultRows();
+        showPage(targetPage);
+        // Animate after page is visible
+        setTimeout(animateResults, 50);
+      }, 400);
+    }
+
+    // ─── Clear / Reset ───
+    function resetFields(ids, map) {
+      ids.forEach(id => {
+        const el = (map !== undefined ? map : fields)[id];
+        el.value = '';
+        el.classList.remove('error');
+      });
     }
 
     // ─── Hint modal ───
@@ -671,7 +789,7 @@ body {
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
       prevPage = pageInput;
-      showPage(pageRes);
+      flashAndNavigate(calcBtn, pageRes);
     }
 
     // ─── Advanced submit ───
@@ -693,7 +811,7 @@ body {
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
       prevPage = pageAdv;
-      showPage(pageRes);
+      flashAndNavigate(advCalcBtn, pageRes);
     }
 
     // ─── Navigation ───
