@@ -443,7 +443,74 @@ body {
   color: var(--text-muted);
   margin-top: 4px;
 }
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+.footer-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
 
+/* ─── INFO PAGES (About / Disclaimer) ─── */
+.info-body {
+  padding: 0 20px 40px;
+}
+.info-section {
+  margin-bottom: 28px;
+}
+.info-heading {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.info-text {
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+.info-list {
+  margin-top: 6px;
+  padding-left: 4px;
+}
+.info-list li {
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.6;
+  list-style: none;
+  padding-left: 12px;
+  position: relative;
+}
+.info-list li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+.info-divider {
+  height: 1px;
+  background: var(--separator-lt);
+  margin: 28px 0;
+}
+.info-byline {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
 /* ─── ANIMATIONS ─── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -507,6 +574,10 @@ body {
   <div class="page-footer">
     <p class="full-name">WCO JFB Night Shift Calculator</p>
     <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
   </div>
 </div>
 
@@ -567,6 +638,10 @@ body {
   <div class="page-footer">
     <p class="full-name">WCO JFB Night Shift Calculator</p>
     <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
   </div>
 </div>
 
@@ -615,14 +690,96 @@ body {
   <div class="page-footer">
     <p class="full-name">WCO JFB Night Shift Calculator</p>
     <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ABOUT PAGE ═══ -->
+<div class="page" id="about-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--results">About</h1>
+    <p class="page-subtitle">WCO JFB Night Shift Calculator</p>
+  </div>
+
+  <div class="info-body">
+    <div class="info-section">
+      <p class="info-text">Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules — and doing that mental arithmetic at the end of a long period is tedious and error-prone.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-text">The WCO JFB Night Shift Calculator is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest — giving you a clear breakdown and total in seconds.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">What it calculates</p>
+      <ul class="info-list">
+        <li>SP1 — your 3PM shift allowance</li>
+        <li>SP2 — your 10PM shift allowance</li>
+        <li>Meal — meal allowance based on total shifts worked</li>
+        <li>Taxi — transport allowance based on distance and shift count</li>
+      </ul>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Who it's for</p>
+      <p class="info-text">This app is for JFB members who need to calculate their night shift. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">How to get started</p>
+      <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Add it to your home screen for quick access between shifts.</p>
+    </div>
+    <div class="info-divider"></div>
+    <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="showPage(pageInput)">← Back</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+
+<!-- ═══ DISCLAIMER PAGE ═══ -->
+<div class="page" id="disclaimer-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--results">Disclaimers</h1>
+    <p class="page-subtitle">& Disclosures</p>
+  </div>
+
+  <div class="info-body">
+    <div class="info-section">
+      <p class="info-heading">Data & Privacy</p>
+      <p class="info-text">This app does not collect, store, or transmit any data. All calculations are performed locally on your device and nothing you enter is saved between sessions or sent to any server. No personal information, shift data, or financial figures are recorded at any point.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Accuracy</p>
+      <p class="info-text">This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">AI Assistance</p>
+      <p class="info-text">This app was developed with assistance from Claude, an AI assistant made by Anthropic. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Affiliation</p>
+      <p class="info-text">This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.</p>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="showPage(pageInput)">← Back</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
   </div>
 </div>
 ```
 
   </div>
-
-  <!-- ═══ HINT MODAL ═══ -->
-
   <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
     <div class="modal">
       <p class="modal-title">How to Use</p>
@@ -685,15 +842,17 @@ body {
     const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
     const rows      = RESULT_ROWS.map(id => document.getElementById(id));
     const totalRow  = document.getElementById('total-row');
-    const pageInput = document.getElementById('input-page');
-    const pageAdv   = document.getElementById('advanced-page');
-    const pageRes   = document.getElementById('results-page');
-    const btnShort  = document.getElementById('btn-short');
-    const btnLong   = document.getElementById('btn-long');
-    const calcBtn   = document.getElementById('calc-btn');
-    const advCalcBtn= document.getElementById('adv-calc-btn');
-    const hintModal = document.getElementById('hint-modal');
-    const pages     = [pageInput, pageAdv, pageRes];
+    const pageInput      = document.getElementById('input-page');
+    const pageAdv        = document.getElementById('advanced-page');
+    const pageRes        = document.getElementById('results-page');
+    const pageAbout      = document.getElementById('about-page');
+    const pageDisclaimer = document.getElementById('disclaimer-page');
+    const pages          = [pageInput, pageAdv, pageRes, pageAbout, pageDisclaimer];
+    const btnShort       = document.getElementById('btn-short');
+    const btnLong        = document.getElementById('btn-long');
+    const calcBtn        = document.getElementById('calc-btn');
+    const advCalcBtn     = document.getElementById('adv-calc-btn');
+    const hintModal      = document.getElementById('hint-modal');
 
     // ─── Helpers ───
     function val(id, map) { return parseFloat((map !== undefined ? map : fields)[id].value) || 0; }
