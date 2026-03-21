@@ -4,6 +4,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="NS Calculator" />
+  <meta name="theme-color" content="#007AFF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <title>WCO JFB Night Shift Calculator</title>
   <style>
     :root {
@@ -44,8 +50,8 @@ body {
 }
 
 /* ─── PAGES ─── */
-.page { display: none; animation: fadeUp 0.35s ease; }
-.page.active { display: block; }
+.page { display: none; }
+.page.active { display: block; animation: fadeUp 0.35s ease; }
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(14px); }
@@ -175,8 +181,7 @@ body {
 }
 
 /* ─── BUTTONS ─── */
-.btn-wrap          { padding: 20px 20px 0; }
-.btn-wrap--results { padding: 20px 20px 0; }
+.btn-wrap { padding: 20px 20px 0; }
 
 .submit-btn,
 .back-btn {
@@ -342,15 +347,15 @@ body {
       <div class="field">
         <label class="field-label">Distance</label>
         <div class="toggle-group">
-          <button class="toggle-btn active-short" id="btn-short" onclick="setDistance('SHORT')">Short</button>
-          <button class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
+          <button type="button" class="toggle-btn active-short" id="btn-short" onclick="setDistance('SHORT')">Short</button>
+          <button type="button" class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
         </div>
       </div>
     </div>
   </div>
 
   <div class="btn-wrap">
-    <button class="submit-btn" onclick="submitData()">Calculate</button>
+    <button type="button" class="submit-btn" onclick="submitData()">Calculate</button>
   </div>
 
   <div class="page-footer">
@@ -397,8 +402,8 @@ body {
     <span class="total-value" id="r-total">—</span>
   </div>
 
-  <div class="btn-wrap--results">
-    <button class="back-btn" onclick="goBack()">← Back to Input</button>
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="goBack()">← Back to Input</button>
   </div>
 
   <div class="page-footer">
@@ -413,8 +418,8 @@ body {
   <script>
     // ─── Constants ───
     const FIELD_IDS  = ['reg-3pm', 'extra-3pm', 'exch-3pm', 'reg-10pm', 'extra-10pm', 'exch-10pm', 'double-days'];
-    const SP1_RATE   = 4 * 16.65;   // 66.6
-    const SP2_RATE   = 8 * 25;      // 200
+    const SP1_RATE   = 66.6;    // 4 × $16.65
+    const SP2_RATE   = 200;     // 8 × $25
     const MEAL_RATE  = 950;
     const TAXI_SHORT = 950;
     const TAXI_LONG  = 2000;
@@ -488,7 +493,7 @@ body {
       pageInput.classList.remove('active');
       pageRes.classList.remove('active');
       el.classList.add('active');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
     // ─── Input clamping ───
