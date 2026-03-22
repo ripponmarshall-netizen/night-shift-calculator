@@ -511,6 +511,7 @@ body {
   text-align: center;
   line-height: 1.6;
 }
+
 /* ─── ANIMATIONS ─── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -551,7 +552,7 @@ body {
         <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
-        <label class="field-label" for="double-days">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
+        <label class="field-label" for="double-days">Amount of 10PM Cancellations (after your 3PM Shift)</label>
         <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
@@ -604,7 +605,7 @@ body {
         <input class="field-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
-        <label class="field-label" for="adv-dd-s">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
+        <label class="field-label" for="adv-dd-s">Amount of 10PM Cancellations (after your 3PM Shift)</label>
         <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
     </div>
@@ -622,7 +623,7 @@ body {
         <input class="field-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
       <div class="field">
-        <label class="field-label" for="adv-dd-l">Total Days Worked Both 3PM & 10PM (10PM Cancellations)</label>
+        <label class="field-label" for="adv-dd-l">Amount of 10PM Cancellations (after your 3PM Shift)</label>
         <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
       </div>
     </div>
@@ -717,7 +718,7 @@ body {
         <li>SP1 — your 3PM shift allowance</li>
         <li>SP2 — your 10PM shift allowance</li>
         <li>Meal — meal allowance based on total shifts worked</li>
-        <li>Taxi — transport allowance based on distance and shift count</li>
+        <li>Taxi — transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
       </ul>
     </div>
     <div class="info-section">
@@ -726,7 +727,7 @@ body {
     </div>
     <div class="info-section">
       <p class="info-heading">How to get started</p>
-      <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Add it to your home screen for quick access between shifts.</p>
+      <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Use Advanced mode if you have a mix of short and long distance shifts. Add it to your home screen for quick access between shifts.</p>
     </div>
     <div class="info-divider"></div>
     <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
@@ -796,7 +797,7 @@ body {
   </div>
   <div class="modal-item">
     <span class="modal-icon">📅</span>
-    <p class="modal-text"><strong>Total Days Worked Both 3PM & 10PM</strong> — Enter the number of days where you worked both a 3PM and a 10PM shift on the same day. This deducts 2 from the taxi count per day.</p>
+    <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> — Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
   </div>
   <div class="modal-item">
     <span class="modal-icon">📍</span>
@@ -985,37 +986,28 @@ body {
     // ─── Input clamping + Enter key navigation ───
     const standardInputs = FIELD_IDS.map(id => fields[id]);
     const advancedInputs = ADV_FIELD_IDS.map(id => advFields[id]);
-    const allInputs      = [...standardInputs, ...advancedInputs];
 
-    allInputs.forEach(el => {
-      el.addEventListener('input', () => {
-        const n = parseFloat(el.value);
-        el.classList.remove('error');
-        if (!isNaN(n)) {
-          if (n > 99) el.value = 99;
-          if (n < 0)  el.value = 0;
-        }
+    function attachInputHandlers(inputs) {
+      inputs.forEach((el, i) => {
+        el.addEventListener('input', () => {
+          const n = parseFloat(el.value);
+          el.classList.remove('error');
+          if (!isNaN(n)) {
+            if (n > 99) el.value = 99;
+            if (n < 0)  el.value = 0;
+          }
+        });
+        el.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const next = inputs[i + 1];
+          if (next) next.focus();
+        });
       });
-    });
+    }
 
-    // Enter navigates within the active page's inputs only
-    standardInputs.forEach((el, i) => {
-      el.addEventListener('keydown', e => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        const next = standardInputs[i + 1];
-        if (next) next.focus();
-      });
-    });
-
-    advancedInputs.forEach((el, i) => {
-      el.addEventListener('keydown', e => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        const next = advancedInputs[i + 1];
-        if (next) next.focus();
-      });
-    });
+    attachInputHandlers(standardInputs);
+    attachInputHandlers(advancedInputs);
 
     // ─── Service worker registration ───
     if ('serviceWorker' in navigator) {
