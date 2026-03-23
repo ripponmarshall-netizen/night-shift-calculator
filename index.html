@@ -1,1634 +1,1175 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MarsBot V3 — V50 Optimised</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-      const { useState, useRef, useCallback, useEffect } = React;
-
-      const DERIV_WS_URL = "wss://ws.binaryws.com/websockets/v3?app_id=1089";
-      const PING_INTERVAL_MS = 25000;
-
-      const SYMBOLS = [
-        { value: "R_10", label: "Volatility 10", tag: "V10" },
-        { value: "R_25", label: "Volatility 25", tag: "V25" },
-        { value: "R_50", label: "Volatility 50", tag: "V50" },
-        { value: "R_75", label: "Volatility 75", tag: "V75" },
-        { value: "R_100", label: "Volatility 100", tag: "V100" },
-      ];
-
-      const STRATEGIES = [
-        { value: "HYBRID", label: "Hybrid (5-Indicator + MACD Gate)", desc: "RSI · StochRSI · BB · EMA · MACD confluence. MACD crossover REQUIRED as confirmation gate. 3/5 min for auto." },
-        { value: "RSI", label: "RSI + Trend + MACD Gate", desc: "RSI oversold/overbought with 50-EMA trend filter. MACD direction must align." },
-        { value: "EMA", label: "EMA Crossover + ATR + MACD Gate", desc: "EMA crossover filtered by ATR spike guard and MACD histogram direction." },
-        { value: "BB", label: "BB + StochRSI + MACD Gate", desc: "Bollinger Band touch + StochRSI extreme, MACD histogram confirms." },
-        { value: "MACD", label: "MACD Primary + RSI Confirm", desc: "MACD crossover as primary signal, RSI level as confirmation." },
-      ];
-
-      const DURATIONS = [
-        { value: 1, label: "1 min" },
-        { value: 2, label: "2 min" },
-        { value: 5, label: "5 min" },
-        { value: 10, label: "10 min" },
-        { value: 15, label: "15 min" },
-      ];
-
-      const STRAT_CONFIG = {
-        R_50: {
-          HYBRID: {
-            rsiPeriod: 10, rsiBuy: 30, rsiSell: 70,
-            stochRsiPeriod: 14, stochRsiK: 3, stochRsiBuy: 22, stochRsiSell: 78,
-            bbPeriod: 20, bbTouchPct: 0.15,
-            emaFast: 9, emaSlow: 21, emaTrend: 50,
-            macdFast: 12, macdSlow: 26, macdSignal: 9,
-            atrPeriod: 14, atrSpikeMultiplier: 2.2,
-            minStrengthAuto: 78, minStrengthManual: 65,
-            cooldownMs: 18000,
-          },
-          RSI: { period: 10, buy: 28, sell: 72, emaTrend: 50, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 68 },
-          EMA: { fast: 8, slow: 21, atrPeriod: 14, atrSpikeMultiplier: 2.0, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 72 },
-          BB: { period: 20, touchPct: 0.15, stochRsiPeriod: 14, stochRsiK: 3, stochRsiBuy: 25, stochRsiSell: 75, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 70 },
-          MACD: { fast: 12, slow: 26, signal: 9, rsiPeriod: 10, rsiBuy: 50, minStrength: 72 },
-        },
-      };
-
-      const GENERIC_CONFIG = {
-        HYBRID: { rsiPeriod: 14, rsiBuy: 30, rsiSell: 70, stochRsiPeriod: 14, stochRsiK: 3, stochRsiBuy: 20, stochRsiSell: 80, bbPeriod: 20, bbTouchPct: 0.15, emaFast: 9, emaSlow: 21, emaTrend: 50, macdFast: 12, macdSlow: 26, macdSignal: 9, atrPeriod: 14, atrSpikeMultiplier: 2.0, minStrengthAuto: 75, minStrengthManual: 62, cooldownMs: 15000 },
-        RSI: { period: 14, buy: 30, sell: 70, emaTrend: 50, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 65 },
-        EMA: { fast: 9, slow: 21, atrPeriod: 14, atrSpikeMultiplier: 2.0, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 70 },
-        BB: { period: 20, touchPct: 0.15, stochRsiPeriod: 14, stochRsiK: 3, stochRsiBuy: 20, stochRsiSell: 80, macdFast: 12, macdSlow: 26, macdSignal: 9, minStrength: 65 },
-        MACD: { fast: 12, slow: 26, signal: 9, rsiPeriod: 14, rsiBuy: 50, minStrength: 68 },
-      };
-
-      const getCfg = (symbol, strategy) => (STRAT_CONFIG[symbol] ?? GENERIC_CONFIG)[strategy] ?? GENERIC_CONFIG[strategy];
-
-      const toNum = (v, fallback = 0) => {
-        const n = typeof v === "number" ? v : parseFloat(v);
-        return Number.isFinite(n) ? n : fallback;
-      };
-
-      const calcEMA = (prices, period) => {
-        if (!Array.isArray(prices) || prices.length < period || period <= 0) return null;
-        const k = 2 / (period + 1);
-        let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
-        for (let i = period; i < prices.length; i++) ema = prices[i] * k + ema * (1 - k);
-        return ema;
-      };
-
-      const calcRSI = (prices, period = 14) => {
-        if (!Array.isArray(prices) || prices.length < period + 1 || period <= 0) return null;
-        const slice = prices.slice(-(period + 1));
-        let gain = 0;
-        let loss = 0;
-
-        for (let i = 1; i < slice.length; i++) {
-          const diff = slice[i] - slice[i - 1];
-          if (diff > 0) gain += diff;
-          else loss += -diff;
-        }
-
-        let avgGain = gain / period;
-        let avgLoss = loss / period;
-
-        if (avgGain === 0 && avgLoss === 0) return 50;
-        if (avgLoss === 0) return 100;
-        if (avgGain === 0) return 0;
-
-        const rs = avgGain / avgLoss;
-        return 100 - 100 / (1 + rs);
-      };
-
-      const calcStochRSI = (prices, rsiPeriod = 14, stochPeriod = 14, kPeriod = 3) => {
-        if (!Array.isArray(prices) || prices.length < rsiPeriod + stochPeriod + kPeriod + 4) return null;
-
-        const rsiSeries = [];
-        for (let i = rsiPeriod; i < prices.length; i++) {
-          const r = calcRSI(prices.slice(0, i + 1), rsiPeriod);
-          if (r !== null) rsiSeries.push(r);
-        }
-
-        if (rsiSeries.length < stochPeriod + kPeriod) return null;
-
-        const stochSeries = [];
-        for (let i = stochPeriod - 1; i < rsiSeries.length; i++) {
-          const w = rsiSeries.slice(i - stochPeriod + 1, i + 1);
-          const lo = Math.min(...w);
-          const hi = Math.max(...w);
-          stochSeries.push(hi === lo ? 50 : ((rsiSeries[i] - lo) / (hi - lo)) * 100);
-        }
-
-        if (stochSeries.length < kPeriod) return null;
-        return stochSeries.slice(-kPeriod).reduce((a, b) => a + b, 0) / kPeriod;
-      };
-
-      const calcBB = (prices, period = 20) => {
-        if (!Array.isArray(prices) || prices.length < period || period <= 0) return null;
-        const slice = prices.slice(-period);
-        const mean = slice.reduce((a, b) => a + b, 0) / period;
-        const std = Math.sqrt(slice.map(p => (p - mean) ** 2).reduce((a, b) => a + b, 0) / period);
-        return { upper: mean + 2 * std, middle: mean, lower: mean - 2 * std, std };
-      };
-
-      const calcMACD = (prices, fast = 12, slow = 26, signalPeriod = 9) => {
-        if (!Array.isArray(prices) || prices.length < slow + signalPeriod + 2) return null;
-        const macdSeries = [];
-        for (let i = slow - 1; i < prices.length; i++) {
-          const sub = prices.slice(0, i + 1);
-          const ef = calcEMA(sub, fast);
-          const es = calcEMA(sub, slow);
-          if (ef !== null && es !== null) macdSeries.push(ef - es);
-        }
-        if (macdSeries.length < signalPeriod + 1) return null;
-        const signalLine = calcEMA(macdSeries, signalPeriod);
-        const prevSignal = calcEMA(macdSeries.slice(0, -1), signalPeriod);
-        const macdLine = macdSeries[macdSeries.length - 1];
-        const prevMacd = macdSeries[macdSeries.length - 2];
-        return {
-          macd: macdLine,
-          signal: signalLine,
-          prevMacd,
-          prevSignal,
-          histogram: macdLine - signalLine,
-          crossUp: prevMacd !== null && prevSignal !== null && prevMacd < prevSignal && macdLine > signalLine,
-          crossDown: prevMacd !== null && prevSignal !== null && prevMacd > prevSignal && macdLine < signalLine,
-          bullish: macdLine > signalLine,
-        };
-      };
-
-      const calcATR = (prices, period = 14) => {
-        if (!Array.isArray(prices) || prices.length < period + 1 || period <= 0) return null;
-        const slice = prices.slice(-(period + 1));
-        const trs = slice.map((p, i, a) => (i === 0 ? 0 : Math.abs(p - a[i - 1]))).slice(1);
-        return trs.reduce((a, b) => a + b, 0) / period;
-      };
-
-      const calcATRAvg = (prices, period = 14, lookback = 50) => {
-        if (!Array.isArray(prices) || prices.length < period + lookback) return null;
-        const atrs = [];
-        for (let i = lookback; i >= 1; i--) {
-          const a = calcATR(prices.slice(0, prices.length - i + 1), period);
-          if (a !== null) atrs.push(a);
-        }
-        return atrs.length ? atrs.reduce((a, b) => a + b, 0) / atrs.length : null;
-      };
-
-      const macdGate = (prices, direction, cfg, requireCross = false) => {
-        const m = calcMACD(prices, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
-        if (!m) return { pass: false, macd: null, reason: "MACD not ready" };
-        if (direction === "CALL") {
-          const pass = requireCross ? m.crossUp : (m.crossUp || m.bullish);
-          return { pass, macd: m, reason: pass ? (m.crossUp ? "MACD ↑ crossover" : "MACD histogram+") : "MACD bearish — blocked" };
-        } else {
-          const pass = requireCross ? m.crossDown : (m.crossDown || !m.bullish);
-          return { pass, macd: m, reason: pass ? (m.crossDown ? "MACD ↓ crossover" : "MACD histogram−") : "MACD bullish — blocked" };
-        }
-      };
-
-      const computeHybrid = (prices, symbol = "R_50", execMode = "auto", macdRequired = true) => {
-        const cfg = getCfg(symbol, "HYBRID");
-        if (!cfg || prices.length < 80) return null;
-        const price = prices[prices.length - 1];
-
-        const rsi = calcRSI(prices, cfg.rsiPeriod);
-        const stochRsi = calcStochRSI(prices, cfg.stochRsiPeriod, cfg.stochRsiPeriod, cfg.stochRsiK);
-        const bb = calcBB(prices, cfg.bbPeriod);
-        const emaFast = calcEMA(prices, cfg.emaFast);
-        const emaSlow = calcEMA(prices, cfg.emaSlow);
-        const emaTrend = calcEMA(prices, cfg.emaTrend);
-        const atr = calcATR(prices, cfg.atrPeriod);
-        const atrAvg = calcATRAvg(prices, cfg.atrPeriod, 50);
-
-        if (rsi === null || bb === null || emaFast === null || emaSlow === null || emaTrend === null) return null;
-
-        if (atr !== null && atrAvg !== null && atr > atrAvg * cfg.atrSpikeMultiplier) {
-          return { filtered: true, reason: `ATR spike (${atr.toFixed(4)} vs avg ${atrAvg.toFixed(4)})` };
-        }
-
-        const trendUp = price > emaTrend;
-
-        let rsiVote = 0, rsiScore = 0, rsiLabel = "";
-        if (rsi < cfg.rsiBuy) {
-          rsiVote = 1;
-          rsiScore = Math.min(100, 65 + (cfg.rsiBuy - rsi) * 3.5);
-          rsiLabel = `${rsi.toFixed(1)} oversold`;
-        } else if (rsi > cfg.rsiSell) {
-          rsiVote = -1;
-          rsiScore = Math.min(100, 65 + (rsi - cfg.rsiSell) * 3.5);
-          rsiLabel = `${rsi.toFixed(1)} overbought`;
-        } else {
-          rsiScore = Math.max(20, 50 - Math.abs(rsi - 50) * 1.2);
-          rsiLabel = `${rsi.toFixed(1)} neutral`;
-        }
-
-        let srsiVote = 0, srsiScore = 0, srsiLabel = "";
-        if (stochRsi !== null) {
-          if (stochRsi < cfg.stochRsiBuy) {
-            srsiVote = 1;
-            srsiScore = Math.min(100, 65 + (cfg.stochRsiBuy - stochRsi) * 2);
-            srsiLabel = `${stochRsi.toFixed(1)} oversold`;
-          } else if (stochRsi > cfg.stochRsiSell) {
-            srsiVote = -1;
-            srsiScore = Math.min(100, 65 + (stochRsi - cfg.stochRsiSell) * 2);
-            srsiLabel = `${stochRsi.toFixed(1)} overbought`;
-          } else {
-            srsiScore = 30;
-            srsiLabel = `${stochRsi.toFixed(1)} neutral`;
-          }
-        }
-
-        const bbRange = bb.upper - bb.lower;
-        const bbPos = bbRange > 0 ? (price - bb.lower) / bbRange : 0.5;
-        let bbVote = 0, bbScore = 0, bbLabel = "";
-        if (bbPos < cfg.bbTouchPct) {
-          bbVote = 1;
-          bbScore = Math.min(100, 65 + (cfg.bbTouchPct - bbPos) * 280);
-          bbLabel = `${(bbPos * 100).toFixed(0)}% near lower`;
-        } else if (bbPos > 1 - cfg.bbTouchPct) {
-          bbVote = -1;
-          bbScore = Math.min(100, 65 + (bbPos - (1 - cfg.bbTouchPct)) * 280);
-          bbLabel = `${(bbPos * 100).toFixed(0)}% near upper`;
-        } else {
-          bbScore = 38;
-          bbLabel = `${(bbPos * 100).toFixed(0)}% mid band`;
-        }
-
-        const sep = Math.abs(emaFast - emaSlow) / (Math.abs(emaSlow) * 0.001 + 1e-6);
-        const emaVote = emaFast > emaSlow ? 1 : -1;
-        const emaScore = Math.min(100, 58 + Math.min(sep * 20, 40));
-        const emaLabel = emaFast > emaSlow ? "Fast above slow" : "Fast below slow";
-
-        const m = calcMACD(prices, cfg.macdFast, cfg.macdSlow, cfg.macdSignal);
-        let macdVote = 0, macdScore = 50, macdLabel = "—";
-        if (m) {
-          if (m.crossUp) {
-            macdVote = 1;
-            macdScore = 88;
-            macdLabel = "Bullish crossover ✓";
-          } else if (m.crossDown) {
-            macdVote = -1;
-            macdScore = 88;
-            macdLabel = "Bearish crossover ✓";
-          } else {
-            macdVote = m.bullish ? 1 : -1;
-            macdScore = 55;
-            macdLabel = m.bullish ? "Histogram +" : "Histogram −";
-          }
-        }
-
-        const allVotes = [rsiVote, srsiVote, bbVote, emaVote, macdVote];
-        const callVotes = allVotes.filter(v => v === 1).length;
-        const putVotes = allVotes.filter(v => v === -1).length;
-        const minVotes = execMode === "auto" ? 3 : 2;
-
-        if (callVotes < minVotes && putVotes < minVotes) return null;
-
-        const direction = callVotes >= putVotes ? "CALL" : "PUT";
-        const dirMult = direction === "CALL" ? 1 : -1;
-        const agreeCount = direction === "CALL" ? callVotes : putVotes;
-        const allAgree = agreeCount === 5;
-
-        if (direction === "CALL" && !trendUp) return null;
-        if (direction === "PUT" && trendUp) return null;
-
-        let macdGateInfo = null;
-        if (macdRequired && m) {
-          const gatePass = direction === "CALL" ? (m.bullish || m.crossUp) : (!m.bullish || m.crossDown);
-          if (!gatePass) return { filtered: true, reason: `MACD gate blocked (${direction}: ${m.bullish ? "histogram+" : "histogram−"})` };
-          macdGateInfo = direction === "CALL"
-            ? (m.crossUp ? "MACD crossover ↑ ✓" : "MACD histogram+ ✓")
-            : (m.crossDown ? "MACD crossover ↓ ✓" : "MACD histogram− ✓");
-        }
-
-        const W = { rsi: 0.22, srsi: 0.22, bb: 0.18, ema: 0.20, macd: 0.18 };
-        const votes = { rsi: rsiVote, srsi: srsiVote, bb: bbVote, ema: emaVote, macd: macdVote };
-        const scores = { rsi: rsiScore, srsi: srsiScore, bb: bbScore, ema: emaScore, macd: macdScore };
-        let wSum = 0, wTotal = 0;
-
-        for (const key of Object.keys(W)) {
-          const v = votes[key], s = scores[key], w = W[key];
-          if (v === dirMult) {
-            wSum += s * w;
-            wTotal += w;
-          } else if (v === 0) {
-            wSum += s * w * 0.15;
-            wTotal += w * 0.15;
-          } else {
-            wSum += s * w * 0.05;
-            wTotal += w * 0.3;
-          }
-        }
-
-        const rawStr = wTotal > 0 ? wSum / wTotal : 0;
-        const bonus = allAgree ? 8 : agreeCount === 4 ? 4 : 0;
-        const strength = Math.min(100, Math.round(rawStr + bonus));
-        const minStr = execMode === "auto" ? cfg.minStrengthAuto : cfg.minStrengthManual;
-
-        if (strength < minStr) return null;
-
-        return {
-          direction,
-          strength,
-          allAgree,
-          agreeCount,
-          summary: `${agreeCount}/5 indicators align · ${macdGateInfo || "MACD gate off"}`,
-          trendBias: trendUp ? "Uptrend" : "Downtrend",
-          macdGate: macdGateInfo,
-          components: {
-            rsi: { vote: rsiVote, score: Math.round(rsiScore), label: rsiLabel, agrees: rsiVote === dirMult },
-            srsi: { vote: srsiVote, score: Math.round(srsiScore), label: srsiLabel, agrees: srsiVote === dirMult },
-            bb: { vote: bbVote, score: Math.round(bbScore), label: bbLabel, agrees: bbVote === dirMult },
-            ema: { vote: emaVote, score: Math.round(emaScore), label: emaLabel, agrees: emaVote === dirMult },
-            macd: { vote: macdVote, score: Math.round(macdScore), label: macdLabel, agrees: macdVote === dirMult },
-          },
-        };
-      };
-
-      const computeSingle = (strategy, prices, prevPrices, symbol = "R_50", macdRequired = true) => {
-        if (!Array.isArray(prices) || prices.length < 60) return null;
-        const cfg = getCfg(symbol, strategy);
-        if (!cfg) return null;
-
-        if (strategy === "RSI") {
-          const rsi = calcRSI(prices, cfg.period);
-          const emaTrend = calcEMA(prices, cfg.emaTrend);
-          if (rsi === null || emaTrend === null) return null;
-          const price = prices[prices.length - 1];
-          const trendUp = price > emaTrend;
-          let sig = null;
-
-          if (rsi < cfg.buy && trendUp) sig = { direction: "CALL", strength: Math.min(100, Math.round(cfg.minStrength + (cfg.buy - rsi) * 3)), summary: `RSI ${rsi.toFixed(1)} oversold + uptrend` };
-          if (rsi > cfg.sell && !trendUp) sig = { direction: "PUT", strength: Math.min(100, Math.round(cfg.minStrength + (rsi - cfg.sell) * 3)), summary: `RSI ${rsi.toFixed(1)} overbought + downtrend` };
-          if (!sig) return null;
-
-          if (macdRequired) {
-            const gate = macdGate(prices, sig.direction, cfg);
-            if (!gate.pass) return { filtered: true, reason: gate.reason };
-            sig.macdGate = gate.reason;
-          }
-
-          return { ...sig, components: null };
-        }
-
-        if (strategy === "EMA") {
-          const eFast = calcEMA(prices, cfg.fast);
-          const eSlow = calcEMA(prices, cfg.slow);
-          const peFast = calcEMA(prevPrices, cfg.fast);
-          const peSlow = calcEMA(prevPrices, cfg.slow);
-          if (eFast === null || eSlow === null || peFast === null || peSlow === null) return null;
-
-          const atr = calcATR(prices, cfg.atrPeriod);
-          const atrAvg = calcATRAvg(prices, cfg.atrPeriod, 40);
-          if (atr !== null && atrAvg !== null && atr > atrAvg * cfg.atrSpikeMultiplier) return null;
-
-          let sig = null;
-          if (peFast < peSlow && eFast > eSlow) sig = { direction: "CALL", strength: cfg.minStrength, summary: "EMA bullish crossover (ATR OK)" };
-          if (peFast > peSlow && eFast < eSlow) sig = { direction: "PUT", strength: cfg.minStrength, summary: "EMA bearish crossover (ATR OK)" };
-          if (!sig) return null;
-
-          if (macdRequired) {
-            const gate = macdGate(prices, sig.direction, cfg);
-            if (!gate.pass) return { filtered: true, reason: gate.reason };
-            sig.macdGate = gate.reason;
-          }
-
-          return { ...sig, components: null };
-        }
-
-        if (strategy === "BB") {
-          const price = prices[prices.length - 1];
-          const bb = calcBB(prices, cfg.period);
-          const stochRsi = calcStochRSI(prices, cfg.stochRsiPeriod, cfg.stochRsiPeriod, cfg.stochRsiK);
-          if (!bb) return null;
-
-          const bbRange = bb.upper - bb.lower;
-          const bbPos = bbRange > 0 ? (price - bb.lower) / bbRange : 0.5;
-          let sig = null;
-
-          if (bbPos <= cfg.touchPct && stochRsi !== null && stochRsi < cfg.stochRsiBuy) {
-            sig = { direction: "CALL", strength: cfg.minStrength + Math.round((cfg.stochRsiBuy - stochRsi) * 0.8), summary: `Lower BB + StochRSI ${stochRsi.toFixed(1)}` };
-          }
-          if (bbPos >= 1 - cfg.touchPct && stochRsi !== null && stochRsi > cfg.stochRsiSell) {
-            sig = { direction: "PUT", strength: cfg.minStrength + Math.round((stochRsi - cfg.stochRsiSell) * 0.8), summary: `Upper BB + StochRSI ${stochRsi.toFixed(1)}` };
-          }
-          if (!sig) return null;
-
-          if (macdRequired) {
-            const gate = macdGate(prices, sig.direction, cfg);
-            if (!gate.pass) return { filtered: true, reason: gate.reason };
-            sig.macdGate = gate.reason;
-          }
-
-          return { ...sig, components: null };
-        }
-
-        if (strategy === "MACD") {
-          const m = calcMACD(prices, cfg.fast, cfg.slow, cfg.signal);
-          const rsi = calcRSI(prices, cfg.rsiPeriod);
-          if (!m || rsi === null) return null;
-
-          if (m.crossUp && rsi > cfg.rsiBuy) {
-            return { direction: "CALL", strength: cfg.minStrength + Math.round((rsi - cfg.rsiBuy) * 0.6), summary: `MACD ↑ cross · RSI ${rsi.toFixed(1)} ✓`, macdGate: "Primary MACD crossover", components: null };
-          }
-          if (m.crossDown && rsi < (100 - cfg.rsiBuy)) {
-            return { direction: "PUT", strength: cfg.minStrength + Math.round(((100 - cfg.rsiBuy) - rsi) * 0.6), summary: `MACD ↓ cross · RSI ${rsi.toFixed(1)} ✓`, macdGate: "Primary MACD crossover", components: null };
-          }
-        }
-
-        return null;
-      };
-
-      const getSignal = (strategy, prices, prev, symbol, execMode, macdRequired) =>
-        strategy === "HYBRID"
-          ? computeHybrid(prices, symbol, execMode, macdRequired)
-          : computeSingle(strategy, prices, prev, symbol, macdRequired);
-
-      const runBacktest = (prices, strategy, symbol, duration, minStr, macdRequired) => {
-        const d = Math.max(1, parseInt(duration, 10) || 1);
-        const TICK_LOOKAHEAD = Math.max(10, d * 4);
-        const MIN_PRICES = 100;
-
-        if (prices.length < MIN_PRICES + TICK_LOOKAHEAD) {
-          return { error: `Need at least ${MIN_PRICES + TICK_LOOKAHEAD} price ticks. Have ${prices.length}.` };
-        }
-
-        const results = [];
-        const cooldownTicks = 15;
-        let lastSignalAt = -cooldownTicks;
-
-        for (let i = MIN_PRICES; i < prices.length - TICK_LOOKAHEAD; i++) {
-          if (i - lastSignalAt < cooldownTicks) continue;
-
-          const slice = prices.slice(0, i + 1);
-          const prev = prices.slice(0, i);
-          const signal = getSignal(strategy, slice, prev, symbol, "auto", macdRequired);
-
-          if (!signal || signal.filtered || signal.strength < minStr) continue;
-
-          const entryPrice = prices[i];
-          const exitPrice = prices[i + TICK_LOOKAHEAD];
-          const priceChange = exitPrice - entryPrice;
-          const won = signal.direction === "CALL" ? priceChange > 0 : priceChange < 0;
-
-          results.push({
-            index: i,
-            direction: signal.direction,
-            strength: signal.strength,
-            entry: entryPrice,
-            exit: exitPrice,
-            change: priceChange,
-            won,
-            macdGate: signal.macdGate || "—",
-            summary: signal.summary,
-          });
-          lastSignalAt = i;
-        }
-
-        if (results.length === 0) return { error: "No signals fired during backtest. Try lowering minStrength or switching strategy." };
-
-        const wins = results.filter(r => r.won).length;
-        const losses = results.length - wins;
-        const winRate = (wins / results.length) * 100;
-        const callSigs = results.filter(r => r.direction === "CALL");
-        const putSigs = results.filter(r => r.direction === "PUT");
-        const callWR = callSigs.length > 0 ? ((callSigs.filter(r => r.won).length / callSigs.length) * 100).toFixed(1) : "—";
-        const putWR = putSigs.length > 0 ? ((putSigs.filter(r => r.won).length / putSigs.length) * 100).toFixed(1) : "—";
-        const avgStrength = results.reduce((a, r) => a + r.strength, 0) / results.length;
-
-        let maxWinStreak = 0, maxLossStreak = 0, curWin = 0, curLoss = 0;
-        for (const r of results) {
-          if (r.won) { curWin++; curLoss = 0; maxWinStreak = Math.max(maxWinStreak, curWin); }
-          else { curLoss++; curWin = 0; maxLossStreak = Math.max(maxLossStreak, curLoss); }
-        }
-
-        const PAYOUT_RATIO = 0.85;
-        const grossProfit = wins * PAYOUT_RATIO;
-        const grossLoss = losses * 1;
-        const profitFactor = grossLoss > 0 ? (grossProfit / grossLoss).toFixed(2) : "∞";
-
-        const rolling = [];
-        for (let i = 9; i < results.length; i++) {
-          const w = results.slice(i - 9, i + 1).filter(r => r.won).length;
-          rolling.push({ idx: i, wr: (w / 10) * 100 });
-        }
-
-        return {
-          total: results.length,
-          wins,
-          losses,
-          winRate: winRate.toFixed(1),
-          callWR,
-          putWR,
-          avgStrength: avgStrength.toFixed(1),
-          maxWinStreak,
-          maxLossStreak,
-          profitFactor,
-          rolling,
-          results: results.slice(0, 50),
-        };
-      };
-
-      const Sparkline = ({ data, color = "#00ff88", width = 130, height = 38 }) => {
-        if (!data || data.length < 2) return <svg width={width} height={height} />;
-        const min = Math.min(...data);
-        const max = Math.max(...data);
-        const range = max - min || 1;
-        const pts = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - ((v - min) / range) * height}`).join(" ");
-        return (
-          <svg width={width} height={height} style={{ overflow: "visible" }}>
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" />
-          </svg>
-        );
-      };
-
-      const WRSparkline = ({ data, width = 200, height = 40 }) => {
-        if (!data || data.length < 2) return <svg width={width} height={height}><text x="4" y="20" fill="#2a5438" fontSize="9">Need 10+ signals</text></svg>;
-        const vals = data.map(d => d.wr);
-        const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * width},${height - ((v / 100)) * height}`).join(" ");
-        const color = vals[vals.length - 1] >= 55 ? "#00ff88" : vals[vals.length - 1] >= 45 ? "#ffaa00" : "#ff3d5f";
-        return (
-          <svg width={width} height={height} style={{ overflow: "visible" }}>
-            <line x1="0" y1={height * 0.45} x2={width} y2={height * 0.45} stroke="#142a1c" strokeWidth="1" strokeDasharray="3,3" />
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
-          </svg>
-        );
-      };
-
-      const StrengthGauge = ({ value, size = 70 }) => {
-        const r = size / 2 - 7, cx = size / 2, cy = size / 2;
-        const toRad = d => (d * Math.PI) / 180;
-        const arcPath = (s, e) => {
-          const [sx, sy] = [cx + r * Math.cos(toRad(s)), cy + r * Math.sin(toRad(s))];
-          const [ex, ey] = [cx + r * Math.cos(toRad(e)), cy + r * Math.sin(toRad(e))];
-          return `M ${sx} ${sy} A ${r} ${r} 0 ${e - s > 180 ? 1 : 0} 1 ${ex} ${ey}`;
-        };
-        const color = value >= 80 ? "#00ff88" : value >= 65 ? "#ffaa00" : "#ff3d5f";
-        return (
-          <svg width={size} height={size}>
-            <path d={arcPath(135, 404.9)} fill="none" stroke="#162e22" strokeWidth="6" strokeLinecap="round" />
-            <path d={arcPath(135, Math.min(135 + (value / 100) * 270, 404.8))} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" style={{ filter: `drop-shadow(0 0 5px ${color}90)` }} />
-            <text x={cx} y={cy + 5} textAnchor="middle" fill={color} fontSize="13" fontFamily="'Syne',sans-serif" fontWeight="800">{value}%</text>
-          </svg>
-        );
-      };
-
-      const Pill = ({ label, score, agrees, vote }) => {
-        const color = agrees ? "#00ff88" : vote === 0 ? "#5a9e78" : "#ff3d5f";
-        const bg = agrees ? "rgba(0,255,136,.09)" : vote === 0 ? "rgba(90,158,120,.06)" : "rgba(255,61,95,.09)";
-        const border = agrees ? "rgba(0,255,136,.3)" : vote === 0 ? "rgba(90,158,120,.2)" : "rgba(255,61,95,.3)";
-        return (
-          <div style={{ flex: 1, background: bg, border: `1px solid ${border}`, borderRadius: 4, padding: "7px 9px", display: "flex", flexDirection: "column", gap: 4 }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 8, color: "#5a9e78", letterSpacing: 1.5, textTransform: "uppercase" }}>{label}</span>
-              <span style={{ fontSize: 13, color, fontWeight: 700, lineHeight: 1 }}>{vote === 1 ? "↑" : vote === -1 ? "↓" : "–"}</span>
-            </div>
-            <div style={{ fontSize: 12, color, fontWeight: 700 }}>{score}%</div>
-            <div style={{ height: 3, background: "#162e22", borderRadius: 2 }}>
-              <div style={{ height: "100%", width: `${score}%`, background: color, borderRadius: 2, transition: "width .4s" }} />
-            </div>
-          </div>
-        );
-      };
-
-      function MarsBot() {
-        const [tokenInput, setTokenInput] = useState("");
-        const [connected, setConnected] = useState(false);
-        const [authorized, setAuthorized] = useState(false);
-        const [accountInfo, setAccountInfo] = useState(null);
-        const [balance, setBalance] = useState(null);
-        const [wsStatus, setWsStatus] = useState("disconnected");
-
-        const [symbol, setSymbol] = useState("R_50");
-        const [strategy, setStrategy] = useState("HYBRID");
-        const [stake, setStake] = useState("1");
-        const [duration, setDuration] = useState(1);
-        const [maxDailyLoss, setMaxDailyLoss] = useState("5");
-        const [maxTrades, setMaxTrades] = useState("20");
-        const [minStrength, setMinStrength] = useState("78");
-        const [martingale, setMartingale] = useState(false);
-        const [martMul, setMartMul] = useState("1.8");
-        const [execMode, setExecMode] = useState("auto");
-        const [macdGateEnabled, setMacdGateEnabled] = useState(true);
-
-        const [botRunning, setBotRunning] = useState(false);
-        const [currentPrice, setCurrentPrice] = useState(null);
-        const [priceHistory, setPriceHistory] = useState([]);
-        const [liveSignal, setLiveSignal] = useState(null);
-        const [pendingSignal, setPendingSignal] = useState(null);
-        const [signals, setSignals] = useState([]);
-        const [trades, setTrades] = useState([]);
-        const [openContracts, setOpenContracts] = useState([]);
-        const [dailyPnL, setDailyPnL] = useState(0);
-        const [todayTrades, setTodayTrades] = useState(0);
-        const [consecLosses, setConsecLosses] = useState(0);
-        const [activeTab, setActiveTab] = useState("signal");
-        const [logs, setLogs] = useState([]);
-
-        const [btResult, setBtResult] = useState(null);
-        const [btRunning, setBtRunning] = useState(false);
-
-        const [wrLog, setWrLog] = useState([]);
-
-        const socketRef = useRef(null);
-        const pricesRef = useRef([]);
-        const prevRef = useRef([]);
-        const runningRef = useRef(false);
-        const pnlRef = useRef(0);
-        const tradeCountRef = useRef(0);
-        const consecLossRef = useRef(0);
-        const initStakeRef = useRef(1);
-        const currentStakeRef = useRef(1);
-        const execModeRef = useRef("auto");
-        const symbolRef = useRef("R_50");
-        const strategyRef = useRef("HYBRID");
-        const durationRef = useRef(1);
-        const minStrRef = useRef(78);
-        const accountInfoRef = useRef(null);
-        const martingaleRef = useRef(false);
-        const martMulRef = useRef(1.8);
-        const maxLossRef = useRef(10);
-        const maxTradesRef = useRef(20);
-        const lastSignalRef = useRef(0);
-        const tickCountRef = useRef(0);
-        const pingTimerRef = useRef(null);
-        const lastLossDirRef = useRef(null);
-        const lastLossTimeRef = useRef(0);
-        const macdGateRef = useRef(true);
-        const subscriptionIds = useRef({});
-        const pendingDirections = useRef({});
-        const handleMsgRef = useRef(null);
-        const evalSignalRef = useRef(null);
-        const sessionWinsRef = useRef(0);
-        const sessionTotalRef = useRef(0);
-        const sessionPnLRef = useRef(0);
-
-        useEffect(() => { execModeRef.current = execMode; }, [execMode]);
-        useEffect(() => { symbolRef.current = symbol; }, [symbol]);
-        useEffect(() => { strategyRef.current = strategy; }, [strategy]);
-        useEffect(() => { durationRef.current = Math.max(1, parseInt(duration, 10) || 1); }, [duration]);
-        useEffect(() => { minStrRef.current = toNum(minStrength, 78); }, [minStrength]);
-        useEffect(() => { accountInfoRef.current = accountInfo; }, [accountInfo]);
-        useEffect(() => { martingaleRef.current = martingale; }, [martingale]);
-        useEffect(() => { martMulRef.current = toNum(martMul, 1.8); }, [martMul]);
-        useEffect(() => { maxTradesRef.current = Math.max(1, parseInt(maxTrades, 10) || 20); }, [maxTrades]);
-        useEffect(() => { initStakeRef.current = Math.max(0.35, toNum(stake, 1)); }, [stake]);
-        useEffect(() => { macdGateRef.current = macdGateEnabled; }, [macdGateEnabled]);
-        useEffect(() => {
-          const bal = accountInfoRef.current?.balance ?? 0;
-          maxLossRef.current = (bal * (toNum(maxDailyLoss, 5))) / 100;
-        }, [maxDailyLoss, accountInfo]);
-
-        useEffect(() => {
-          return () => {
-            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-            if (socketRef.current) {
-              try { socketRef.current.close(); } catch (_) {}
-            }
-          };
-        }, []);
-
-        const addLog = useCallback((msg, type = "info") => {
-          const time = new Date().toLocaleTimeString("en-GB");
-          setLogs(prev => [{ time, msg, type, id: Date.now() + Math.random() }, ...prev].slice(0, 100));
-        }, []);
-
-        const placeTrade = useCallback((signal) => {
-          if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-            addLog("WebSocket not ready", "error");
-            return;
-          }
-
-          const tradeStake = Math.max(0.35, toNum(currentStakeRef.current, 1));
-          const lockedDuration = Math.max(1, parseInt(durationRef.current, 10) || 1);
-
-          pendingDirections.current.__next = signal.direction;
-
-          socketRef.current.send(JSON.stringify({
-            buy: 1,
-            price: tradeStake,
-            parameters: {
-              amount: tradeStake,
-              basis: "stake",
-              contract_type: signal.direction,
-              currency: accountInfoRef.current?.currency || "USD",
-              duration: lockedDuration,
-              duration_unit: "m",
-              symbol: symbolRef.current,
-            },
-          }));
-
-          setPendingSignal(null);
-          addLog(`Placing ${signal.direction} · stake ${tradeStake.toFixed(2)} · duration ${lockedDuration}m · str ${signal.strength}% · ${signal.macdGate || "no gate"}`, "success");
-        }, [addLog]);
-
-        const dismissSignal = useCallback(() => {
-          addLog("Signal dismissed", "warning");
-          setPendingSignal(null);
-        }, [addLog]);
-
-        const handleMsg = (data) => {
-          if (data.error) {
-            addLog(`Deriv error: ${data.error.message}`, "error");
-            return;
-          }
-
-          if (data.msg_type === "authorize") {
-            setAuthorized(true);
-            setAccountInfo(data.authorize);
-            accountInfoRef.current = data.authorize;
-            const pct = toNum(maxDailyLoss, 5);
-            maxLossRef.current = (data.authorize.balance * pct) / 100;
-            setBalance(data.authorize.balance);
-            addLog(`Authorized — ${data.authorize.loginid} · ${data.authorize.currency} ${data.authorize.balance}`, "success");
-            socketRef.current?.send(JSON.stringify({ balance: 1, subscribe: 1 }));
-          }
-
-          if (data.msg_type === "balance") {
-            const nb = data.balance.balance;
-            setBalance(nb);
-            if (accountInfoRef.current) {
-              accountInfoRef.current = { ...accountInfoRef.current, balance: nb };
-              maxLossRef.current = (nb * toNum(maxDailyLoss, 5)) / 100;
-            }
-          }
-
-          if (data.msg_type === "tick") {
-            const price = parseFloat(data.tick.quote);
-            setCurrentPrice(price);
-            prevRef.current = [...pricesRef.current];
-            pricesRef.current = [...pricesRef.current, price].slice(-400);
-            tickCountRef.current += 1;
-            if (tickCountRef.current % 4 === 0) setPriceHistory([...pricesRef.current.slice(-80)]);
-            if (runningRef.current && pricesRef.current.length >= 80 && tickCountRef.current % 3 === 0 && evalSignalRef.current) {
-              evalSignalRef.current(price);
-            }
-          }
-
-          if (data.msg_type === "buy") {
-            const contractId = data.buy.contract_id;
-            const direction = pendingDirections.current.__next || "CALL";
-            delete pendingDirections.current.__next;
-            pendingDirections.current[contractId] = direction;
-            tradeCountRef.current += 1;
-            setTodayTrades(p => p + 1);
-            addLog(`Contract #${contractId} opened · stake ${data.buy.buy_price}`, "success");
-            setOpenContracts(p => [...p, { id: contractId, buyPrice: data.buy.buy_price, openTime: new Date().toLocaleTimeString(), symbol: symbolRef.current, direction }]);
-            socketRef.current?.send(JSON.stringify({ proposal_open_contract: 1, contract_id: contractId, subscribe: 1 }));
-          }
-
-          if (data.msg_type === "proposal_open_contract") {
-            const contract = data.proposal_open_contract;
-            if (data.subscription && !subscriptionIds.current[contract.contract_id]) {
-              subscriptionIds.current[contract.contract_id] = data.subscription.id;
-            }
-            if (!contract.is_sold) return;
-
-            const contractId = contract.contract_id;
-            const direction = pendingDirections.current[contractId] || (contract.contract_type?.includes("CALL") ? "CALL" : "PUT");
-            delete pendingDirections.current[contractId];
-
-            const subId = subscriptionIds.current[contractId];
-            if (subId) {
-              socketRef.current?.send(JSON.stringify({ forget: subId }));
-              delete subscriptionIds.current[contractId];
-            }
-
-            const profit = parseFloat(contract.profit);
-            pnlRef.current += profit;
-            setDailyPnL(p => p + profit);
-            setOpenContracts(p => p.filter(c => c.id !== contractId));
-
-            sessionTotalRef.current += 1;
-            sessionPnLRef.current += profit;
-
-            if (profit > 0) {
-              sessionWinsRef.current += 1;
-              consecLossRef.current = 0;
-              setConsecLosses(0);
-              currentStakeRef.current = initStakeRef.current;
-              lastLossDirRef.current = null;
-              addLog(`✓ WON +${profit.toFixed(2)} · WR ${((sessionWinsRef.current / sessionTotalRef.current) * 100).toFixed(1)}%`, "success");
-            } else {
-              consecLossRef.current += 1;
-              setConsecLosses(consecLossRef.current);
-              lastLossDirRef.current = direction;
-              lastLossTimeRef.current = Date.now();
-
-              if (martingaleRef.current) {
-                const next = Math.min(currentStakeRef.current * martMulRef.current, (accountInfoRef.current?.balance ?? 100) * 0.04);
-                currentStakeRef.current = next;
-                addLog(`✗ LOST ${profit.toFixed(2)} · Martingale→${next.toFixed(2)} · WR ${((sessionWinsRef.current / sessionTotalRef.current) * 100).toFixed(1)}%`, "warning");
-              } else {
-                addLog(`✗ LOST ${profit.toFixed(2)} · WR ${((sessionWinsRef.current / sessionTotalRef.current) * 100).toFixed(1)}%`, "error");
-              }
-            }
-
-            if (sessionTotalRef.current % 5 === 0) {
-              const wr = ((sessionWinsRef.current / sessionTotalRef.current) * 100).toFixed(1);
-              setWrLog(p => [...p, { time: new Date().toLocaleTimeString("en-GB"), total: sessionTotalRef.current, wins: sessionWinsRef.current, wr, pnl: sessionPnLRef.current.toFixed(2) }].slice(-100));
-            }
-
-            setTrades(p => [{
-              id: contractId,
-              time: new Date().toLocaleTimeString(),
-              symbol: symbolRef.current,
-              direction,
-              stake: parseFloat(contract.buy_price),
-              profit,
-              won: profit > 0,
-              payout: parseFloat(contract.sell_price || 0),
-            }, ...p].slice(0, 50));
-          }
-        };
-
-        const evalSignal = (price) => {
-          if (pnlRef.current <= -maxLossRef.current) {
-            addLog("⚠ Daily loss limit hit — stopping", "warning");
-            setBotRunning(false);
-            runningRef.current = false;
-            return;
-          }
-
-          if (tradeCountRef.current >= maxTradesRef.current) {
-            addLog("⚠ Max trades reached — stopping", "warning");
-            setBotRunning(false);
-            runningRef.current = false;
-            return;
-          }
-
-          if (consecLossRef.current >= 4) {
-            addLog("⚠ 4 consecutive losses — 60s cooldown", "warning");
-            consecLossRef.current = 0;
-            setConsecLosses(0);
-            runningRef.current = false;
-            setTimeout(() => {
-              if (socketRef.current?.readyState === WebSocket.OPEN) {
-                runningRef.current = true;
-                addLog("▶ Resuming after cooldown", "info");
-              }
-            }, 60000);
-            return;
-          }
-
-          const prices = pricesRef.current;
-          const prev = prevRef.current.length > 1 ? prevRef.current : prices.slice(0, -1);
-          const signal = getSignal(strategyRef.current, prices, prev, symbolRef.current, execModeRef.current, macdGateRef.current);
-
-          if (signal && signal.filtered) {
-            setLiveSignal(null);
-            if (signal.reason?.includes("MACD gate")) addLog(`MACD gate blocked: ${signal.reason}`, "warning");
-            return;
-          }
-
-          setLiveSignal(signal);
-          if (!signal || signal.strength < minStrRef.current) return;
-
-          const now = Date.now();
-          const cfg = getCfg(symbolRef.current, "HYBRID");
-          if (now - lastSignalRef.current < (cfg?.cooldownMs || 15000)) return;
-
-          if (lastLossDirRef.current && (now - lastLossTimeRef.current) < 30000 && signal.direction === lastLossDirRef.current) {
-            addLog(`⚠ Skipping ${signal.direction} — same dir as last loss`, "warning");
-            return;
-          }
-
-          lastSignalRef.current = now;
-          const entry = { id: now, time: new Date().toLocaleTimeString(), ...signal, price: price.toFixed(5), acted: execModeRef.current === "auto" };
-          setSignals(p => [entry, ...p].slice(0, 30));
-          addLog(`Signal: ${signal.direction} · ${signal.strength}% · ${signal.summary}`, "signal");
-
-          if (execModeRef.current === "auto") placeTrade(signal);
-          else setPendingSignal(entry);
-        };
-
-        handleMsgRef.current = handleMsg;
-        evalSignalRef.current = evalSignal;
-
-        const connect = useCallback(() => {
-          if (socketRef.current) socketRef.current.close();
-          if (pingTimerRef.current) clearInterval(pingTimerRef.current);
-
-          setWsStatus("connecting");
-          addLog("Connecting to Deriv…", "info");
-
-          const socket = new WebSocket(DERIV_WS_URL);
-          socketRef.current = socket;
-
-          socket.onopen = () => {
-            setConnected(true);
-            setWsStatus("connected");
-            addLog("Connected", "success");
-            pingTimerRef.current = setInterval(() => {
-              if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ ping: 1 }));
-            }, PING_INTERVAL_MS);
-          };
-
-          socket.onclose = () => {
-            setConnected(false);
-            setAuthorized(false);
-            setWsStatus("disconnected");
-            setBotRunning(false);
-            runningRef.current = false;
-            if (pingTimerRef.current) {
-              clearInterval(pingTimerRef.current);
-              pingTimerRef.current = null;
-            }
-            addLog("Disconnected", "warning");
-          };
-
-          socket.onerror = () => {
-            setWsStatus("error");
-            addLog("Connection error", "error");
-          };
-
-          socket.onmessage = (e) => {
-            try {
-              const d = JSON.parse(e.data);
-              if (d.msg_type === "ping") return;
-              handleMsgRef.current?.(d);
-            } catch (err) {
-              addLog("Malformed websocket message", "error");
-            }
-          };
-        }, [addLog]);
-
-        const authorize = () => {
-          if (!tokenInput.trim()) {
-            addLog("Enter a token first", "error");
-            return;
-          }
-          if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
-            addLog("Connect first", "error");
-            return;
-          }
-          socketRef.current.send(JSON.stringify({ authorize: tokenInput }));
-          addLog("Authorizing…", "info");
-        };
-
-        const startBot = () => {
-          if (!authorized) {
-            addLog("Authorize first", "error");
-            return;
-          }
-
-          pricesRef.current = [];
-          prevRef.current = [];
-          tickCountRef.current = 0;
-          currentStakeRef.current = initStakeRef.current;
-          sessionWinsRef.current = 0;
-          sessionTotalRef.current = 0;
-          sessionPnLRef.current = 0;
-          lastSignalRef.current = 0;
-          lastLossDirRef.current = null;
-          lastLossTimeRef.current = 0;
-          setBotRunning(true);
-          runningRef.current = true;
-
-          socketRef.current?.send(JSON.stringify({ forget_all: "ticks" }));
-          socketRef.current?.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
-          addLog(`▶ Started · ${STRATEGIES.find(s => s.value === strategy)?.label} · ${symbol} · Duration locked: ${durationRef.current}m · MACD Gate: ${macdGateEnabled ? "ON" : "OFF"}`, "success");
-          addLog(`Warming up… needs 80 ticks before signalling`, "info");
-        };
-
-        const stopBot = () => {
-          setBotRunning(false);
-          runningRef.current = false;
-          socketRef.current?.send(JSON.stringify({ forget_all: "ticks" }));
-          setPendingSignal(null);
-          setLiveSignal(null);
-
-          if (sessionTotalRef.current > 0) {
-            const wr = ((sessionWinsRef.current / sessionTotalRef.current) * 100).toFixed(1);
-            setWrLog(p => [...p, { time: new Date().toLocaleTimeString("en-GB"), total: sessionTotalRef.current, wins: sessionWinsRef.current, wr, pnl: sessionPnLRef.current.toFixed(2), isFinal: true }].slice(-100));
-          }
-          addLog("■ Bot stopped", "warning");
-        };
-
-        const resetDay = () => {
-          pnlRef.current = 0;
-          tradeCountRef.current = 0;
-          consecLossRef.current = 0;
-          lastLossDirRef.current = null;
-          currentStakeRef.current = initStakeRef.current;
-          sessionWinsRef.current = 0;
-          sessionTotalRef.current = 0;
-          sessionPnLRef.current = 0;
-          setDailyPnL(0);
-          setTodayTrades(0);
-          setConsecLosses(0);
-          setWrLog([]);
-          addLog("Daily stats reset", "info");
-        };
-
-        const runBt = () => {
-          if (pricesRef.current.length < 120) {
-            addLog("Backtest needs ≥120 collected prices. Keep bot running to gather data.", "warning");
-            return;
-          }
-          setBtRunning(true);
-          setTimeout(() => {
-            const result = runBacktest(pricesRef.current, strategyRef.current, symbolRef.current, durationRef.current, toNum(minStrength, 78), macdGateRef.current);
-            setBtResult(result);
-            setBtRunning(false);
-            if (result.error) addLog(`Backtest: ${result.error}`, "warning");
-            else addLog(`Backtest complete · ${result.total} signals · WR ${result.winRate}% · PF ${result.profitFactor}`, "success");
-          }, 50);
-        };
-
-        const symInfo = SYMBOLS.find(s => s.value === symbol);
-        const winRate = trades.length > 0 ? ((trades.filter(t => t.won).length / trades.length) * 100).toFixed(1) : null;
-        const totalPnL = trades.reduce((a, t) => a + t.profit, 0);
-        const lossRatio = maxLossRef.current > 0 ? Math.min(100, (Math.abs(Math.min(0, dailyPnL)) / maxLossRef.current) * 100) : 0;
-        const tradeRatio = parseInt(maxTrades, 10) > 0 ? Math.min(100, (todayTrades / parseInt(maxTrades, 10)) * 100) : 0;
-        const riskColor = lossRatio > 75 ? "#ff3d5f" : lossRatio > 50 ? "#ffaa00" : "#00ff88";
-        const strColor = s => s >= 80 ? "#00ff88" : s >= 65 ? "#ffaa00" : "#ff3d5f";
-
-        const liveRollingWR = (() => {
-          if (trades.length < 2) return [];
-          const ordered = [...trades].reverse();
-          const res = [];
-          for (let i = 0; i < ordered.length; i++) {
-            const window = ordered.slice(Math.max(0, i - 9), i + 1);
-            const wr = (window.filter(t => t.won).length / window.length) * 100;
-            res.push({ wr });
-          }
-          return res;
-        })();
-
-        const CSS = `@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#020c08;--bg2:#050f0a;--bg3:#0a1910;--bd:#142a1c;--bd2:#1e3d2c;--g:#00ff88;--b:#00ccff;--r:#ff3d5f;--y:#ffaa00;--t:#b0f0cc;--t2:#4d9968;--t3:#2a5438;--card:#060d09}
-.R{font-family:'Space Mono',monospace;background:var(--bg);color:var(--t);min-height:100vh;display:flex;flex-direction:column}
-.H{display:flex;align-items:center;justify-content:space-between;padding:11px 18px;background:var(--bg2);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:200;gap:12px}
-.Lg{display:flex;align-items:center;gap:9px}
-.Lh{width:26px;height:26px;background:var(--g);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%)}
-.Lt{font-family:'Syne',sans-serif;font-weight:800;font-size:15px}.Lt em{color:var(--g);font-style:normal}
-.Ls{font-size:8px;color:var(--t3);letter-spacing:2px;text-transform:uppercase;margin-top:1px}
-.Hr{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
-.dot{width:7px;height:7px;border-radius:50%;background:var(--t3)}.dot.on{background:var(--g);box-shadow:0 0 8px var(--g);animation:bl 2s infinite}.dot.er{background:var(--r)}
-@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
-.hl{font-size:9px;color:var(--t2);letter-spacing:1px;text-transform:uppercase}
-.tag{font-size:8px;padding:3px 7px;border-radius:2px;letter-spacing:1px;text-transform:uppercase}
-.tag-g{background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--g)}
-.tag-b{background:rgba(0,204,255,.1);border:1px solid rgba(0,204,255,.3);color:var(--b)}
-.B{display:flex;flex:1;min-height:0}
-.S{width:256px;min-width:256px;background:var(--bg2);border-right:1px solid var(--bd);padding:14px 12px;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
-.sl{font-size:7.5px;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);border-bottom:1px solid var(--bd);padding-bottom:5px;margin-bottom:1px}
-.sc{display:flex;flex-direction:column;gap:8px}
-.fg{display:flex;flex-direction:column;gap:4px}.fl{font-size:9px;color:var(--t2)}
-.fi,.fse{background:var(--bg3);border:1px solid var(--bd);color:var(--t);font-family:'Space Mono',monospace;font-size:11px;padding:7px 8px;border-radius:3px;outline:none;width:100%;transition:border-color .15s}
-.fi:focus,.fse:focus{border-color:var(--g)}.fi::placeholder{color:var(--t3)}.fse option{background:var(--bg3)}
-.tr{display:flex;align-items:center;justify-content:space-between}.tl{font-size:10px;color:var(--t2)}
-.tog{position:relative;width:32px;height:17px;cursor:pointer}.tog input{opacity:0;width:0;height:0;position:absolute}
-.tt{position:absolute;inset:0;background:var(--bg3);border:1px solid var(--bd);border-radius:17px;transition:all .2s}
-.tog input:checked~.tt{background:var(--g);border-color:var(--g)}
-.tb{position:absolute;top:3px;left:3px;width:9px;height:9px;border-radius:50%;background:var(--t3);transition:all .2s}
-.tog input:checked~.tb{transform:translateX(15px);background:var(--bg)}
-.btn{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:1px;text-transform:uppercase;padding:8px 12px;border-radius:3px;border:none;cursor:pointer;transition:all .15s;font-weight:700}
-.bg{background:var(--g);color:var(--bg);width:100%}.bg:hover{filter:brightness(1.15)}.bg:disabled{opacity:.4;cursor:not-allowed}
-.bst{background:var(--r);color:#fff;width:100%}.bst:hover{filter:brightness(1.15)}
-.bgh{background:transparent;color:var(--t2);border:1px solid var(--bd)}.bgh:hover{border-color:var(--g);color:var(--g)}
-.bbt{background:rgba(0,204,255,.1);color:var(--b);border:1px solid rgba(0,204,255,.35);width:100%}.bbt:hover{filter:brightness(1.15)}.bbt:disabled{opacity:.4;cursor:not-allowed}
-.bsm{padding:5px 9px;font-size:8px}
-.ms{display:flex;gap:5px}
-.mb{flex:1;padding:7px 5px;background:var(--bg3);border:1px solid var(--bd);border-radius:3px;color:var(--t2);font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:all .15s;text-align:center}
-.mb.ma{background:rgba(0,255,136,.1);border-color:var(--g);color:var(--g)}
-.mb.mm{background:rgba(0,204,255,.1);border-color:var(--b);color:var(--b)}
-.mb:not(.ma):not(.mm):hover{border-color:var(--bd2);color:var(--t)}
-.M{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
-.sg{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
-.st{background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:11px 13px}
-.stl{font-size:7.5px;letter-spacing:2px;text-transform:uppercase;color:var(--t3);margin-bottom:4px}
-.stv{font-family:'Syne',sans-serif;font-size:19px;font-weight:800}.sts{font-size:8px;color:var(--t3);margin-top:2px}
-.cg{color:var(--g)}.cr{color:var(--r)}.cb{color:var(--b)}.cy{color:var(--y)}
-.card{background:var(--card);border:1px solid var(--bd);border-radius:4px;padding:12px}
-.ct{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
-.sb{flex:1;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:9px 13px;display:flex;align-items:center;gap:11px;min-width:0}
-.sbi{width:8px;height:8px;border-radius:50%;background:var(--t3)}.sbi.on{background:var(--g);box-shadow:0 0 8px var(--g);animation:bl 1.5s infinite}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--bd);margin-bottom:12px;flex-wrap:wrap}
-.tab{font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;padding:8px 10px;background:none;border:none;color:var(--t3);cursor:pointer;transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-1px}
-.tab.on{color:var(--g);border-bottom-color:var(--g)}.tab:not(.on):hover{color:var(--t2)}
-.cb2{display:inline-block;margin-left:4px;font-size:7.5px;color:var(--g)}
-.sh{display:flex;gap:12px;align-items:stretch}
-.sm{flex:1;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;padding:13px;display:flex;flex-direction:column;gap:9px}
-.sm.sc2{border-color:rgba(0,255,136,.4);background:rgba(0,255,136,.03)}.sm.sp{border-color:rgba(255,61,95,.4);background:rgba(255,61,95,.03)}
-.sd{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;letter-spacing:-1px}.sd.cg2{color:var(--g)}.sd.cr2{color:var(--r)}
-.ss2{font-size:10px;color:var(--t2)}
-.gc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:10px;background:var(--bg3);border:1px solid var(--bd);border-radius:4px;min-width:88px}
-.gl{font-size:7.5px;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase}
-.pr{display:flex;gap:7px;margin-top:2px}
-.ir{display:flex;align-items:center;gap:8px;font-size:8.5px;padding:3px 0;border-bottom:1px solid var(--bd)}
-.ir:last-child{border-bottom:none}
-.pb{background:rgba(0,204,255,.07);border:1px solid rgba(0,204,255,.4);border-radius:4px;padding:13px;display:flex;flex-direction:column;gap:10px;animation:glow .9s ease-in-out infinite alternate}
-@keyframes glow{from{box-shadow:0 0 4px rgba(0,204,255,.15)}to{box-shadow:0 0 18px rgba(0,204,255,.35)}}
-.pbt{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--b);letter-spacing:1px}
-.pa{display:flex;gap:7px}
-.bex{flex:1;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:9px;border:none;border-radius:3px;cursor:pointer;transition:all .15s}
-.bex.gc3{background:var(--g);color:var(--bg)}.bex.rc3{background:var(--r);color:#fff}.bex:hover{filter:brightness(1.2)}
-.bsk{background:transparent;color:var(--t2);border:1px solid var(--bd);font-family:'Space Mono',monospace;font-size:9px;padding:9px 13px;border-radius:3px;cursor:pointer;transition:all .15s}
-.bsk:hover{border-color:var(--r);color:var(--r)}
-.shr{display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid var(--bd);border-radius:3px;background:var(--bg3);margin-bottom:4px;animation:fi2 .25s ease}
-@keyframes fi2{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
-.db{font-size:8.5px;font-weight:700;letter-spacing:1px;padding:2px 6px;border-radius:2px;min-width:38px;text-align:center;display:inline-block}
-.dc{background:rgba(0,255,136,.12);color:var(--g)}.dp{background:rgba(255,61,95,.12);color:var(--r)}
-.lc{font-size:8px;padding:3px 7px;border-radius:2px;font-weight:700}
-.li{background:rgba(176,240,204,.06);color:var(--t2)}.ls{background:rgba(0,255,136,.1);color:var(--g)}
-.lw{background:rgba(255,170,0,.1);color:var(--y)}.le{background:rgba(255,61,95,.1);color:var(--r)}.lsg{background:rgba(0,204,255,.1);color:var(--b)}
-.pbar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin-top:3px}
-.pbf{height:100%;border-radius:2px;transition:width .4s}
-.btcard{background:var(--bg3);border:1px solid rgba(0,204,255,.3);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:12px}
-.btgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.btstat{background:var(--card);border:1px solid var(--bd);border-radius:4px;padding:10px}
-.btsv{font-family:'Syne',sans-serif;font-size:18px;font-weight:800}
-.btsl{font-size:7.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--t3);margin-bottom:3px}
-.gate-on{display:inline-block;font-size:7.5px;padding:2px 8px;border-radius:2px;background:rgba(0,255,136,.1);border:1px solid rgba(0,255,136,.3);color:var(--g);letter-spacing:1px}
-.gate-off{display:inline-block;font-size:7.5px;padding:2px 8px;border-radius:2px;background:rgba(255,170,0,.1);border:1px solid rgba(255,170,0,.3);color:var(--y);letter-spacing:1px}
-
-@media (max-width: 1100px){
-  .sg{grid-template-columns:repeat(2,1fr)}
-  .btgrid{grid-template-columns:repeat(2,1fr)}
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NS Calculator" />
+  <meta name="theme-color" content="#007AFF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>WCO JFB Night Shift Calculator</title>
+  <style>
+    :root {
+      --bg:           #F2F2F7;
+      --surface:      #FFFFFF;
+      --separator:    #C6C6C8;
+      --separator-lt: #E5E5EA;
+      --accent:       #007AFF;
+      --green:        #34C759;
+      --warm:         #FF9500;
+      --red:          #FF3B30;
+      --text:         #000000;
+      --text-sub:     #6C6C70;
+      --text-muted:   #AEAEB2;
+      --radius:       12px;
+      --radius-sm:    10px;
+      --font-display: -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+      --font-body:    -apple-system, "SF Pro Text",    "Helvetica Neue", sans-serif;
+    }
+
+```
+/* ─── DARK MODE COLOURS ─── */
+.dark {
+  --bg:           #000000;
+  --surface:      #1C1C1E;
+  --separator:    #3A3A3C;
+  --separator-lt: #2C2C2E;
+  --accent:       #0A84FF;
+  --green:        #30D158;
+  --warm:         #FF9F0A;
+  --red:          #FF453A;
+  --text:         #FFFFFF;
+  --text-sub:     #AEAEB2;
+  --text-muted:   #636366;
 }
-@media (max-width: 900px){
-  .B{flex-direction:column}
-  .S{width:100%;min-width:0;border-right:none;border-bottom:1px solid var(--bd)}
-  .sh{flex-direction:column}
-  .sb{min-width:0}
+
+/* Auto dark mode from device setting (overridden by manual toggle) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg:           #000000;
+    --surface:      #1C1C1E;
+    --separator:    #3A3A3C;
+    --separator-lt: #2C2C2E;
+    --accent:       #0A84FF;
+    --green:        #30D158;
+    --warm:         #FF9F0A;
+    --red:          #FF453A;
+    --text:         #FFFFFF;
+    --text-sub:     #AEAEB2;
+    --text-muted:   #636366;
+  }
 }
-@media (max-width: 640px){
-  .H{padding:10px 12px;align-items:flex-start;flex-direction:column}
-  .Hr{justify-content:flex-start}
-  .M{padding:10px}
-  .S{padding:12px 10px}
-  .sg{grid-template-columns:1fr}
-  .btgrid{grid-template-columns:1fr}
-  .tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px}
-  .tab{white-space:nowrap}
-  .ir{font-size:8px}
-}`;
 
-        return (
-          <div className="R">
-            <style>{CSS}</style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-            <div className="H">
-              <div className="Lg">
-                <div className="Lh" />
-                <div>
-                  <div className="Lt">Mars<em>Bot</em> <span style={{ fontSize: 9, color: "#ffaa00", fontFamily: "Space Mono", fontWeight: 700 }}>V3</span></div>
-                  <div className="Ls">V50 Optimised · 5-Indicator · MACD Gate · Backtest</div>
-                </div>
-              </div>
-              <div className="Hr">
-                <div className={`dot ${wsStatus === "connected" ? "on" : wsStatus === "error" ? "er" : ""}`} />
-                <span className="hl">{wsStatus}</span>
-                {macdGateEnabled ? <span className="gate-on">MACD GATE ON</span> : <span className="gate-off">MACD GATE OFF</span>}
-                {authorized && accountInfo && <span className="tag tag-g">{accountInfo.loginid}</span>}
-                {balance !== null && <span className="tag tag-b">{accountInfo?.currency || "USD"} {parseFloat(balance).toFixed(2)}</span>}
-              </div>
-            </div>
+body {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
 
-            <div className="B">
-              <div className="S">
-                <div>
-                  <div className="sl">Connection</div>
-                  <div className="sc">
-                    {!connected ? (
-                      <button className="btn bg" onClick={connect}>Connect</button>
-                    ) : !authorized ? (
-                      <>
-                        <div className="fg">
-                          <div className="fl">API Token</div>
-                          <input className="fi" type="password" placeholder="Paste token…" value={tokenInput} onChange={e => setTokenInput(e.target.value)} />
-                        </div>
-                        <button className="btn bg" onClick={authorize}>Authorize</button>
-                      </>
-                    ) : <div style={{ fontSize: 10, color: "#00ff88" }}>✓ Authorized</div>}
-                  </div>
-                </div>
+/* ─── LAYOUT ─── */
+.app {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
 
-                <div>
-                  <div className="sl">Symbol</div>
-                  <select className="fse" value={symbol} onChange={e => setSymbol(e.target.value)} disabled={botRunning}>
-                    {SYMBOLS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </div>
+/* ─── PAGES ─── */
+.page { display: none; }
+.page.active { display: block; animation: fadeUp 0.35s ease; }
 
-                <div>
-                  <div className="sl">Strategy</div>
-                  <div className="fg">
-                    <select className="fse" value={strategy} onChange={e => setStrategy(e.target.value)} disabled={botRunning}>
-                      {STRATEGIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                    </select>
-                    <div style={{ fontSize: 8.5, color: "#4d9968", marginTop: 3, lineHeight: 1.5 }}>{STRATEGIES.find(s => s.value === strategy)?.desc}</div>
-                  </div>
-                </div>
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-                <div>
-                  <div className="sl">MACD Confirmation Gate</div>
-                  <div className="sc">
-                    <div className="tr">
-                      <span className="tl">Require MACD alignment</span>
-                      <label className="tog">
-                        <input type="checkbox" checked={macdGateEnabled} onChange={e => setMacdGateEnabled(e.target.checked)} />
-                        <span className="tt" /><span className="tb" />
-                      </label>
-                    </div>
-                    <div style={{ fontSize: 8, color: macdGateEnabled ? "#00ff88" : "#ffaa00", lineHeight: 1.5 }}>
-                      {macdGateEnabled
-                        ? "ON — MACD histogram/crossover must align with signal direction. Blocks counter-trend trades."
-                        : "OFF — MACD is only a vote, not a hard gate. More signals, lower precision."}
-                    </div>
-                  </div>
-                </div>
+/* ─── THEME TOGGLE ─── */
+.theme-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--separator-lt);
+  color: var(--text-sub);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.theme-btn:active { transform: scale(0.9); }
 
-                <div>
-                  <div className="sl">Execution Mode</div>
-                  <div className="ms">
-                    <button className={`mb ${execMode === "auto" ? "ma" : ""}`} onClick={() => setExecMode("auto")}>Auto</button>
-                    <button className={`mb ${execMode === "manual" ? "mm" : ""}`} onClick={() => setExecMode("manual")}>Manual</button>
-                  </div>
-                  <div style={{ fontSize: 8, color: "#2a5438", marginTop: 5 }}>
-                    {execMode === "auto" ? "Auto fires at ≥78% (3/5 indicators)" : "Alert at ≥65% (2/5) — you confirm"}
-                  </div>
-                </div>
+/* ─── HEADER ─── */
+.page-header {
+  text-align: center;
+  padding: 52px 20px 20px;
+}
 
-                <div>
-                  <div className="sl">Trade Config</div>
-                  <div className="sc">
-                    <div className="fg">
-                      <div className="fl">Stake ($)</div>
-                      <input className="fi" type="number" min="0.35" step="0.5" value={stake} onChange={e => setStake(e.target.value)} disabled={botRunning} />
-                    </div>
-                    <div className="fg">
-                      <div className="fl">Duration</div>
-                      <select className="fse" value={duration} onChange={e => setDuration(parseInt(e.target.value, 10))} disabled={botRunning}>
-                        {DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                      </select>
-                    </div>
-                    <div className="fg">
-                      <div className="fl">Min Signal Strength (%)</div>
-                      <input className="fi" type="number" min="60" max="99" value={minStrength} onChange={e => setMinStrength(e.target.value)} />
-                    </div>
-                  </div>
-                </div>
+.hint-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+}
 
-                <div>
-                  <div className="sl">Risk Management</div>
-                  <div className="sc">
-                    <div className="fg">
-                      <div className="fl">Max Daily Loss (%)</div>
-                      <input className="fi" type="number" min="1" max="50" value={maxDailyLoss} onChange={e => setMaxDailyLoss(e.target.value)} />
-                    </div>
-                    <div className="fg">
-                      <div className="fl">Max Trades / Day</div>
-                      <input className="fi" type="number" min="1" max="100" value={maxTrades} onChange={e => setMaxTrades(e.target.value)} />
-                    </div>
-                    <div className="tr">
-                      <span className="tl">Martingale</span>
-                      <label className="tog">
-                        <input type="checkbox" checked={martingale} onChange={e => setMartingale(e.target.checked)} />
-                        <span className="tt" /><span className="tb" />
-                      </label>
-                    </div>
-                    {martingale && (
-                      <div className="fg">
-                        <div className="fl">Multiplier</div>
-                        <input className="fi" type="number" min="1.2" max="3" step="0.1" value={martMul} onChange={e => setMartMul(e.target.value)} />
-                      </div>
-                    )}
-                  </div>
-                </div>
+.hint-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+}
 
-                <div>
-                  <div className="sl">Bot Control</div>
-                  <div className="sc">
-                    {!botRunning
-                      ? <button className="btn bg" disabled={!authorized} onClick={startBot}>▶ Start Bot</button>
-                      : <button className="btn bst" onClick={stopBot}>■ Stop Bot</button>}
-                    <button className="btn bbt" onClick={runBt} disabled={btRunning}>
-                      {btRunning ? "Running…" : "⊞ Run Backtest"}
-                    </button>
-                    <button className="btn bgh bsm" onClick={resetDay}>Reset Daily Stats</button>
-                  </div>
-                </div>
-              </div>
+.hint-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.hint-btn:active { opacity: 0.75; transform: scale(0.9); }
 
-              <div className="M">
-                <div className="sg">
-                  <div className="st">
-                    <div className="stl">Price</div>
-                    <div className="stv cb">{currentPrice ? currentPrice.toFixed(4) : "—"}</div>
-                    <div className="sts">{symInfo?.label}</div>
-                  </div>
-                  <div className="st">
-                    <div className="stl">Win Rate</div>
-                    <div className={`stv ${winRate !== null ? (parseFloat(winRate) >= 55 ? "cg" : parseFloat(winRate) >= 45 ? "cy" : "cr") : ""}`}>{winRate !== null ? `${winRate}%` : "—"}</div>
-                    <div className="sts">{trades.length} trade{trades.length !== 1 ? "s" : ""}</div>
-                  </div>
-                  <div className="st">
-                    <div className="stl">Total P&L</div>
-                    <div className={`stv ${totalPnL >= 0 ? "cg" : "cr"}`}>{totalPnL >= 0 ? "+" : ""}{totalPnL.toFixed(2)}</div>
-                    <div className="sts">Daily: {dailyPnL >= 0 ? "+" : ""}{dailyPnL.toFixed(2)}</div>
-                  </div>
-                  <div className="st">
-                    <div className="stl">Consec. Losses</div>
-                    <div className={`stv ${consecLosses >= 3 ? "cr" : consecLosses >= 2 ? "cy" : "cg"}`}>{consecLosses}</div>
-                    <div className="sts">Stops at 4</div>
-                  </div>
-                </div>
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--text);
+}
+.page-title--input   { font-size: clamp(36px, 9vw, 48px); }
+.page-title--results { font-size: clamp(30px, 8vw, 40px); }
 
-                <div className="card">
-                  <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                    {[
-                      { label: "Daily Loss Limit", val: lossRatio, color: riskColor, sub: `${lossRatio.toFixed(0)}%` },
-                      { label: "Trade Count", val: tradeRatio, color: "#00ccff", sub: `${todayTrades}/${maxTrades}` },
-                      { label: "Prices Collected", val: Math.min(100, (priceHistory.length / 80) * 100), color: "#ffaa00", sub: `${priceHistory.length}/80+` },
-                    ].map(({ label, val, color, sub }) => (
-                      <div key={label} style={{ flex: 1, minWidth: 180 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ fontSize: 8, color: "#4d9968", letterSpacing: 1, textTransform: "uppercase" }}>{label}</span>
-                          <span style={{ fontSize: 9, color }}>{sub}</span>
-                        </div>
-                        <div className="pbar"><div className="pbf" style={{ width: `${val}%`, background: color }} /></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-top: 6px;
+}
 
-                {pendingSignal && (
-                  <div className="pb">
-                    <div className="pbt">⚡ Signal Awaiting Confirmation</div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                      <div>
-                        <div className={`sd ${pendingSignal.direction === "CALL" ? "cg2" : "cr2"}`}>{pendingSignal.direction}</div>
-                        <div className="ss2">{pendingSignal.summary}</div>
-                        {pendingSignal.trendBias && <div style={{ fontSize: 8, color: "#4d9968", marginTop: 3 }}>Trend: {pendingSignal.trendBias}</div>}
-                        {pendingSignal.macdGate && <div style={{ fontSize: 8, color: "#00ff88", marginTop: 2 }}>MACD: {pendingSignal.macdGate}</div>}
-                      </div>
-                      <div style={{ flex: 1 }} />
-                      <StrengthGauge value={pendingSignal.strength} />
-                    </div>
-                    <div className="pa">
-                      <button className={`bex ${pendingSignal.direction === "CALL" ? "gc3" : "rc3"}`} onClick={() => placeTrade(pendingSignal)}>Execute {pendingSignal.direction}</button>
-                      <button className="bsk" onClick={dismissSignal}>Dismiss</button>
-                    </div>
-                  </div>
-                )}
+/* ─── HINT MODAL ─── */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.modal-overlay.open { display: flex; }
 
-                <div className="card" style={{ flex: 1 }}>
-                  <div className="tabs">
-                    {[
-                      ["signal", "Signal"],
-                      ["backtest", "Backtest"],
-                      ["wrlog", "WR Log"],
-                      ["trades", "Trades"],
-                      ["open", "Open"],
-                      ["logs", "Logs"],
-                    ].map(([v, l]) => (
-                      <button key={v} className={`tab ${activeTab === v ? "on" : ""}`} onClick={() => setActiveTab(v)}>
-                        {l}
-                        {v === "open" && openContracts.length > 0 && <span className="cb2">{openContracts.length}</span>}
-                        {v === "trades" && trades.length > 0 && <span className="cb2">{trades.length}</span>}
-                        {v === "backtest" && btResult && !btResult.error && <span className="cb2">✓</span>}
-                        {v === "wrlog" && wrLog.length > 0 && <span className="cb2">{wrLog.length}</span>}
-                      </button>
-                    ))}
-                  </div>
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+  animation: fadeUp 0.25s ease;
+  margin: auto;
+}
 
-                  {activeTab === "signal" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <div className="sb">
-                          <div className={`sbi ${botRunning ? "on" : ""}`} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 8, color: "#4d9968", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 }}>Live Price — {symInfo?.tag} · {pricesRef.current.length} ticks</div>
-                            <Sparkline data={priceHistory.slice(-60)} />
-                          </div>
-                          <div style={{ fontSize: 11, color: "#00ccff", fontFamily: "Syne", fontWeight: 700 }}>{currentPrice ? currentPrice.toFixed(4) : "—"}</div>
-                        </div>
-                      </div>
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
 
-                      {liveSignal && (
-                        <div className="sh">
-                          <div className={`sm ${liveSignal.direction === "CALL" ? "sc2" : "sp"}`}>
-                            <div style={{ fontSize: 8, color: "#4d9968", letterSpacing: 1.5, textTransform: "uppercase" }}>Live Signal</div>
-                            <div className={`sd ${liveSignal.direction === "CALL" ? "cg2" : "cr2"}`}>{liveSignal.direction}</div>
-                            <div className="ss2">{liveSignal.summary}</div>
-                            {liveSignal.trendBias && <div style={{ fontSize: 8, color: "#4d9968" }}>Trend: {liveSignal.trendBias}</div>}
-                            {liveSignal.macdGate && <div style={{ fontSize: 8, color: "#00ff88" }}>✓ {liveSignal.macdGate}</div>}
-                            {liveSignal.agreeCount && <div style={{ fontSize: 8, color: "#ffaa00" }}>{liveSignal.agreeCount}/5 agree</div>}
-                          </div>
-                          <div className="gc">
-                            <div className="gl">Strength</div>
-                            <StrengthGauge value={liveSignal.strength} size={80} />
-                          </div>
-                        </div>
-                      )}
+.modal-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 16px 0 10px;
+}
+.modal-section-title--first { margin-top: 0; }
 
-                      {liveSignal?.components && (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {Object.entries(liveSignal.components).map(([key, c]) => (
-                            <Pill key={key} label={key.toUpperCase()} score={c.score} agrees={c.agrees} vote={c.vote} />
-                          ))}
-                        </div>
-                      )}
+.modal-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.modal-item--last { margin-bottom: 20px; }
 
-                      <div>
-                        <div className="ct">Recent Signals</div>
-                        {signals.length === 0
-                          ? <div style={{ color: "#2a5438", fontSize: 10 }}>No signals yet. Bot needs 80 ticks to warm up. {pricesRef.current.length < 80 ? `(${pricesRef.current.length}/80 collected)` : ""}</div>
-                          : signals.slice(0, 10).map(s => (
-                            <div key={s.id} className="shr">
-                              <span className={`db ${s.direction === "CALL" ? "dc" : "dp"}`}>{s.direction}</span>
-                              <span style={{ fontSize: 9, color: strColor(s.strength), fontWeight: 700 }}>{s.strength}%</span>
-                              <span style={{ fontSize: 8.5, color: "#4d9968", flex: 1 }}>{s.summary}</span>
-                              {s.macdGate && <span style={{ fontSize: 7.5, color: "#00ff88" }}>MACD✓</span>}
-                              <span style={{ fontSize: 8, color: "#2a5438" }}>{s.time}</span>
-                              {s.acted && <span style={{ fontSize: 7.5, color: "#00ff88" }}>AUTO</span>}
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </div>
-                  )}
+.modal-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
 
-                  {activeTab === "backtest" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                      <div style={{ fontSize: 9, color: "#4d9968", lineHeight: 1.7 }}>
-                        Replays your collected price history through the signal engine. Simulates trade outcomes by checking if price moved in signal direction after {Math.max(1, durationRef.current)} min (~{Math.max(10, Math.max(1, durationRef.current) * 4)} ticks). MACD gate is <strong style={{ color: macdGateEnabled ? "#00ff88" : "#ffaa00" }}>{macdGateEnabled ? "ON" : "OFF"}</strong>.<br />
-                        Collect at least 120+ ticks before running (currently: <strong style={{ color: "#b0f0cc" }}>{pricesRef.current.length}</strong>).
-                      </div>
-                      <button className="btn bbt" onClick={runBt} disabled={btRunning || pricesRef.current.length < 120}>
-                        {btRunning ? "⟳ Running backtest…" : `⊞ Run Backtest on ${pricesRef.current.length} ticks`}
-                      </button>
+.modal-text {
+  font-size: 14px;
+  color: var(--text-sub);
+  line-height: 1.5;
+}
+.modal-text strong { color: var(--text); font-weight: 600; }
 
-                      {btResult && !btResult.error && (
-                        <div className="btcard">
-                          <div className="btgrid">
-                            {[
-                              { label: "Total Signals", val: btResult.total, color: "#00ccff" },
-                              { label: "Win Rate", val: `${btResult.winRate}%`, color: parseFloat(btResult.winRate) >= 55 ? "#00ff88" : parseFloat(btResult.winRate) >= 45 ? "#ffaa00" : "#ff3d5f" },
-                              { label: "Profit Factor", val: btResult.profitFactor, color: parseFloat(btResult.profitFactor) >= 1.0 ? "#00ff88" : "#ff3d5f" },
-                              { label: "Wins", val: btResult.wins, color: "#00ff88" },
-                              { label: "Losses", val: btResult.losses, color: "#ff3d5f" },
-                              { label: "Avg Strength", val: `${btResult.avgStrength}%`, color: "#ffaa00" },
-                              { label: "CALL Win Rate", val: `${btResult.callWR}%`, color: "#00ff88" },
-                              { label: "PUT Win Rate", val: `${btResult.putWR}%`, color: "#ff3d5f" },
-                              { label: "Max Loss Streak", val: btResult.maxLossStreak, color: btResult.maxLossStreak >= 4 ? "#ff3d5f" : "#ffaa00" },
-                            ].map(({ label, val, color }) => (
-                              <div key={label} className="btstat">
-                                <div className="btsl">{label}</div>
-                                <div className="btsv" style={{ color }}>{val}</div>
-                              </div>
-                            ))}
-                          </div>
+.modal-close {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.modal-close:active { opacity: 0.8; }
 
-                          <div style={{ background: btResult.rolling.length > 0 ? "var(--bg3)" : "transparent", border: "1px solid var(--bd)", borderRadius: 4, padding: 10 }}>
-                            <div style={{ fontSize: 8, color: "#4d9968", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Rolling 10-Signal Win Rate</div>
-                            <WRSparkline data={btResult.rolling} width={320} height={50} />
-                            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                              <span style={{ fontSize: 8, color: "#2a5438" }}>0%</span>
-                              <span style={{ fontSize: 8, color: "#2a5438" }}>50% target</span>
-                              <span style={{ fontSize: 8, color: "#2a5438" }}>100%</span>
-                            </div>
-                          </div>
+/* ─── SECTION ─── */
+.section { margin-bottom: 28px; }
 
-                          <div>
-                            <div className="ct">Signal Log (last 20)</div>
-                            {btResult.results.slice(0, 20).map((r, i) => (
-                              <div key={i} className="ir">
-                                <span className={`db ${r.direction === "CALL" ? "dc" : "dp"}`}>{r.direction}</span>
-                                <span style={{ fontSize: 8, color: strColor(r.strength), fontWeight: 700 }}>{r.strength}%</span>
-                                <span style={{ fontSize: 7.5, color: "#4d9968", flex: 1 }}>{r.macdGate}</span>
-                                <span style={{ fontSize: 8, color: "#2a5438" }}>Δ{r.change > 0 ? "+" : ""}{r.change.toFixed(4)}</span>
-                                <span style={{ fontSize: 8, fontWeight: 700, color: r.won ? "#00ff88" : "#ff3d5f" }}>{r.won ? "WIN" : "LOSS"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+.section-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0 20px 8px;
+}
 
-                      {btResult && btResult.error && (
-                        <div style={{ color: "#ff3d5f", fontSize: 10, padding: "10px", background: "rgba(255,61,95,.07)", border: "1px solid rgba(255,61,95,.2)", borderRadius: 4 }}>⚠ {btResult.error}</div>
-                      )}
+/* Advanced page colour-coded section headers */
+.section-header--short { color: var(--accent); }
+.section-header--long  { color: var(--warm); }
 
-                      {!btResult && (
-                        <div style={{ color: "#2a5438", fontSize: 10 }}>No backtest run yet. Collect price data by connecting and starting the bot (no trades placed during collection).</div>
-                      )}
-                    </div>
-                  )}
+/* ─── FIELD LIST ─── */
+.field-list {
+  background: var(--surface);
+  border-top: 1px solid var(--separator-lt);
+  border-bottom: 1px solid var(--separator-lt);
+}
 
-                  {activeTab === "wrlog" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ fontSize: 8.5, color: "#4d9968", lineHeight: 1.6 }}>
-                        Per-session win rate snapshots logged every 5 trades and on bot stop. Rolling chart shows live session WR trend.
-                      </div>
+/* Colour-tinted field lists for Advanced page */
+.field-list--short { border-top-color: rgba(0,122,255,0.2); border-bottom-color: rgba(0,122,255,0.2); }
+.field-list--long  { border-top-color: rgba(255,149,0,0.2); border-bottom-color: rgba(255,149,0,0.2); }
 
-                      {liveRollingWR.length >= 2 && (
-                        <div style={{ background: "var(--bg3)", border: "1px solid var(--bd)", borderRadius: 4, padding: 10 }}>
-                          <div style={{ fontSize: 8, color: "#4d9968", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8 }}>Live Rolling 10-Trade WR</div>
-                          <WRSparkline data={liveRollingWR} width={300} height={45} />
-                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                            <span style={{ fontSize: 8, color: "#2a5438" }}>Session start</span>
-                            <span style={{ fontSize: 8, color: "#2a5438" }}>Now</span>
-                          </div>
-                        </div>
-                      )}
+.field,
+.result-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  gap: 12px;
+  border-bottom: 1px solid var(--separator-lt);
+}
+.field:last-child,
+.result-row:last-child { border-bottom: none; }
 
-                      {trades.length > 0 && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                          {[
-                            { label: "Session WR", val: `${winRate !== null ? winRate : "—"}%`, color: winRate !== null && parseFloat(winRate) >= 55 ? "#00ff88" : winRate !== null && parseFloat(winRate) >= 45 ? "#ffaa00" : "#ff3d5f" },
-                            { label: "Session P&L", val: `${totalPnL >= 0 ? "+" : ""}${totalPnL.toFixed(2)}`, color: totalPnL >= 0 ? "#00ff88" : "#ff3d5f" },
-                            { label: "Trades", val: trades.length, color: "#00ccff" },
-                          ].map(({ label, val, color }) => (
-                            <div key={label} className="btstat">
-                              <div className="btsl">{label}</div>
-                              <div className="btsv" style={{ color }}>{val}</div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+.field-label {
+  font-size: 15px;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.3;
+}
 
-                      <div>
-                        <div className="ct">Win Rate Log Snapshots</div>
-                        {wrLog.length === 0
-                          ? <div style={{ color: "#2a5438", fontSize: 10 }}>No snapshots yet. Logged every 5 trades and on bot stop.</div>
-                          : [...wrLog].reverse().map((e, i) => (
-                            <div key={i} className="ir">
-                              <span style={{ fontSize: 8, color: "#2a5438", flexShrink: 0 }}>{e.time}</span>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: parseFloat(e.wr) >= 55 ? "#00ff88" : parseFloat(e.wr) >= 45 ? "#ffaa00" : "#ff3d5f" }}>{e.wr}%</span>
-                              <span style={{ fontSize: 8.5, color: "#4d9968", flex: 1 }}>{e.wins}W / {e.total - e.wins}L of {e.total}</span>
-                              <span style={{ fontSize: 8.5, fontWeight: 700, color: parseFloat(e.pnl) >= 0 ? "#00ff88" : "#ff3d5f" }}>{parseFloat(e.pnl) >= 0 ? "+" : ""}{e.pnl}</span>
-                              {e.isFinal && <span style={{ fontSize: 7.5, background: "rgba(255,170,0,.15)", color: "#ffaa00", padding: "1px 5px", borderRadius: 2 }}>FINAL</span>}
-                            </div>
-                          ))
-                        }
-                      </div>
-                    </div>
-                  )}
+.field-input {
+  width: 80px;
+  flex-shrink: 0;
+  background: var(--bg);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--text);
+  outline: none;
+  text-align: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.field-input::placeholder { color: var(--text-muted); }
+.field-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0,122,255,0.15);
+}
+.field-input.error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(255,59,48,0.15);
+}
 
-                  {activeTab === "trades" && (
-                    <div>
-                      {trades.length === 0
-                        ? <div style={{ color: "#2a5438", fontSize: 10 }}>No trades yet.</div>
-                        : trades.map(t => (
-                          <div key={t.id} className="ir">
-                            <span className={`db ${t.direction === "CALL" ? "dc" : "dp"}`}>{t.direction}</span>
-                            <span style={{ fontSize: 8.5, color: "#4d9968", flex: 1 }}>{t.symbol} · {t.time}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: t.won ? "#00ff88" : "#ff3d5f" }}>{t.won ? "+" : ""}{t.profit.toFixed(2)}</span>
-                            <span style={{ fontSize: 7.5, color: t.won ? "#00ff88" : "#ff3d5f" }}>{t.won ? "WIN" : "LOSS"}</span>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  )}
+/* Hide number spinners */
+.field-input::-webkit-outer-spin-button,
+.field-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.field-input[type=number] { -moz-appearance: textfield; }
 
-                  {activeTab === "open" && (
-                    <div>
-                      {openContracts.length === 0
-                        ? <div style={{ color: "#2a5438", fontSize: 10 }}>No open contracts.</div>
-                        : openContracts.map(c => (
-                          <div key={c.id} className="ir">
-                            <span className={`db ${c.direction === "CALL" ? "dc" : "dp"}`}>{c.direction}</span>
-                            <span style={{ fontSize: 8.5, color: "#4d9968", flex: 1 }}>#{c.id} · {c.symbol}</span>
-                            <span style={{ fontSize: 9, color: "#00ccff" }}>Stake {c.buyPrice}</span>
-                            <span style={{ fontSize: 7.5, color: "#2a5438" }}>{c.openTime}</span>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  )}
+/* ─── DISTANCE TOGGLE ─── */
+.toggle-group {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
 
-                  {activeTab === "logs" && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      {logs.length === 0
-                        ? <div style={{ color: "#2a5438", fontSize: 10 }}>No logs yet.</div>
-                        : logs.map(l => (
-                          <div key={l.id} style={{ display: "flex", alignItems: "baseline", gap: 7 }}>
-                            <span style={{ fontSize: 8, color: "#2a5438", flexShrink: 0 }}>{l.time}</span>
-                            <span className={`lc l${l.type === "signal" ? "sg" : l.type.charAt(0)}`}>{l.type.toUpperCase()}</span>
-                            <span style={{ fontSize: 9, color: "#b0f0cc" }}>{l.msg}</span>
-                          </div>
-                        ))
-                      }
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+.toggle-btn {
+  padding: 7px 16px;
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--separator);
+  color: var(--text-sub);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #FFFFFF;
+}
+
+/* ─── BUTTONS ─── */
+.btn-wrap { padding: 20px 20px 0; }
+
+/* Divider between Calculate and Advanced */
+.btn-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 2px;
+}
+.btn-divider::before,
+.btn-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--separator-lt);
+}
+.btn-divider span {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.submit-btn,
+.back-btn,
+.advanced-btn,
+.reset-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.submit-btn {
+  background: var(--accent);
+  border: none;
+  color: #FFFFFF;
+  transition: background 0.2s, opacity 0.15s, transform 0.1s;
+}
+.submit-btn:active  { opacity: 0.8; transform: scale(0.98); }
+.submit-btn.success { background: var(--green); }
+
+.advanced-btn,
+.back-btn,
+.reset-btn {
+  background: var(--surface);
+  border: 1px solid var(--separator-lt);
+  color: var(--accent);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  transition: background 0.15s, transform 0.1s;
+}
+.advanced-btn:active,
+.back-btn:active,
+.reset-btn:active { background: var(--separator-lt); transform: scale(0.98); }
+
+.reset-btn {
+  color: var(--red);
+  border-color: rgba(255,59,48,0.2);
+  margin-top: 12px;
+}
+
+/* ─── RESULTS ─── */
+.result-label {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.result-value {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+/* Staggered fade-in for result rows */
+.result-row {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.result-row.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  background: var(--surface);
+  border-top: 2px solid var(--accent);
+  border-bottom: 1px solid var(--separator-lt);
+  margin-top: 2px;
+}
+
+.total-label {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.total-value {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.02em;
+}
+
+.distance-tag {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+/* ─── FOOTER ─── */
+.page-footer {
+  text-align: center;
+  padding: 32px 20px 20px;
+}
+.full-name {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.creator {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 10px;
+}
+.footer-link {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ─── INFO PAGES (About / Disclaimer) ─── */
+.info-body {
+  padding: 0 20px 40px;
+}
+.info-section {
+  margin-bottom: 28px;
+}
+.info-heading {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.info-text {
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.6;
+}
+.info-list {
+  margin-top: 6px;
+  padding-left: 4px;
+}
+.info-list li {
+  font-size: 15px;
+  color: var(--text-sub);
+  line-height: 1.6;
+  list-style: none;
+  padding-left: 12px;
+  position: relative;
+}
+.info-list li::before {
+  content: '·';
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+.info-divider {
+  height: 1px;
+  background: var(--separator-lt);
+  margin: 28px 0;
+}
+.info-byline {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.copy-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--separator-lt);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  transition: background 0.15s, color 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.copy-btn:active { transform: scale(0.98); }
+.copy-btn.copied {
+  color: var(--green);
+  border-color: var(--green);
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-5px); }
+  40%       { transform: translateX(5px); }
+  60%       { transform: translateX(-3px); }
+  80%       { transform: translateX(3px); }
+}
+.shake { animation: shake 0.3s ease; }
+```
+
+  </style>
+</head>
+<body>
+  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">🌙</button>
+  <div class="app">
+
+```
+<!-- ═══ INPUT PAGE ═══ -->
+<div class="page active" id="input-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--input">Calculator</h1>
+    <p class="page-subtitle">WCO JFB Night Shift</p>
+    <div class="hint-wrap">
+      <span class="hint-label">How to Use</span>
+      <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-header">Shifts</p>
+    <div class="field-list">
+      <div class="field">
+        <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
+        <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
+        <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="double-days">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+        <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label">Distance</label>
+        <div class="toggle-group">
+          <button type="button" class="toggle-btn active" id="btn-short" onclick="setDistance('SHORT')">Short</button>
+          <button type="button" class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="submit-btn" id="calc-btn" onclick="submitData()">Calculate</button>
+    <div class="btn-divider"><span>or</span></div>
+    <button type="button" class="advanced-btn" onclick="showPage(pageAdv)">Advanced</button>
+    <button type="button" class="reset-btn" onclick="resetFields(FIELD_IDS, fields)">Clear All</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADVANCED PAGE ═══ -->
+<div class="page" id="advanced-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--input">Advanced</h1>
+    <p class="page-subtitle">Short & Long Distance Combined</p>
+    <div class="hint-wrap">
+      <span class="hint-label">How to Use</span>
+      <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-header section-header--short">Short Distance Shifts</p>
+    <div class="field-list field-list--short">
+      <div class="field">
+        <label class="field-label" for="adv-3pm-s">Total 3PM Shifts</label>
+        <input class="field-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-10pm-s">Total 10PM Shifts</label>
+        <input class="field-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-dd-s">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+        <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <p class="section-header section-header--long">Long Distance Shifts</p>
+    <div class="field-list field-list--long">
+      <div class="field">
+        <label class="field-label" for="adv-3pm-l">Total 3PM Shifts</label>
+        <input class="field-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-10pm-l">Total 10PM Shifts</label>
+        <input class="field-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+      <div class="field">
+        <label class="field-label" for="adv-dd-l">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+        <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
+    <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
+    <div class="btn-divider"><span>or</span></div>
+    <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Basic</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RESULTS PAGE ═══ -->
+<div class="page" id="results-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--results">Results</h1>
+    <p class="page-subtitle">WCO JFB Night Shift</p>
+  </div>
+
+  <div class="section">
+    <p class="section-header">Breakdown</p>
+    <div class="field-list">
+      <div class="result-row" id="row-sp1">
+        <span class="result-label">SP1</span>
+        <span class="result-value" id="r-sp1">—</span>
+      </div>
+      <div class="result-row" id="row-sp2">
+        <span class="result-label">SP2</span>
+        <span class="result-value" id="r-sp2">—</span>
+      </div>
+      <div class="result-row" id="row-meal">
+        <span class="result-label">Meal</span>
+        <span class="result-value" id="r-meal">—</span>
+      </div>
+      <div class="result-row" id="row-taxi">
+        <span class="result-label">Taxi</span>
+        <span class="result-value" id="r-taxi">—</span>
+      </div>
+      <div class="result-row" id="row-dist">
+        <span class="result-label">Distance</span>
+        <span class="distance-tag" id="r-distance">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="total-row" id="total-row" style="opacity:0;transition:opacity 0.3s ease;">
+    <span class="total-label">Total</span>
+    <span class="total-value" id="r-total">—</span>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="goBack()">← Back</button>
+    <button type="button" class="copy-btn" id="copy-btn" onclick="copyResults()">⎘ Copy Results</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+    <div class="footer-links">
+      <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+      <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ABOUT PAGE ═══ -->
+<div class="page" id="about-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--results">About</h1>
+    <p class="page-subtitle">WCO JFB Night Shift Calculator</p>
+  </div>
+
+  <div class="info-body">
+    <div class="info-section">
+      <p class="info-text">Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules — and doing that mental arithmetic at the end of a long period is tedious and error-prone.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-text">The WCO JFB Night Shift Calculator is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest — giving you a clear breakdown and total in seconds.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">What it calculates</p>
+      <ul class="info-list">
+        <li>SP1 — your 3PM shift allowance</li>
+        <li>SP2 — your 10PM shift allowance</li>
+        <li>Meal — meal allowance based on total shifts worked</li>
+        <li>Taxi — transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+      </ul>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Who it's for</p>
+      <p class="info-text">This app is for JFB members who need to calculate their night shift. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">How to get started</p>
+      <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Use Advanced mode if you have a mix of short and long distance shifts. Add it to your home screen for quick access between shifts.</p>
+    </div>
+    <div class="info-divider"></div>
+    <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="showPage(pageInput)">← Back</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+
+<!-- ═══ DISCLAIMER PAGE ═══ -->
+<div class="page" id="disclaimer-page">
+  <div class="page-header">
+    <h1 class="page-title page-title--results">Disclaimers</h1>
+    <p class="page-subtitle">& Disclosures</p>
+  </div>
+
+  <div class="info-body">
+    <div class="info-section">
+      <p class="info-heading">Data & Privacy</p>
+      <p class="info-text">This app does not collect, store, or transmit any data. All calculations are performed locally on your device and nothing you enter is saved between sessions or sent to any server. No personal information, shift data, or financial figures are recorded at any point.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Accuracy</p>
+      <p class="info-text">This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">AI Assistance</p>
+      <p class="info-text">This app was developed with assistance from Claude, an AI assistant made by Anthropic. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.</p>
+    </div>
+    <div class="info-section">
+      <p class="info-heading">Affiliation</p>
+      <p class="info-text">This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.</p>
+    </div>
+  </div>
+
+  <div class="btn-wrap">
+    <button type="button" class="back-btn" onclick="showPage(pageInput)">← Back</button>
+  </div>
+
+  <div class="page-footer">
+    <p class="full-name">WCO JFB Night Shift Calculator</p>
+    <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+  </div>
+</div>
+```
+
+  </div>
+  <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
+    <div class="modal">
+      <p class="modal-title">How to Use</p>
+
+```
+  <p class="modal-section-title modal-section-title--first">Standard</p>
+  <div class="modal-item">
+    <span class="modal-icon">🕒</span>
+    <p class="modal-text"><strong>Total 3PM Shifts</strong> — Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">🕙</span>
+    <p class="modal-text"><strong>Total 10PM Shifts</strong> — Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">📅</span>
+    <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> — Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
+  </div>
+  <div class="modal-item">
+    <span class="modal-icon">📍</span>
+    <p class="modal-text"><strong>Distance</strong> — Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
+  </div>
+
+  <p class="modal-section-title">Advanced</p>
+  <div class="modal-item">
+    <span class="modal-icon">⚡️</span>
+    <p class="modal-text"><strong>Advanced</strong> — Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
+  </div>
+
+  <p class="modal-section-title">Install</p>
+  <div class="modal-item modal-item--last">
+    <span class="modal-icon">📲</span>
+    <p class="modal-text"><strong>Add to Home Screen</strong> — On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
+  </div>
+
+  <button type="button" class="modal-close" onclick="closeHint()">Got It</button>
+</div>
+```
+
+  </div>
+
+  <script>
+    // ─── Theme ───
+    const themeBtn = document.getElementById('theme-btn');
+    const root     = document.documentElement;
+
+    function isDark() {
+      return root.classList.contains('dark') ||
+        (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    function applyTheme(dark) {
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+      themeBtn.textContent = dark ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      const dark = !isDark();
+      applyTheme(dark);
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+
+    // Apply saved preference or fall back to device setting
+    (function initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        applyTheme(saved === 'dark');
+      } else {
+        // No override — just set the correct icon for the current system theme
+        themeBtn.textContent = window.matchMedia('(prefers-color-scheme: dark)').matches ? '☀️' : '🌙';
       }
+    })();
 
-      ReactDOM.createRoot(document.getElementById("root")).render(<MarsBot />);
-    </script>
-  </body>
+    // ─── Constants ───
+    const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
+    const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
+    const RESULT_ROWS   = ['row-sp1', 'row-sp2', 'row-meal', 'row-taxi', 'row-dist'];
+    const SP1_RATE      = 66.6;   // 4 × $16.65
+    const SP2_RATE      = 200;    // 8 × $25
+    const MEAL_RATE     = 950;
+    const TAXI_SHORT    = 950;
+    const TAXI_LONG     = 2000;
+
+    // ─── State ───
+    let distance = 'SHORT';
+    let prevPage = null;
+
+    // ─── Cached DOM references ───
+    const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const advFields = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
+    const rows      = RESULT_ROWS.map(id => document.getElementById(id));
+    const totalRow  = document.getElementById('total-row');
+    const pageInput      = document.getElementById('input-page');
+    const pageAdv        = document.getElementById('advanced-page');
+    const pageRes        = document.getElementById('results-page');
+    const pageAbout      = document.getElementById('about-page');
+    const pageDisclaimer = document.getElementById('disclaimer-page');
+    const pages          = [pageInput, pageAdv, pageRes, pageAbout, pageDisclaimer];
+    const btnShort       = document.getElementById('btn-short');
+    const btnLong        = document.getElementById('btn-long');
+    const calcBtn        = document.getElementById('calc-btn');
+    const advCalcBtn     = document.getElementById('adv-calc-btn');
+    const hintModal      = document.getElementById('hint-modal');
+    const copyBtn        = document.getElementById('copy-btn');
+
+    // ─── Helpers ───
+    function val(id, map) { return parseFloat((map !== undefined ? map : fields)[id].value) || 0; }
+
+    function fmt(n) {
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function validate(ids, map) {
+      let valid = true;
+      ids.forEach(id => {
+        const el  = (map !== undefined ? map : fields)[id];
+        const n   = parseFloat(el.value);
+        const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
+        el.classList.toggle('error', bad);
+        if (bad) {
+          el.classList.add('shake');
+          setTimeout(() => el.classList.remove('shake'), 300);
+          valid = false;
+        }
+      });
+      return valid;
+    }
+
+    function renderResults(rSP1, rSP2, rMeal, rTaxi, distLabel) {
+      results.sp1.textContent      = fmt(rSP1);
+      results.sp2.textContent      = fmt(rSP2);
+      results.meal.textContent     = fmt(rMeal);
+      results.taxi.textContent     = fmt(rTaxi);
+      results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
+      results.distance.textContent = distLabel;
+    }
+
+    // ─── Copy results to clipboard ───
+    function showCopied() {
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = '⎘ Copy Results';
+      }, 2000);
+    }
+
+    function copyResults() {
+      const divider = '─'.repeat(30);
+      const text = [
+        'WCO JFB Night Shift Results',
+        divider,
+        `SP1         ${results.sp1.textContent}`,
+        `SP2         ${results.sp2.textContent}`,
+        `Meal        ${results.meal.textContent}`,
+        `Taxi        ${results.taxi.textContent}`,
+        `Distance    ${results.distance.textContent}`,
+        divider,
+        `Total       ${results.total.textContent}`,
+      ].join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+      showCopied();
+    }
+
+    // ─── Reset result rows so they re-animate next time ───
+    function resetResultRows() {
+      rows.forEach(r => r.classList.remove('visible'));
+      totalRow.style.opacity = '0';
+    }
+
+    // Stagger result rows into view
+    function animateResults() {
+      rows.forEach((r, i) => {
+        setTimeout(() => r.classList.add('visible'), i * 60);
+      });
+      setTimeout(() => { totalRow.style.opacity = '1'; }, rows.length * 60 + 60);
+    }
+
+    // Success flash on Calculate button then navigate
+    function flashAndNavigate(btn, targetPage) {
+      btn.classList.add('success');
+      setTimeout(() => {
+        btn.classList.remove('success');
+        resetResultRows();
+        showPage(targetPage);
+        // Animate after page is visible
+        setTimeout(animateResults, 50);
+      }, 400);
+    }
+
+    // ─── Clear / Reset ───
+    function resetFields(ids, map) {
+      ids.forEach(id => {
+        const el = (map !== undefined ? map : fields)[id];
+        el.value = '';
+        el.classList.remove('error');
+      });
+    }
+
+    // ─── Hint modal ───
+    function openHint()  { hintModal.classList.add('open'); }
+    function closeHint() { hintModal.classList.remove('open'); }
+    function closeHintOnOverlay(e) { if (e.target === hintModal) closeHint(); }
+
+    // ─── Distance toggle ───
+    function setDistance(v) {
+      distance = v;
+      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
+      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
+    }
+
+    // ─── Standard submit ───
+    function submitData() {
+      if (!validate(FIELD_IDS)) return;
+
+      const all3       = val('total-3pm');
+      const all10      = val('total-10pm');
+      const doubleDays = val('double-days');
+
+      const rSP1  = all3  * SP1_RATE;
+      const rSP2  = all10 * SP2_RATE;
+      const rMeal = (all3 + all10) * MEAL_RATE;
+      const rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
+
+      renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
+      prevPage = pageInput;
+      flashAndNavigate(calcBtn, pageRes);
+    }
+
+    // ─── Advanced submit ───
+    function submitAdvanced() {
+      if (!validate(ADV_FIELD_IDS, advFields)) return;
+
+      const s3  = val('adv-3pm-s', advFields);
+      const s10 = val('adv-10pm-s', advFields);
+      const sdd = val('adv-dd-s',  advFields);
+      const l3  = val('adv-3pm-l', advFields);
+      const l10 = val('adv-10pm-l', advFields);
+      const ldd = val('adv-dd-l',  advFields);
+
+      const rSP1  = (s3  + l3)  * SP1_RATE;
+      const rSP2  = (s10 + l10) * SP2_RATE;
+      const rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
+      const rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
+                  + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
+
+      renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
+      prevPage = pageAdv;
+      flashAndNavigate(advCalcBtn, pageRes);
+    }
+
+    // ─── Navigation ───
+    function goBack() { showPage(prevPage || pageInput); }
+
+    function showPage(el) {
+      pages.forEach(p => p.classList.remove('active'));
+      el.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    // ─── Input clamping + Enter key navigation ───
+    const standardInputs = FIELD_IDS.map(id => fields[id]);
+    const advancedInputs = ADV_FIELD_IDS.map(id => advFields[id]);
+
+    function attachInputHandlers(inputs) {
+      inputs.forEach((el, i) => {
+        el.addEventListener('input', () => {
+          const n = parseFloat(el.value);
+          el.classList.remove('error');
+          if (!isNaN(n)) {
+            if (n > 99) el.value = 99;
+            if (n < 0)  el.value = 0;
+          }
+        });
+        el.addEventListener('keydown', e => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const next = inputs[i + 1];
+          if (next) next.focus();
+        });
+      });
+    }
+
+    attachInputHandlers(standardInputs);
+    attachInputHandlers(advancedInputs);
+
+    // ─── Service worker registration ───
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW registration failed:', err));
+    }
+  </script>
+
+</body>
 </html>
