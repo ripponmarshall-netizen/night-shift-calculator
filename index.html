@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="NS Calculator" />
   <meta name="theme-color" content="#007AFF" />
   <link rel="manifest" href="manifest.json" />
@@ -31,6 +31,38 @@
     }
 
 ```
+/* ─── DARK MODE COLOURS ─── */
+.dark {
+  --bg:           #000000;
+  --surface:      #1C1C1E;
+  --separator:    #3A3A3C;
+  --separator-lt: #2C2C2E;
+  --accent:       #0A84FF;
+  --green:        #30D158;
+  --warm:         #FF9F0A;
+  --red:          #FF453A;
+  --text:         #FFFFFF;
+  --text-sub:     #AEAEB2;
+  --text-muted:   #636366;
+}
+
+/* Auto dark mode from device setting (overridden by manual toggle) */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --bg:           #000000;
+    --surface:      #1C1C1E;
+    --separator:    #3A3A3C;
+    --separator-lt: #2C2C2E;
+    --accent:       #0A84FF;
+    --green:        #30D158;
+    --warm:         #FF9F0A;
+    --red:          #FF453A;
+    --text:         #FFFFFF;
+    --text-sub:     #AEAEB2;
+    --text-muted:   #636366;
+  }
+}
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
@@ -59,6 +91,28 @@ body {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ─── THEME TOGGLE ─── */
+.theme-btn {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--separator-lt);
+  color: var(--text-sub);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: background 0.2s, border-color 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.theme-btn:active { transform: scale(0.9); }
 
 /* ─── HEADER ─── */
 .page-header {
@@ -512,6 +566,31 @@ body {
   line-height: 1.6;
 }
 
+.copy-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--separator-lt);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  transition: background 0.15s, color 0.2s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.copy-btn:active { transform: scale(0.98); }
+.copy-btn.copied {
+  color: var(--green);
+  border-color: var(--green);
+}
+
 /* ─── ANIMATIONS ─── */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -526,6 +605,7 @@ body {
   </style>
 </head>
 <body>
+  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode">🌙</button>
   <div class="app">
 
 ```
@@ -686,6 +766,7 @@ body {
 
   <div class="btn-wrap">
     <button type="button" class="back-btn" onclick="goBack()">← Back</button>
+    <button type="button" class="copy-btn" id="copy-btn" onclick="copyResults()">⎘ Copy Results</button>
   </div>
 
   <div class="page-footer">
@@ -823,6 +904,38 @@ body {
   </div>
 
   <script>
+    // ─── Theme ───
+    const themeBtn = document.getElementById('theme-btn');
+    const root     = document.documentElement;
+
+    function isDark() {
+      return root.classList.contains('dark') ||
+        (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    function applyTheme(dark) {
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+      themeBtn.textContent = dark ? '☀️' : '🌙';
+    }
+
+    function toggleTheme() {
+      const dark = !isDark();
+      applyTheme(dark);
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    }
+
+    // Apply saved preference or fall back to device setting
+    (function initTheme() {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        applyTheme(saved === 'dark');
+      } else {
+        // No override — just set the correct icon for the current system theme
+        themeBtn.textContent = window.matchMedia('(prefers-color-scheme: dark)').matches ? '☀️' : '🌙';
+      }
+    })();
+
     // ─── Constants ───
     const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
     const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
@@ -854,6 +967,7 @@ body {
     const calcBtn        = document.getElementById('calc-btn');
     const advCalcBtn     = document.getElementById('adv-calc-btn');
     const hintModal      = document.getElementById('hint-modal');
+    const copyBtn        = document.getElementById('copy-btn');
 
     // ─── Helpers ───
     function val(id, map) { return parseFloat((map !== undefined ? map : fields)[id].value) || 0; }
@@ -887,7 +1001,49 @@ body {
       results.distance.textContent = distLabel;
     }
 
-    // Reset result rows so they re-animate next time
+    // ─── Copy results to clipboard ───
+    function showCopied() {
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = '⎘ Copy Results';
+      }, 2000);
+    }
+
+    function copyResults() {
+      const divider = '─'.repeat(30);
+      const text = [
+        'WCO JFB Night Shift Results',
+        divider,
+        `SP1         ${results.sp1.textContent}`,
+        `SP2         ${results.sp2.textContent}`,
+        `Meal        ${results.meal.textContent}`,
+        `Taxi        ${results.taxi.textContent}`,
+        `Distance    ${results.distance.textContent}`,
+        divider,
+        `Total       ${results.total.textContent}`,
+      ].join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      document.body.removeChild(ta);
+      showCopied();
+    }
+
+    // ─── Reset result rows so they re-animate next time ───
     function resetResultRows() {
       rows.forEach(r => r.classList.remove('visible'));
       totalRow.style.opacity = '0';
