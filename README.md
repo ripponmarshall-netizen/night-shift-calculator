@@ -48,7 +48,7 @@ This app does not collect, store, or transmit any data. All calculations are per
 This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.
 
 ### AI Assistance
-This app was developed with assistance from Claude, an AI assistant made by Anthropic. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.
+This app was developed with assistance from Claude, an AI assistant made by Anthropic, and Perplexity Computer by Perplexity. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.
 
 ### Affiliation
 This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.
