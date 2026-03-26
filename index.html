@@ -663,7 +663,7 @@
     <div class="page" id="advanced-page">
       <div class="page-header">
         <h1 class="page-title page-title--input">Advanced</h1>
-        <p class="page-subtitle">Short & Long Distance Combined</p>
+        <p class="page-subtitle">Short &amp; Long Distance Combined</p>
         <div class="hint-wrap">
           <span class="hint-label">How to Use</span>
           <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
@@ -825,12 +825,12 @@
     <div class="page" id="disclaimer-page">
       <div class="page-header">
         <h1 class="page-title page-title--results">Disclaimers</h1>
-        <p class="page-subtitle">& Disclosures</p>
+        <p class="page-subtitle">&amp; Disclosures</p>
       </div>
 
       <div class="info-body">
         <div class="info-section">
-          <p class="info-heading">Data & Privacy</p>
+          <p class="info-heading">Data &amp; Privacy</p>
           <p class="info-text">This app does not collect, store, or transmit any data. All calculations are performed locally on your device and nothing you enter is saved between sessions or sent to any server. No personal information, shift data, or financial figures are recorded at any point.</p>
         </div>
         <div class="info-section">
@@ -964,16 +964,18 @@
     const copyBtn        = document.getElementById('copy-btn');
 
     // ─── Helpers ───
-    function val(id, map) { return parseFloat((map !== undefined ? map : fields)[id].value) || 0; }
+    // FIX 2: use default parameter instead of ternary map !== undefined check
+    function val(id, map = fields) { return parseFloat(map[id].value) || 0; }
 
     function fmt(n) {
       return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function validate(ids, map) {
+    // FIX 2: same default parameter fix applied to validate
+    function validate(ids, map = fields) {
       let valid = true;
       ids.forEach(id => {
-        const el  = (map !== undefined ? map : fields)[id];
+        const el  = map[id];
         const n   = parseFloat(el.value);
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
@@ -1005,9 +1007,13 @@
       }, 2000);
     }
 
+    // FIX 5: prepend current date to copied output
     function copyResults() {
+      const date = new Date().toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
       const divider = '─'.repeat(30);
       const text = [
+        'Night Shift — ' + date,
+        '',
         'WCO JFB Night Shift Results',
         divider,
         'SP1         ' + results.sp1.textContent,
@@ -1026,15 +1032,18 @@
       }
     }
 
+    // FIX 1: only show 'Copied' feedback if execCommand actually succeeded
     function fallbackCopy(text) {
       var ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
       document.body.appendChild(ta);
       ta.select();
-      try { document.execCommand('copy'); } catch (e) { /* ignored */ }
+      try {
+        const ok = document.execCommand('copy');
+        if (ok) showCopied();
+      } catch (e) { /* silently fail */ }
       document.body.removeChild(ta);
-      showCopied();
     }
 
     // ─── Reset result rows so they re-animate next time ───
@@ -1063,7 +1072,9 @@
     }
 
     // ─── Clear / Reset ───
+    // FIX 6: require confirmation before clearing fields
     function resetFields(ids, map) {
+      if (!confirm('Clear all fields?')) return;
       ids.forEach(function(id) {
         var el = (map !== undefined ? map : fields)[id];
         el.value = '';
@@ -1091,17 +1102,24 @@
     }
 
     // ─── Standard submit ───
+    // FIX 3: validate cancellations vs shifts
+    // FIX 4: var → const inside submitData
     function submitData() {
       if (!validate(FIELD_IDS)) return;
 
-      var all3       = val('total-3pm');
-      var all10      = val('total-10pm');
-      var doubleDays = val('double-days');
+      const all3       = val('total-3pm');
+      const all10      = val('total-10pm');
+      const doubleDays = val('double-days');
 
-      var rSP1  = all3  * SP1_RATE;
-      var rSP2  = all10 * SP2_RATE;
-      var rMeal = (all3 + all10) * MEAL_RATE;
-      var rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
+      if (doubleDays > all3) {
+        alert('Cancellations cannot exceed 3PM shifts');
+        return;
+      }
+
+      const rSP1  = all3  * SP1_RATE;
+      const rSP2  = all10 * SP2_RATE;
+      const rMeal = (all3 + all10) * MEAL_RATE;
+      const rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
       prevPage = pageInput;
@@ -1109,21 +1127,32 @@
     }
 
     // ─── Advanced submit ───
+    // FIX 3: validate cancellations vs shifts for each distance
+    // FIX 4: var → const inside submitAdvanced
     function submitAdvanced() {
       if (!validate(ADV_FIELD_IDS, advFields)) return;
 
-      var s3  = val('adv-3pm-s', advFields);
-      var s10 = val('adv-10pm-s', advFields);
-      var sdd = val('adv-dd-s',  advFields);
-      var l3  = val('adv-3pm-l', advFields);
-      var l10 = val('adv-10pm-l', advFields);
-      var ldd = val('adv-dd-l',  advFields);
+      const s3  = val('adv-3pm-s', advFields);
+      const s10 = val('adv-10pm-s', advFields);
+      const sdd = val('adv-dd-s',  advFields);
+      const l3  = val('adv-3pm-l', advFields);
+      const l10 = val('adv-10pm-l', advFields);
+      const ldd = val('adv-dd-l',  advFields);
 
-      var rSP1  = (s3  + l3)  * SP1_RATE;
-      var rSP2  = (s10 + l10) * SP2_RATE;
-      var rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
-      var rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
-                + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
+      if (sdd > s3) {
+        alert('Short distance cancellations cannot exceed 3PM shifts');
+        return;
+      }
+      if (ldd > l3) {
+        alert('Long distance cancellations cannot exceed 3PM shifts');
+        return;
+      }
+
+      const rSP1  = (s3  + l3)  * SP1_RATE;
+      const rSP2  = (s10 + l10) * SP2_RATE;
+      const rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
+      const rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
+                  + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
       prevPage = pageAdv;
