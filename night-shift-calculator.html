@@ -1,0 +1,1237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NS Calculator" />
+  <meta name="theme-color" content="#01696f" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <title>Night Shift Calculator</title>
+  <style>
+    :root {
+      --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+      --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+      --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+      --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+      --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.1rem);
+      --text-2xl: clamp(2rem, 1.2rem + 2.5vw, 3.2rem);
+      --space-1: 0.25rem;
+      --space-2: 0.5rem;
+      --space-3: 0.75rem;
+      --space-4: 1rem;
+      --space-5: 1.25rem;
+      --space-6: 1.5rem;
+      --space-8: 2rem;
+      --space-10: 2.5rem;
+      --space-12: 3rem;
+      --space-16: 4rem;
+      --radius-sm: 0.625rem;
+      --radius-md: 0.875rem;
+      --radius-lg: 1.125rem;
+      --radius-xl: 1.5rem;
+      --radius-full: 999px;
+      --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+      --shadow-sm: 0 6px 18px rgba(24, 32, 38, 0.06);
+      --shadow-md: 0 16px 40px rgba(24, 32, 38, 0.1);
+      --shadow-lg: 0 24px 60px rgba(24, 32, 38, 0.14);
+      --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-body: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --bg: #f7f6f2;
+      --bg-accent: radial-gradient(circle at top, rgba(1, 105, 111, 0.08), transparent 42%), linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,246,242,0.98));
+      --surface: rgba(255, 255, 255, 0.8);
+      --surface-2: rgba(255, 255, 255, 0.92);
+      --surface-3: rgba(247, 248, 245, 0.76);
+      --border: rgba(40, 37, 29, 0.1);
+      --border-strong: rgba(1, 105, 111, 0.18);
+      --accent: #01696f;
+      --accent-strong: #0c4e54;
+      --accent-soft: rgba(1, 105, 111, 0.1);
+      --green: #437a22;
+      --warm: #da7101;
+      --warm-soft: rgba(218, 113, 1, 0.12);
+      --red: #a13544;
+      --red-soft: rgba(161, 53, 68, 0.12);
+      --text: #28251d;
+      --text-sub: #6d6a63;
+      --text-muted: #9f9b93;
+      --text-inverse: #f9f8f4;
+      --separator-lt: rgba(40, 37, 29, 0.08);
+      --separator: rgba(40, 37, 29, 0.16);
+    }
+
+    .dark {
+      --bg: #171614;
+      --bg-accent: radial-gradient(circle at top, rgba(79, 152, 163, 0.16), transparent 42%), linear-gradient(180deg, rgba(24,24,22,0.85), rgba(23,22,20,0.98));
+      --surface: rgba(28, 27, 25, 0.84);
+      --surface-2: rgba(33, 32, 29, 0.94);
+      --surface-3: rgba(38, 37, 34, 0.76);
+      --border: rgba(205, 204, 202, 0.1);
+      --border-strong: rgba(79, 152, 163, 0.22);
+      --accent: #4f98a3;
+      --accent-strong: #7db8c1;
+      --accent-soft: rgba(79, 152, 163, 0.14);
+      --green: #6daa45;
+      --warm: #fdab43;
+      --warm-soft: rgba(253, 171, 67, 0.14);
+      --red: #dd6974;
+      --red-soft: rgba(221, 105, 116, 0.14);
+      --text: #f0ede7;
+      --text-sub: #c0bbb2;
+      --text-muted: #8a857d;
+      --text-inverse: #171614;
+      --separator-lt: rgba(240, 237, 231, 0.08);
+      --separator: rgba(240, 237, 231, 0.14);
+      --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.22);
+      --shadow-md: 0 18px 48px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.4);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not(.light) {
+        --bg: #171614;
+        --bg-accent: radial-gradient(circle at top, rgba(79, 152, 163, 0.16), transparent 42%), linear-gradient(180deg, rgba(24,24,22,0.85), rgba(23,22,20,0.98));
+        --surface: rgba(28, 27, 25, 0.84);
+        --surface-2: rgba(33, 32, 29, 0.94);
+        --surface-3: rgba(38, 37, 34, 0.76);
+        --border: rgba(205, 204, 202, 0.1);
+        --border-strong: rgba(79, 152, 163, 0.22);
+        --accent: #4f98a3;
+        --accent-strong: #7db8c1;
+        --accent-soft: rgba(79, 152, 163, 0.14);
+        --green: #6daa45;
+        --warm: #fdab43;
+        --warm-soft: rgba(253, 171, 67, 0.14);
+        --red: #dd6974;
+        --red-soft: rgba(221, 105, 116, 0.14);
+        --text: #f0ede7;
+        --text-sub: #c0bbb2;
+        --text-muted: #8a857d;
+        --text-inverse: #171614;
+        --separator-lt: rgba(240, 237, 231, 0.08);
+        --separator: rgba(240, 237, 231, 0.14);
+        --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.22);
+        --shadow-md: 0 18px 48px rgba(0, 0, 0, 0.3);
+        --shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      width: 100%;
+      background: var(--bg);
+      background-image: var(--bg-accent);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: var(--text-base);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+      padding-top: env(safe-area-inset-top, 0);
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    img, svg { display: block; max-width: 100%; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+    .app {
+      width: min(100%, 34rem);
+      margin: 0 auto;
+      padding: var(--space-8) var(--space-4) calc(var(--space-8) + env(safe-area-inset-bottom, 0px));
+      position: relative;
+    }
+
+    .page { display: none; }
+    .page.active { display: block; animation: fadeUp 0.35s var(--transition); }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes shake { 0%,100%{transform:translateX(0);} 20%{transform:translateX(-5px);} 40%{transform:translateX(5px);} 60%{transform:translateX(-3px);} 80%{transform:translateX(3px);} }
+    .shake { animation: shake 0.3s ease; }
+
+    .theme-btn {
+      position: fixed;
+      top: calc(18px + env(safe-area-inset-top, 0px));
+      right: 18px;
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-full);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-sub);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      transition: transform var(--transition), background var(--transition), border-color var(--transition), color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .theme-btn:hover { transform: translateY(-1px); color: var(--accent); }
+    .theme-btn:active { transform: scale(0.96); }
+
+    .page-header {
+      text-align: center;
+      padding: clamp(3.75rem, 10vw, 5.5rem) 0 var(--space-6);
+      display: grid;
+      gap: var(--space-3);
+      justify-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0.45rem 0.85rem;
+      border-radius: var(--radius-full);
+      background: var(--accent-soft);
+      border: 1px solid var(--border-strong);
+      color: var(--accent);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .page-title {
+      font-family: var(--font-display);
+      font-weight: 800;
+      letter-spacing: -0.05em;
+      line-height: 0.98;
+      color: var(--text);
+      text-wrap: balance;
+    }
+    .page-title--input { font-size: clamp(2.6rem, 9vw, 4rem); }
+    .page-title--results { font-size: clamp(2.15rem, 8vw, 3.25rem); }
+    .page-subtitle {
+      font-size: var(--text-sm);
+      color: var(--text-sub);
+      max-width: 34ch;
+    }
+
+    .hint-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-top: var(--space-2);
+      padding: 0.45rem 0.65rem 0.45rem 0.85rem;
+      border-radius: var(--radius-full);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .hint-label {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-sub);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .hint-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-full);
+      background: var(--accent);
+      border: none;
+      color: var(--text-inverse);
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform var(--transition), opacity var(--transition), background var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hint-btn:hover { background: var(--accent-strong); }
+    .hint-btn:active { opacity: 0.82; transform: scale(0.94); }
+
+    .section { margin-bottom: var(--space-6); }
+    .section-header {
+      font-size: var(--text-xs);
+      font-weight: 800;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 0 var(--space-2) var(--space-3);
+    }
+    .section-header--short { color: var(--accent); }
+    .section-header--long { color: var(--warm); }
+
+    .field-list {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .field-list--short { border-color: var(--border-strong); }
+    .field-list--long { border-color: rgba(218, 113, 1, 0.18); }
+
+    .field, .result-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.15rem;
+      gap: var(--space-4);
+      border-bottom: 1px solid var(--separator-lt);
+      min-height: 72px;
+    }
+    .field:last-child, .result-row:last-child { border-bottom: none; }
+    .field-label, .result-label {
+      font-size: 0.98rem;
+      color: var(--text);
+      flex: 1;
+      min-width: 0;
+      line-height: 1.4;
+    }
+
+    .field-input {
+      width: 92px;
+      flex-shrink: 0;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.8rem 0.7rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      outline: none;
+      text-align: center;
+      transition: border-color var(--transition), box-shadow var(--transition), background var(--transition), transform var(--transition);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .field-input::placeholder { color: var(--text-muted); }
+    .field-input:focus {
+      border-color: var(--accent);
+      background: var(--surface-2);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+    .field-input.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 4px var(--red-soft);
+    }
+    .field-input::-webkit-outer-spin-button,
+    .field-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .field-input[type=number] { -moz-appearance: textfield; }
+
+    .toggle-group {
+      display: inline-flex;
+      gap: var(--space-1);
+      flex-shrink: 0;
+      padding: 0.25rem;
+      border-radius: var(--radius-full);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+    }
+    .toggle-btn {
+      min-width: 78px;
+      padding: 0.62rem 0.95rem;
+      border-radius: var(--radius-full);
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      transition: background var(--transition), color var(--transition), transform var(--transition), box-shadow var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .toggle-btn.active {
+      background: var(--accent);
+      color: var(--text-inverse);
+      box-shadow: inset 0 -1px 0 rgba(255,255,255,0.12), 0 8px 18px rgba(1, 105, 111, 0.22);
+    }
+
+    .btn-wrap {
+      display: grid;
+      gap: var(--space-3);
+      padding-top: var(--space-2);
+    }
+    .btn-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      margin: 0.15rem 0;
+    }
+    .btn-divider::before, .btn-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--separator-lt);
+    }
+    .btn-divider span {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .submit-btn, .back-btn, .advanced-btn, .reset-btn, .copy-btn, .modal-close {
+      width: 100%;
+      min-height: 56px;
+      padding: 0.95rem 1rem;
+      border-radius: var(--radius-lg);
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 750;
+      border: 1px solid transparent;
+      transition: transform var(--transition), opacity var(--transition), background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .submit-btn {
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      color: var(--text-inverse);
+      box-shadow: 0 18px 30px rgba(1, 105, 111, 0.24);
+    }
+    .submit-btn:hover { transform: translateY(-1px); }
+    .submit-btn:active { opacity: 0.9; transform: scale(0.985); }
+    .submit-btn.success { background: var(--green); box-shadow: 0 18px 30px rgba(67, 122, 34, 0.24); }
+
+    .advanced-btn, .back-btn, .reset-btn, .copy-btn {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .advanced-btn:hover, .back-btn:hover, .reset-btn:hover, .copy-btn:hover {
+      transform: translateY(-1px);
+      border-color: var(--border-strong);
+    }
+    .advanced-btn { color: var(--accent); }
+    .reset-btn { color: var(--red); border-color: rgba(161, 53, 68, 0.22); }
+    .copy-btn.copied { color: var(--green); border-color: rgba(67, 122, 34, 0.28); }
+    .advanced-btn:active, .back-btn:active, .reset-btn:active, .copy-btn:active { transform: scale(0.985); }
+
+    .result-value, .distance-tag {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+    .result-row {
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    .result-row.visible { opacity: 1; transform: translateY(0); }
+
+    .total-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.1rem 1.2rem;
+      background: linear-gradient(180deg, var(--surface-2), var(--surface));
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-xl);
+      margin-top: var(--space-4);
+      box-shadow: var(--shadow-lg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+    }
+    .total-label {
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .total-value {
+      font-family: var(--font-display);
+      font-size: clamp(1.35rem, 2vw, 1.6rem);
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: -0.04em;
+    }
+
+    .page-footer {
+      text-align: center;
+      padding: var(--space-8) 0 calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+      display: grid;
+      gap: var(--space-2);
+    }
+    .full-name {
+      font-size: var(--text-xs);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .creator {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: var(--space-4);
+      margin-top: var(--space-2);
+      flex-wrap: wrap;
+    }
+    .footer-link {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--accent);
+      background: none;
+      border: none;
+      padding: 0;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 12, 14, 0.5);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: var(--space-6);
+      overflow-y: auto;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius-xl) + 0.2rem);
+      padding: var(--space-6);
+      width: 100%;
+      max-width: 420px;
+      animation: fadeUp 0.25s ease;
+      margin: auto;
+      box-shadow: var(--shadow-lg);
+    }
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: var(--space-4);
+    }
+    .modal-section-title {
+      font-size: var(--text-xs);
+      font-weight: 800;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin: var(--space-5) 0 var(--space-3);
+    }
+    .modal-section-title--first { margin-top: 0; }
+    .modal-item { display: flex; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .modal-item--last { margin-bottom: var(--space-6); }
+    .modal-icon { font-size: 1.15rem; flex-shrink: 0; margin-top: 0.08rem; }
+    .modal-text { font-size: var(--text-sm); color: var(--text-sub); line-height: 1.55; }
+    .modal-text strong { color: var(--text); font-weight: 700; }
+    .modal-close { background: var(--accent); color: var(--text-inverse); }
+
+    .info-body { padding: 0 0 var(--space-6); }
+    .info-section {
+      margin-bottom: var(--space-4);
+      padding: var(--space-5);
+      border-radius: var(--radius-xl);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+    .info-heading {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 0.45rem;
+    }
+    .info-text, .info-list li {
+      font-size: 0.98rem;
+      color: var(--text-sub);
+      line-height: 1.65;
+    }
+    .info-list { margin-top: 0.35rem; padding-left: 0; list-style: none; }
+    .info-list li { padding-left: 1rem; position: relative; }
+    .info-list li + li { margin-top: 0.3rem; }
+    .info-list li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--accent);
+      font-weight: 800;
+    }
+    .info-divider {
+      height: 1px;
+      background: var(--separator-lt);
+      margin: var(--space-6) 0;
+    }
+    .info-byline {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 520px) {
+      .app { padding-inline: 0.9rem; }
+      .field, .result-row { padding-inline: 1rem; align-items: flex-start; }
+      .field { flex-wrap: wrap; }
+      .field-input { width: 100%; }
+      .toggle-group { width: 100%; }
+      .toggle-btn { flex: 1; min-width: 0; }
+      .theme-btn { right: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode"><span aria-hidden="true">🌙</span></button>
+  <div class="app">
+
+    <!-- ═══ INPUT PAGE ═══ -->
+    <div class="page active" id="input-page">
+      <div class="page-header">
+        <div class="eyebrow">Workflow tool</div>
+        <h1 class="page-title page-title--input">Calculator</h1>
+        <p class="page-subtitle">Night Shift Calculator</p>
+        <div class="hint-wrap">
+          <span class="hint-label">How to Use</span>
+          <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-header">Shifts</p>
+        <div class="field-list">
+          <div class="field">
+            <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
+            <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
+            <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="double-days">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+            <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label">Distance</label>
+            <div class="toggle-group">
+              <button type="button" class="toggle-btn active" id="btn-short" onclick="setDistance('SHORT')">Short</button>
+              <button type="button" class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-wrap">
+        <button type="button" class="submit-btn" id="calc-btn" onclick="submitData()">Calculate</button>
+        <div class="btn-divider"><span>or</span></div>
+        <button type="button" class="advanced-btn" onclick="showPage(pageAdv)">Advanced</button>
+        <button type="button" class="reset-btn" onclick="resetFields(FIELD_IDS, fields)">Clear All</button>
+      </div>
+
+      <div class="page-footer">
+        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
+        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <div class="footer-links">
+          <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+          <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ADVANCED PAGE ═══ -->
+    <div class="page" id="advanced-page">
+      <div class="page-header">
+        <div class="eyebrow">Combined mode</div>
+        <h1 class="page-title page-title--input">Advanced</h1>
+        <p class="page-subtitle">Short &amp; Long Distance Combined</p>
+        <div class="hint-wrap">
+          <span class="hint-label">How to Use</span>
+          <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-header section-header--short">Short Distance Shifts</p>
+        <div class="field-list field-list--short">
+          <div class="field">
+            <label class="field-label" for="adv-3pm-s">Total 3PM Shifts</label>
+            <input class="field-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="adv-10pm-s">Total 10PM Shifts</label>
+            <input class="field-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="adv-dd-s">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+            <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-header section-header--long">Long Distance Shifts</p>
+        <div class="field-list field-list--long">
+          <div class="field">
+            <label class="field-label" for="adv-3pm-l">Total 3PM Shifts</label>
+            <input class="field-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="adv-10pm-l">Total 10PM Shifts</label>
+            <input class="field-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="adv-dd-l">Amount of 10PM Cancellations (after your 3PM Shift)</label>
+            <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-wrap">
+        <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
+        <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
+        <div class="btn-divider"><span>or</span></div>
+        <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Basic</button>
+      </div>
+
+      <div class="page-footer">
+        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
+        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <div class="footer-links">
+          <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+          <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RESULTS PAGE ═══ -->
+    <div class="page" id="results-page">
+      <div class="page-header">
+        <div class="eyebrow">Allowance breakdown</div>
+        <h1 class="page-title page-title--results">Results</h1>
+        <p class="page-subtitle">Night Shift Calculator</p>
+      </div>
+
+      <div class="section">
+        <p class="section-header">Breakdown</p>
+        <div class="field-list">
+          <div class="result-row" id="row-sp1">
+            <span class="result-label">SP1</span>
+            <span class="result-value" id="r-sp1">—</span>
+          </div>
+          <div class="result-row" id="row-sp2">
+            <span class="result-label">SP2</span>
+            <span class="result-value" id="r-sp2">—</span>
+          </div>
+          <div class="result-row" id="row-meal">
+            <span class="result-label">Meal</span>
+            <span class="result-value" id="r-meal">—</span>
+          </div>
+          <div class="result-row" id="row-taxi">
+            <span class="result-label">Taxi</span>
+            <span class="result-value" id="r-taxi">—</span>
+          </div>
+          <div class="result-row" id="row-dist">
+            <span class="result-label">Distance</span>
+            <span class="distance-tag" id="r-distance">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="total-row" id="total-row" style="opacity:0;transition:opacity 0.3s ease;">
+        <span class="total-label">Total</span>
+        <span class="total-value" id="r-total">—</span>
+      </div>
+
+      <div class="btn-wrap">
+        <button type="button" class="back-btn" onclick="goBack()">← Back</button>
+        <button type="button" class="copy-btn" id="copy-btn" onclick="copyResults()">⎘ Copy Results</button>
+      </div>
+
+      <div class="page-footer">
+        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
+        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <div class="footer-links">
+          <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
+          <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ ABOUT PAGE ═══ -->
+    <div class="page" id="about-page">
+      <div class="page-header">
+        <div class="eyebrow">About the tool</div>
+        <h1 class="page-title page-title--results">About</h1>
+        <p class="page-subtitle">Night Shift Calculator</p>
+      </div>
+
+      <div class="info-body">
+        <div class="info-section">
+          <p class="info-text">Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules — and doing that mental arithmetic at the end of a long period is tedious and error-prone.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-text">The Workflow Coaching and Optimisation Co. is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest — giving you a clear breakdown and total in seconds.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">What it calculates</p>
+          <ul class="info-list">
+            <li>SP1 — your 3PM shift allowance</li>
+            <li>SP2 — your 10PM shift allowance</li>
+            <li>Meal — meal allowance based on total shifts worked</li>
+            <li>Taxi — transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+          </ul>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">Who it's for</p>
+          <p class="info-text">This app is for JFB members who need to calculate their night shift. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">How to get started</p>
+          <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Use Advanced mode if you have a mix of short and long distance shifts. Add it to your home screen for quick access between shifts.</p>
+        </div>
+        <div class="info-divider"></div>
+        <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
+      </div>
+
+      <div class="btn-wrap">
+        <button type="button" class="back-btn" onclick="goBackFromInfo()">← Back</button>
+      </div>
+
+      <div class="page-footer">
+        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
+        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+      </div>
+    </div>
+
+    <!-- ═══ DISCLAIMER PAGE ═══ -->
+    <div class="page" id="disclaimer-page">
+      <div class="page-header">
+        <div class="eyebrow">Important notes</div>
+        <h1 class="page-title page-title--results">Disclaimers</h1>
+        <p class="page-subtitle">&amp; Disclosures</p>
+      </div>
+
+      <div class="info-body">
+        <div class="info-section">
+          <p class="info-heading">Data &amp; Privacy</p>
+          <p class="info-text">This app does not collect, store, or transmit any data. All calculations are performed locally on your device and nothing you enter is saved between sessions or sent to any server. No personal information, shift data, or financial figures are recorded at any point.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">Accuracy</p>
+          <p class="info-text">This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">AI Assistance</p>
+          <p class="info-text">This app was developed with assistance from Claude, an AI assistant made by Anthropic and Perplexity Computer by Perplexity. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.</p>
+        </div>
+        <div class="info-section">
+          <p class="info-heading">Affiliation</p>
+          <p class="info-text">This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.</p>
+        </div>
+      </div>
+
+      <div class="btn-wrap">
+        <button type="button" class="back-btn" onclick="goBackFromInfo()">← Back</button>
+      </div>
+
+      <div class="page-footer">
+        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
+        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
+    <div class="modal">
+      <p class="modal-title">How to Use</p>
+
+      <p class="modal-section-title modal-section-title--first">Standard</p>
+      <div class="modal-item">
+        <span class="modal-icon">🕒</span>
+        <p class="modal-text"><strong>Total 3PM Shifts</strong> — Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
+      </div>
+      <div class="modal-item">
+        <span class="modal-icon">🕙</span>
+        <p class="modal-text"><strong>Total 10PM Shifts</strong> — Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
+      </div>
+      <div class="modal-item">
+        <span class="modal-icon">📅</span>
+        <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> — Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
+      </div>
+      <div class="modal-item">
+        <span class="modal-icon">📍</span>
+        <p class="modal-text"><strong>Distance</strong> — Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
+      </div>
+
+      <p class="modal-section-title">Advanced</p>
+      <div class="modal-item">
+        <span class="modal-icon">⚡️</span>
+        <p class="modal-text"><strong>Advanced</strong> — Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
+      </div>
+
+      <p class="modal-section-title">Install</p>
+      <div class="modal-item modal-item--last">
+        <span class="modal-icon">📲</span>
+        <p class="modal-text"><strong>Add to Home Screen</strong> — On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
+      </div>
+
+      <button type="button" class="modal-close" onclick="closeHint()">Got It</button>
+    </div>
+  </div>
+
+  <script>
+    // ─── Theme ───
+    const themeBtn = document.getElementById('theme-btn');
+    const root     = document.documentElement;
+
+    function isDark() {
+      return root.classList.contains('dark') ||
+        (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+
+    function applyTheme(dark) {
+      root.classList.toggle('dark', dark);
+      root.classList.toggle('light', !dark);
+      themeBtn.innerHTML = '<span aria-hidden="true">' + (dark ? '☀️' : '🌙') + '</span>';
+      themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    }
+
+    function toggleTheme() {
+      const dark = !isDark();
+      applyTheme(dark);
+      try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+    }
+
+    // Apply saved preference or fall back to device setting
+    (function initTheme() {
+      let saved = null;
+      try { saved = localStorage.getItem('theme'); } catch (e) {}
+      if (saved) {
+        applyTheme(saved === 'dark');
+      } else {
+        themeBtn.innerHTML = '<span aria-hidden="true">' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? '☀️' : '🌙') + '</span>';
+        themeBtn.setAttribute('aria-label', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Switch to light mode' : 'Switch to dark mode');
+      }
+    })();
+
+    // ─── Constants ───
+    const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
+    const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
+    const RESULT_ROWS   = ['row-sp1', 'row-sp2', 'row-meal', 'row-taxi', 'row-dist'];
+    const SP1_RATE      = 66.6;
+    const SP2_RATE      = 200;
+    const MEAL_RATE     = 950;
+    const TAXI_SHORT    = 950;
+    const TAXI_LONG     = 2000;
+
+    // ─── State ───
+    let distance = 'SHORT';
+    let prevPage = null;
+    let infoReturnPage = null;
+
+    // ─── Cached DOM references ───
+    const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const advFields = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
+    const rows      = RESULT_ROWS.map(id => document.getElementById(id));
+    const totalRow  = document.getElementById('total-row');
+    const pageInput      = document.getElementById('input-page');
+    const pageAdv        = document.getElementById('advanced-page');
+    const pageRes        = document.getElementById('results-page');
+    const pageAbout      = document.getElementById('about-page');
+    const pageDisclaimer = document.getElementById('disclaimer-page');
+    const pages          = [pageInput, pageAdv, pageRes, pageAbout, pageDisclaimer];
+    const btnShort       = document.getElementById('btn-short');
+    const btnLong        = document.getElementById('btn-long');
+    const calcBtn        = document.getElementById('calc-btn');
+    const advCalcBtn     = document.getElementById('adv-calc-btn');
+    const hintModal      = document.getElementById('hint-modal');
+    const copyBtn        = document.getElementById('copy-btn');
+
+    // ─── Helpers ───
+    // FIX 2: use default parameter instead of ternary map !== undefined check
+    function val(id, map = fields) { return parseFloat(map[id].value) || 0; }
+
+    function fmt(n) {
+      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    // FIX 2: same default parameter fix applied to validate
+    function validate(ids, map = fields) {
+      let valid = true;
+      ids.forEach(id => {
+        const el  = map[id];
+        const n   = parseFloat(el.value);
+        const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
+        el.classList.toggle('error', bad);
+        if (bad) {
+          el.classList.add('shake');
+          setTimeout(() => el.classList.remove('shake'), 300);
+          valid = false;
+        }
+      });
+      return valid;
+    }
+
+    function renderResults(rSP1, rSP2, rMeal, rTaxi, distLabel) {
+      results.sp1.textContent      = fmt(rSP1);
+      results.sp2.textContent      = fmt(rSP2);
+      results.meal.textContent     = fmt(rMeal);
+      results.taxi.textContent     = fmt(rTaxi);
+      results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
+      results.distance.textContent = distLabel;
+    }
+
+    // ─── Copy results to clipboard ───
+    function showCopied() {
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = '✓ Copied';
+      setTimeout(() => {
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = '⎘ Copy Results';
+      }, 2000);
+    }
+
+    // FIX 5: prepend current date to copied output
+    function copyResults() {
+      const date = new Date().toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
+      const divider = '─'.repeat(30);
+      const text = [
+        'Night Shift — ' + date,
+        '',
+        'Night Shift Results',
+        divider,
+        'SP1         ' + results.sp1.textContent,
+        'SP2         ' + results.sp2.textContent,
+        'Meal        ' + results.meal.textContent,
+        'Taxi        ' + results.taxi.textContent,
+        'Distance    ' + results.distance.textContent,
+        divider,
+        'Total       ' + results.total.textContent,
+      ].join('\n');
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(showCopied).catch(function() { fallbackCopy(text); });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    // FIX 1: only show 'Copied' feedback if execCommand actually succeeded
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        const ok = document.execCommand('copy');
+        if (ok) showCopied();
+      } catch (e) { /* silently fail */ }
+      document.body.removeChild(ta);
+    }
+
+    // ─── Reset result rows so they re-animate next time ───
+    function resetResultRows() {
+      rows.forEach(function(r) { r.classList.remove('visible'); });
+      totalRow.style.opacity = '0';
+    }
+
+    // Stagger result rows into view
+    function animateResults() {
+      rows.forEach(function(r, i) {
+        setTimeout(function() { r.classList.add('visible'); }, i * 60);
+      });
+      setTimeout(function() { totalRow.style.opacity = '1'; }, rows.length * 60 + 60);
+    }
+
+    // Success flash on Calculate button then navigate
+    function flashAndNavigate(btn, targetPage) {
+      btn.classList.add('success');
+      setTimeout(function() {
+        btn.classList.remove('success');
+        resetResultRows();
+        showPage(targetPage);
+        setTimeout(animateResults, 50);
+      }, 400);
+    }
+
+    // ─── Clear / Reset ───
+    // FIX 6: require confirmation before clearing fields
+    function resetFields(ids, map) {
+      if (!confirm('Clear all fields?')) return;
+      ids.forEach(function(id) {
+        var el = (map !== undefined ? map : fields)[id];
+        el.value = '';
+        el.classList.remove('error');
+      });
+    }
+
+    // ─── Hint modal ───
+    function openHint()  { hintModal.classList.add('open'); }
+    function closeHint() { hintModal.classList.remove('open'); }
+    function closeHintOnOverlay(e) { if (e.target === hintModal) closeHint(); }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && hintModal.classList.contains('open')) {
+        closeHint();
+      }
+    });
+
+    // ─── Distance toggle ───
+    function setDistance(v) {
+      distance = v;
+      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
+      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
+    }
+
+    // ─── Standard submit ───
+    // FIX 3: validate cancellations vs shifts
+    // FIX 4: var → const inside submitData
+    function submitData() {
+      if (!validate(FIELD_IDS)) return;
+
+      const all3       = val('total-3pm');
+      const all10      = val('total-10pm');
+      const doubleDays = val('double-days');
+
+      if (doubleDays > all3) {
+        alert('Cancellations cannot exceed 3PM shifts');
+        return;
+      }
+
+      const rSP1  = all3  * SP1_RATE;
+      const rSP2  = all10 * SP2_RATE;
+      const rMeal = (all3 + all10) * MEAL_RATE;
+      const rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
+
+      renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
+      prevPage = pageInput;
+      flashAndNavigate(calcBtn, pageRes);
+    }
+
+    // ─── Advanced submit ───
+    // FIX 3: validate cancellations vs shifts for each distance
+    // FIX 4: var → const inside submitAdvanced
+    function submitAdvanced() {
+      if (!validate(ADV_FIELD_IDS, advFields)) return;
+
+      const s3  = val('adv-3pm-s', advFields);
+      const s10 = val('adv-10pm-s', advFields);
+      const sdd = val('adv-dd-s',  advFields);
+      const l3  = val('adv-3pm-l', advFields);
+      const l10 = val('adv-10pm-l', advFields);
+      const ldd = val('adv-dd-l',  advFields);
+
+      if (sdd > s3) {
+        alert('Short distance cancellations cannot exceed 3PM shifts');
+        return;
+      }
+      if (ldd > l3) {
+        alert('Long distance cancellations cannot exceed 3PM shifts');
+        return;
+      }
+
+      const rSP1  = (s3  + l3)  * SP1_RATE;
+      const rSP2  = (s10 + l10) * SP2_RATE;
+      const rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
+      const rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
+                  + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
+
+      renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
+      prevPage = pageAdv;
+      flashAndNavigate(advCalcBtn, pageRes);
+    }
+
+    // ─── Navigation ───
+    function getCurrentActivePage() {
+      for (var i = 0; i < pages.length; i++) {
+        if (pages[i].classList.contains('active')) return pages[i];
+      }
+      return pageInput;
+    }
+
+    function goBack() { showPage(prevPage || pageInput); }
+
+    function goBackFromInfo() {
+      showPage(infoReturnPage || pageInput);
+    }
+
+    function showPage(el) {
+      // Track which page we came from for About/Disclaimer back navigation
+      if (el === pageAbout || el === pageDisclaimer) {
+        infoReturnPage = getCurrentActivePage();
+      }
+      pages.forEach(function(p) { p.classList.remove('active'); });
+      el.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    // ─── Input clamping + Enter key navigation ───
+    var standardInputs = FIELD_IDS.map(function(id) { return fields[id]; });
+    var advancedInputs = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
+
+    function attachInputHandlers(inputs, submitFn) {
+      inputs.forEach(function(el, i) {
+        el.addEventListener('input', function() {
+          var n = parseFloat(el.value);
+          el.classList.remove('error');
+          if (!isNaN(n)) {
+            if (n > 99) el.value = 99;
+            if (n < 0)  el.value = 0;
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          var next = inputs[i + 1];
+          if (next) {
+            next.focus();
+          } else {
+            el.blur();
+            submitFn();
+          }
+        });
+      });
+    }
+
+    attachInputHandlers(standardInputs, submitData);
+    attachInputHandlers(advancedInputs, submitAdvanced);
+
+    // ─── Service worker registration ───
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function(err) {
+        console.warn('SW registration failed:', err);
+      });
+    }
+  </script>
+</body>
+</html>
