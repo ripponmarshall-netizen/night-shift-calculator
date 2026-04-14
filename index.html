@@ -573,7 +573,7 @@
     .info-list li { padding-left: 1rem; position: relative; }
     .info-list li + li { margin-top: 0.3rem; }
     .info-list li::before {
-      content: '•';
+      content: '\2022';
       position: absolute;
       left: 0;
       color: var(--accent);
@@ -607,10 +607,10 @@
   </style>
 </head>
 <body>
-  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode"><span aria-hidden="true">🌙</span></button>
+  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode"><span aria-hidden="true">&#127769;</span></button>
   <div class="app">
 
-    <!-- ═══ INPUT PAGE ═══ -->
+    <!-- INPUT PAGE -->
     <div class="page active" id="input-page">
       <div class="page-header">
         <div class="eyebrow">Workflow tool</div>
@@ -656,7 +656,7 @@
 
       <div class="page-footer">
         <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
         <div class="footer-links">
           <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
           <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
@@ -664,7 +664,7 @@
       </div>
     </div>
 
-    <!-- ═══ ADVANCED PAGE ═══ -->
+    <!-- ADVANCED PAGE -->
     <div class="page" id="advanced-page">
       <div class="page-header">
         <div class="eyebrow">Combined mode</div>
@@ -716,12 +716,12 @@
         <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
         <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
         <div class="btn-divider"><span>or</span></div>
-        <button type="button" class="advanced-btn" onclick="showPage(pageInput)">← Back to Basic</button>
+        <button type="button" class="advanced-btn" onclick="showPage(pageInput)">&#8592; Back to Basic</button>
       </div>
 
       <div class="page-footer">
         <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
         <div class="footer-links">
           <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
           <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
@@ -729,7 +729,7 @@
       </div>
     </div>
 
-    <!-- ═══ RESULTS PAGE ═══ -->
+    <!-- RESULTS PAGE -->
     <div class="page" id="results-page">
       <div class="page-header">
         <div class="eyebrow">Allowance breakdown</div>
@@ -742,40 +742,40 @@
         <div class="field-list">
           <div class="result-row" id="row-sp1">
             <span class="result-label">SP1</span>
-            <span class="result-value" id="r-sp1">—</span>
+            <span class="result-value" id="r-sp1">&#8212;</span>
           </div>
           <div class="result-row" id="row-sp2">
             <span class="result-label">SP2</span>
-            <span class="result-value" id="r-sp2">—</span>
+            <span class="result-value" id="r-sp2">&#8212;</span>
           </div>
           <div class="result-row" id="row-meal">
             <span class="result-label">Meal</span>
-            <span class="result-value" id="r-meal">—</span>
+            <span class="result-value" id="r-meal">&#8212;</span>
           </div>
           <div class="result-row" id="row-taxi">
             <span class="result-label">Taxi</span>
-            <span class="result-value" id="r-taxi">—</span>
+            <span class="result-value" id="r-taxi">&#8212;</span>
           </div>
           <div class="result-row" id="row-dist">
             <span class="result-label">Distance</span>
-            <span class="distance-tag" id="r-distance">—</span>
+            <span class="distance-tag" id="r-distance">&#8212;</span>
           </div>
         </div>
       </div>
 
       <div class="total-row" id="total-row" style="opacity:0;transition:opacity 0.3s ease;">
         <span class="total-label">Total</span>
-        <span class="total-value" id="r-total">—</span>
+        <span class="total-value" id="r-total">&#8212;</span>
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="back-btn" onclick="goBack()">← Back</button>
-        <button type="button" class="copy-btn" id="copy-btn" onclick="copyResults()">⎘ Copy Results</button>
+        <button type="button" class="back-btn" onclick="goBack()">&#8592; Back</button>
+        <button type="button" class="copy-btn" id="copy-btn" onclick="copyResults()">&#9112; Copy Results</button>
       </div>
 
       <div class="page-footer">
         <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
         <div class="footer-links">
           <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
           <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
@@ -783,7 +783,7 @@
       </div>
     </div>
 
-    <!-- ═══ ABOUT PAGE ═══ -->
+    <!-- ABOUT PAGE -->
     <div class="page" id="about-page">
       <div class="page-header">
         <div class="eyebrow">About the tool</div>
@@ -793,18 +793,18 @@
 
       <div class="info-body">
         <div class="info-section">
-          <p class="info-text">Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules — and doing that mental arithmetic at the end of a long period is tedious and error-prone.</p>
+          <p class="info-text">Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules &#8212; and doing that mental arithmetic at the end of a long period is tedious and error-prone.</p>
         </div>
         <div class="info-section">
-          <p class="info-text">The Workflow Coaching and Optimisation Co. is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest — giving you a clear breakdown and total in seconds.</p>
+          <p class="info-text">The Workflow Coaching and Optimisation Co. is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest &#8212; giving you a clear breakdown and total in seconds.</p>
         </div>
         <div class="info-section">
           <p class="info-heading">What it calculates</p>
           <ul class="info-list">
-            <li>SP1 — your 3PM shift allowance</li>
-            <li>SP2 — your 10PM shift allowance</li>
-            <li>Meal — meal allowance based on total shifts worked</li>
-            <li>Taxi — transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+            <li>SP1 &#8212; your 3PM shift allowance</li>
+            <li>SP2 &#8212; your 10PM shift allowance</li>
+            <li>Meal &#8212; meal allowance based on total shifts worked</li>
+            <li>Taxi &#8212; transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
           </ul>
         </div>
         <div class="info-section">
@@ -820,16 +820,16 @@
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="back-btn" onclick="goBackFromInfo()">← Back</button>
+        <button type="button" class="back-btn" onclick="goBackFromInfo()">&#8592; Back</button>
       </div>
 
       <div class="page-footer">
         <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
       </div>
     </div>
 
-    <!-- ═══ DISCLAIMER PAGE ═══ -->
+    <!-- DISCLAIMER PAGE -->
     <div class="page" id="disclaimer-page">
       <div class="page-header">
         <div class="eyebrow">Important notes</div>
@@ -857,58 +857,69 @@
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="back-btn" onclick="goBackFromInfo()">← Back</button>
+        <button type="button" class="back-btn" onclick="goBackFromInfo()">&#8592; Back</button>
       </div>
 
       <div class="page-footer">
         <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall — Portland Division</p>
+        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
       </div>
     </div>
 
   </div>
 
+  <!-- How to Use modal -->
   <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
     <div class="modal">
       <p class="modal-title">How to Use</p>
 
       <p class="modal-section-title modal-section-title--first">Standard</p>
       <div class="modal-item">
-        <span class="modal-icon">🕒</span>
-        <p class="modal-text"><strong>Total 3PM Shifts</strong> — Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
+        <span class="modal-icon">&#128339;</span>
+        <p class="modal-text"><strong>Total 3PM Shifts</strong> &#8212; Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
       </div>
       <div class="modal-item">
-        <span class="modal-icon">🕙</span>
-        <p class="modal-text"><strong>Total 10PM Shifts</strong> — Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
+        <span class="modal-icon">&#128345;</span>
+        <p class="modal-text"><strong>Total 10PM Shifts</strong> &#8212; Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
       </div>
       <div class="modal-item">
-        <span class="modal-icon">📅</span>
-        <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> — Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
+        <span class="modal-icon">&#128197;</span>
+        <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> &#8212; Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
       </div>
       <div class="modal-item">
-        <span class="modal-icon">📍</span>
-        <p class="modal-text"><strong>Distance</strong> — Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
+        <span class="modal-icon">&#128205;</span>
+        <p class="modal-text"><strong>Distance</strong> &#8212; Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
       </div>
 
       <p class="modal-section-title">Advanced</p>
       <div class="modal-item">
-        <span class="modal-icon">⚡️</span>
-        <p class="modal-text"><strong>Advanced</strong> — Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
+        <span class="modal-icon">&#9889;</span>
+        <p class="modal-text"><strong>Advanced</strong> &#8212; Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
       </div>
 
       <p class="modal-section-title">Install</p>
       <div class="modal-item modal-item--last">
-        <span class="modal-icon">📲</span>
-        <p class="modal-text"><strong>Add to Home Screen</strong> — On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
+        <span class="modal-icon">&#128242;</span>
+        <p class="modal-text"><strong>Add to Home Screen</strong> &#8212; On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
       </div>
 
       <button type="button" class="modal-close" onclick="closeHint()">Got It</button>
     </div>
   </div>
 
+  <!-- Alert / Confirm modal (replaces native dialogs) -->
+  <div class="modal-overlay" id="alert-modal" onclick="closeAlertOnOverlay(event)">
+    <div class="modal">
+      <p class="modal-title" id="alert-title">Notice</p>
+      <p class="modal-text" id="alert-message" style="margin-bottom: var(--space-5);"></p>
+      <div id="alert-actions" class="btn-wrap" style="padding-top: 0;"></div>
+    </div>
+  </div>
+
   <script>
     // ─── Theme ───
     const themeBtn = document.getElementById('theme-btn');
+    const themeMetaTag = document.querySelector('meta[name="theme-color"]');
     const root     = document.documentElement;
 
     function isDark() {
@@ -916,11 +927,16 @@
         (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
 
+    function updateThemeColor() {
+      if (themeMetaTag) themeMetaTag.content = isDark() ? '#171614' : '#01696f';
+    }
+
     function applyTheme(dark) {
       root.classList.toggle('dark', dark);
       root.classList.toggle('light', !dark);
-      themeBtn.innerHTML = '<span aria-hidden="true">' + (dark ? '☀️' : '🌙') + '</span>';
+      themeBtn.innerHTML = '<span aria-hidden="true">' + (dark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
       themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      updateThemeColor();
     }
 
     function toggleTheme() {
@@ -936,9 +952,23 @@
       if (saved) {
         applyTheme(saved === 'dark');
       } else {
-        themeBtn.innerHTML = '<span aria-hidden="true">' + (window.matchMedia('(prefers-color-scheme: dark)').matches ? '☀️' : '🌙') + '</span>';
-        themeBtn.setAttribute('aria-label', window.matchMedia('(prefers-color-scheme: dark)').matches ? 'Switch to light mode' : 'Switch to dark mode');
+        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        themeBtn.innerHTML = '<span aria-hidden="true">' + (systemDark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
+        themeBtn.setAttribute('aria-label', systemDark ? 'Switch to light mode' : 'Switch to dark mode');
+        updateThemeColor();
       }
+
+      // Listen for system preference changes (auto mode)
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
+        let pref = null;
+        try { pref = localStorage.getItem('theme'); } catch (e) {}
+        if (!pref) {
+          const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          themeBtn.innerHTML = '<span aria-hidden="true">' + (systemDark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
+          themeBtn.setAttribute('aria-label', systemDark ? 'Switch to light mode' : 'Switch to dark mode');
+          updateThemeColor();
+        }
+      });
     })();
 
     // ─── Constants ───
@@ -955,6 +985,7 @@
     let distance = 'SHORT';
     let prevPage = null;
     let infoReturnPage = null;
+    let confirmCallback = null;
 
     // ─── Cached DOM references ───
     const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
@@ -973,27 +1004,29 @@
     const calcBtn        = document.getElementById('calc-btn');
     const advCalcBtn     = document.getElementById('adv-calc-btn');
     const hintModal      = document.getElementById('hint-modal');
+    const alertModal     = document.getElementById('alert-modal');
     const copyBtn        = document.getElementById('copy-btn');
 
     // ─── Helpers ───
-    // FIX 2: use default parameter instead of ternary map !== undefined check
-    function val(id, map = fields) { return parseFloat(map[id].value) || 0; }
+    function val(id, map) { return parseFloat((map || fields)[id].value) || 0; }
+
+    function round2(n) { return Math.round(n * 100) / 100; }
 
     function fmt(n) {
       return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // FIX 2: same default parameter fix applied to validate
-    function validate(ids, map = fields) {
+    function validate(ids, map) {
+      const m = map || fields;
       let valid = true;
-      ids.forEach(id => {
-        const el  = map[id];
+      ids.forEach(function(id) {
+        const el  = m[id];
         const n   = parseFloat(el.value);
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
         if (bad) {
           el.classList.add('shake');
-          setTimeout(() => el.classList.remove('shake'), 300);
+          setTimeout(function() { el.classList.remove('shake'); }, 300);
           valid = false;
         }
       });
@@ -1005,26 +1038,74 @@
       results.sp2.textContent      = fmt(rSP2);
       results.meal.textContent     = fmt(rMeal);
       results.taxi.textContent     = fmt(rTaxi);
-      results.total.textContent    = fmt(rSP1 + rSP2 + rMeal + rTaxi);
+      results.total.textContent    = fmt(round2(rSP1 + rSP2 + rMeal + rTaxi));
       results.distance.textContent = distLabel;
     }
+
+    // ─── Custom modal (replaces native alert / confirm) ───
+    function showAlert(message) {
+      document.getElementById('alert-title').textContent = 'Notice';
+      document.getElementById('alert-message').textContent = message;
+      const actions = document.getElementById('alert-actions');
+      actions.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'modal-close';
+      btn.textContent = 'OK';
+      btn.onclick = closeAlert;
+      actions.appendChild(btn);
+      alertModal.classList.add('open');
+    }
+
+    function showConfirm(message, callback) {
+      document.getElementById('alert-title').textContent = 'Confirm';
+      document.getElementById('alert-message').textContent = message;
+      confirmCallback = callback;
+      const actions = document.getElementById('alert-actions');
+      actions.innerHTML = '';
+
+      const yesBtn = document.createElement('button');
+      yesBtn.type = 'button';
+      yesBtn.className = 'modal-close';
+      yesBtn.textContent = 'Clear All';
+      yesBtn.onclick = function() {
+        closeAlert();
+        if (confirmCallback) confirmCallback();
+        confirmCallback = null;
+      };
+      actions.appendChild(yesBtn);
+
+      const noBtn = document.createElement('button');
+      noBtn.type = 'button';
+      noBtn.className = 'back-btn';
+      noBtn.textContent = 'Cancel';
+      noBtn.onclick = function() {
+        closeAlert();
+        confirmCallback = null;
+      };
+      actions.appendChild(noBtn);
+
+      alertModal.classList.add('open');
+    }
+
+    function closeAlert() { alertModal.classList.remove('open'); }
+    function closeAlertOnOverlay(e) { if (e.target === alertModal) closeAlert(); }
 
     // ─── Copy results to clipboard ───
     function showCopied() {
       copyBtn.classList.add('copied');
-      copyBtn.textContent = '✓ Copied';
-      setTimeout(() => {
+      copyBtn.textContent = '\u2713 Copied';
+      setTimeout(function() {
         copyBtn.classList.remove('copied');
-        copyBtn.textContent = '⎘ Copy Results';
+        copyBtn.textContent = '\u2398 Copy Results';
       }, 2000);
     }
 
-    // FIX 5: prepend current date to copied output
     function copyResults() {
       const date = new Date().toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
-      const divider = '─'.repeat(30);
+      const divider = '\u2500'.repeat(30);
       const text = [
-        'Night Shift — ' + date,
+        'Night Shift \u2014 ' + date,
         '',
         'Night Shift Results',
         divider,
@@ -1044,9 +1125,8 @@
       }
     }
 
-    // FIX 1: only show 'Copied' feedback if execCommand actually succeeded
     function fallbackCopy(text) {
-      var ta = document.createElement('textarea');
+      const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
       document.body.appendChild(ta);
@@ -1084,13 +1164,13 @@
     }
 
     // ─── Clear / Reset ───
-    // FIX 6: require confirmation before clearing fields
     function resetFields(ids, map) {
-      if (!confirm('Clear all fields?')) return;
-      ids.forEach(function(id) {
-        var el = (map !== undefined ? map : fields)[id];
-        el.value = '';
-        el.classList.remove('error');
+      showConfirm('Clear all fields?', function() {
+        ids.forEach(function(id) {
+          const el = map[id];
+          el.value = '';
+          el.classList.remove('error');
+        });
       });
     }
 
@@ -1099,10 +1179,11 @@
     function closeHint() { hintModal.classList.remove('open'); }
     function closeHintOnOverlay(e) { if (e.target === hintModal) closeHint(); }
 
-    // Close modal on Escape key
+    // Close modals on Escape key
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && hintModal.classList.contains('open')) {
-        closeHint();
+      if (e.key === 'Escape') {
+        if (alertModal.classList.contains('open')) closeAlert();
+        if (hintModal.classList.contains('open')) closeHint();
       }
     });
 
@@ -1114,8 +1195,6 @@
     }
 
     // ─── Standard submit ───
-    // FIX 3: validate cancellations vs shifts
-    // FIX 4: var → const inside submitData
     function submitData() {
       if (!validate(FIELD_IDS)) return;
 
@@ -1124,14 +1203,14 @@
       const doubleDays = val('double-days');
 
       if (doubleDays > all3) {
-        alert('Cancellations cannot exceed 3PM shifts');
+        showAlert('Cancellations cannot exceed 3PM shifts.');
         return;
       }
 
-      const rSP1  = all3  * SP1_RATE;
-      const rSP2  = all10 * SP2_RATE;
-      const rMeal = (all3 + all10) * MEAL_RATE;
-      const rTaxi = Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG);
+      const rSP1  = round2(all3  * SP1_RATE);
+      const rSP2  = round2(all10 * SP2_RATE);
+      const rMeal = round2((all3 + all10) * MEAL_RATE);
+      const rTaxi = round2(Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
       prevPage = pageInput;
@@ -1139,8 +1218,6 @@
     }
 
     // ─── Advanced submit ───
-    // FIX 3: validate cancellations vs shifts for each distance
-    // FIX 4: var → const inside submitAdvanced
     function submitAdvanced() {
       if (!validate(ADV_FIELD_IDS, advFields)) return;
 
@@ -1152,19 +1229,21 @@
       const ldd = val('adv-dd-l',  advFields);
 
       if (sdd > s3) {
-        alert('Short distance cancellations cannot exceed 3PM shifts');
+        showAlert('Short distance cancellations cannot exceed short distance 3PM shifts.');
         return;
       }
       if (ldd > l3) {
-        alert('Long distance cancellations cannot exceed 3PM shifts');
+        showAlert('Long distance cancellations cannot exceed long distance 3PM shifts.');
         return;
       }
 
-      const rSP1  = (s3  + l3)  * SP1_RATE;
-      const rSP2  = (s10 + l10) * SP2_RATE;
-      const rMeal = (s3 + l3 + s10 + l10) * MEAL_RATE;
-      const rTaxi = Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT
-                  + Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG;
+      const rSP1  = round2((s3  + l3)  * SP1_RATE);
+      const rSP2  = round2((s10 + l10) * SP2_RATE);
+      const rMeal = round2((s3 + l3 + s10 + l10) * MEAL_RATE);
+      const rTaxi = round2(
+        Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT +
+        Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG
+      );
 
       renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
       prevPage = pageAdv;
@@ -1173,7 +1252,7 @@
 
     // ─── Navigation ───
     function getCurrentActivePage() {
-      for (var i = 0; i < pages.length; i++) {
+      for (let i = 0; i < pages.length; i++) {
         if (pages[i].classList.contains('active')) return pages[i];
       }
       return pageInput;
@@ -1186,7 +1265,6 @@
     }
 
     function showPage(el) {
-      // Track which page we came from for About/Disclaimer back navigation
       if (el === pageAbout || el === pageDisclaimer) {
         infoReturnPage = getCurrentActivePage();
       }
@@ -1196,13 +1274,13 @@
     }
 
     // ─── Input clamping + Enter key navigation ───
-    var standardInputs = FIELD_IDS.map(function(id) { return fields[id]; });
-    var advancedInputs = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
+    const standardInputs = FIELD_IDS.map(function(id) { return fields[id]; });
+    const advancedInputs = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
 
     function attachInputHandlers(inputs, submitFn) {
       inputs.forEach(function(el, i) {
         el.addEventListener('input', function() {
-          var n = parseFloat(el.value);
+          const n = parseFloat(el.value);
           el.classList.remove('error');
           if (!isNaN(n)) {
             if (n > 99) el.value = 99;
@@ -1212,7 +1290,7 @@
         el.addEventListener('keydown', function(e) {
           if (e.key !== 'Enter') return;
           e.preventDefault();
-          var next = inputs[i + 1];
+          const next = inputs[i + 1];
           if (next) {
             next.focus();
           } else {
