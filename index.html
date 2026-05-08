@@ -40,6 +40,18 @@
       --shadow-sm: 0 6px 18px rgba(24, 32, 38, 0.06);
       --shadow-md: 0 16px 40px rgba(24, 32, 38, 0.1);
       --shadow-lg: 0 24px 60px rgba(24, 32, 38, 0.14);
+      --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.55), 0 22px 60px rgba(24,32,38,0.10);
+      --ring-warning: 0 0 0 4px rgba(218, 113, 1, 0.25);
+      --warn: #b86200;
+      --warn-soft: rgba(218, 113, 1, 0.14);
+      --motion-fast: 140ms;
+      --motion-snap: 220ms;
+      --motion-stage: 380ms;
+      --ease-soft: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+      --segmented-bg: rgba(40, 37, 29, 0.06);
+      --segmented-thumb: rgba(255, 255, 255, 0.96);
       --font-display: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       --font-body: 'Instrument Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       --bg: #f7f6f2;
@@ -90,6 +102,12 @@
       --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.22);
       --shadow-md: 0 18px 48px rgba(0, 0, 0, 0.3);
       --shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.4);
+      --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.05), 0 22px 60px rgba(0,0,0,0.36);
+      --warn: #fdab43;
+      --warn-soft: rgba(253, 171, 67, 0.16);
+      --ring-warning: 0 0 0 4px rgba(253, 171, 67, 0.28);
+      --segmented-bg: rgba(255, 255, 255, 0.04);
+      --segmented-thumb: rgba(60, 58, 54, 0.95);
     }
 
     @media (prefers-color-scheme: dark) {
@@ -118,6 +136,12 @@
         --shadow-sm: 0 6px 18px rgba(0, 0, 0, 0.22);
         --shadow-md: 0 18px 48px rgba(0, 0, 0, 0.3);
         --shadow-lg: 0 28px 72px rgba(0, 0, 0, 0.4);
+        --shadow-glass: inset 0 1px 0 rgba(255,255,255,0.05), 0 22px 60px rgba(0,0,0,0.36);
+        --warn: #fdab43;
+        --warn-soft: rgba(253, 171, 67, 0.16);
+        --ring-warning: 0 0 0 4px rgba(253, 171, 67, 0.28);
+        --segmented-bg: rgba(255, 255, 255, 0.04);
+        --segmented-thumb: rgba(60, 58, 54, 0.95);
       }
     }
 
@@ -765,6 +789,278 @@
     }
     .day-modal-actions { display: grid; gap: var(--space-2); }
 
+    .day-modal-distance {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 0.55rem 1rem 0.65rem;
+      margin-top: -2px;
+      border-radius: 0 0 var(--radius-md) var(--radius-md);
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-top: none;
+      font-size: var(--text-xs);
+      color: var(--text-sub);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      animation: slideDown var(--motion-snap) var(--ease-soft);
+    }
+    .day-modal-distance .segmented-control { width: auto; min-width: 144px; }
+
+    /* ─── Segmented control (iOS) ─── */
+    .segmented-control {
+      position: relative;
+      display: flex;
+      width: 100%;
+      padding: 4px;
+      border-radius: var(--radius-full);
+      background: var(--segmented-bg);
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 rgba(0,0,0,0.04);
+      isolation: isolate;
+    }
+    .segmented-control--inline { padding: 3px; }
+    .segmented-thumb {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      height: calc(100% - 8px);
+      border-radius: var(--radius-full);
+      background: var(--segmented-thumb);
+      box-shadow: 0 1px 2px rgba(24,32,38,0.05), 0 4px 14px rgba(24,32,38,0.10);
+      transition: transform var(--motion-snap) var(--ease-spring), width var(--motion-snap) var(--ease-spring);
+      z-index: 0;
+    }
+    .segmented-control--inline .segmented-thumb { top: 3px; height: calc(100% - 6px); }
+    .segmented-option {
+      flex: 1;
+      position: relative;
+      z-index: 1;
+      padding: 0.62rem 0.95rem;
+      background: transparent;
+      border: none;
+      color: var(--text-sub);
+      font-family: var(--font-display);
+      font-size: var(--text-sm);
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      transition: color var(--motion-snap) var(--ease-soft);
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+    .segmented-control--inline .segmented-option {
+      padding: 0.42rem 0.7rem;
+      font-size: var(--text-xs);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .segmented-option[aria-selected="true"] {
+      color: var(--text);
+    }
+
+    /* ─── Calculator page mode blocks ─── */
+    .mode-toggle-wrap { margin-bottom: var(--space-5); }
+    .calc-mode-block {
+      display: none;
+      animation: fadeUp var(--motion-stage) var(--ease-soft);
+    }
+    .calc-mode-block.active { display: block; }
+
+    /* Multi-column field row inside Advanced */
+    .field--triple {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: var(--space-2);
+      align-items: stretch;
+    }
+    .field--triple .mini-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .field--triple .mini-label {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--text-sub);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .field--triple .mini-input {
+      width: 100%;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 0.7rem 0.5rem;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      outline: none;
+      text-align: center;
+      transition: border-color var(--motion-snap) var(--ease-soft), box-shadow var(--motion-snap) var(--ease-soft), transform var(--motion-fast) var(--ease-spring);
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .field--triple .mini-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      transform: scale(1.01);
+    }
+    .field--triple .mini-input::-webkit-outer-spin-button,
+    .field--triple .mini-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .field--triple .mini-input[type=number] { -moz-appearance: textfield; }
+    .field--triple .mini-input.error {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px var(--red-soft);
+    }
+    .field--triple .mini-input.field-input--warn,
+    .field-input--warn {
+      border-color: var(--warn) !important;
+      box-shadow: var(--ring-warning) !important;
+    }
+
+    /* ─── Cross-check banner ─── */
+    .crosscheck {
+      display: none;
+      padding: var(--space-4) var(--space-4) var(--space-3);
+      border-radius: var(--radius-xl);
+      background: var(--warn-soft);
+      border: 1px solid var(--warn);
+      margin-bottom: var(--space-5);
+      animation: slideDown var(--motion-snap) var(--ease-soft);
+    }
+    .crosscheck.visible { display: block; }
+    .crosscheck-header {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      margin-bottom: var(--space-2);
+      font-family: var(--font-display);
+      font-size: var(--text-sm);
+      font-weight: 800;
+      color: var(--warn);
+      letter-spacing: -0.01em;
+    }
+    .crosscheck-header-icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+      border-radius: var(--radius-full);
+      background: var(--warn);
+      color: var(--text-inverse);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.75rem;
+    }
+    .crosscheck-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.35rem; }
+    .crosscheck-issue {
+      font-size: var(--text-sm);
+      color: var(--text);
+      line-height: 1.45;
+      padding: 0.45rem 0.6rem;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      cursor: pointer;
+      transition: background var(--motion-fast) var(--ease-soft), transform var(--motion-fast) var(--ease-spring);
+    }
+    .crosscheck-issue:hover { background: var(--surface); }
+    .crosscheck-issue:active { transform: scale(0.99); }
+    .crosscheck-issue strong { color: var(--warn); font-weight: 800; }
+
+    .cal-day--warn {
+      box-shadow: 0 0 0 2px var(--warn);
+    }
+    @keyframes pulseWarn {
+      0%, 100% { box-shadow: 0 0 0 2px var(--warn); }
+      50% { box-shadow: 0 0 0 5px var(--warn); }
+    }
+    .cal-day--warn-pulse { animation: pulseWarn 0.85s var(--ease-soft) 2; }
+
+    /* ─── Page transitions ─── */
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(28px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-28px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .page--enter-from-right.active { animation: slideInRight var(--motion-stage) var(--ease-emphasized); }
+    .page--enter-from-left.active  { animation: slideInLeft  var(--motion-stage) var(--ease-emphasized); }
+
+    /* ─── Live results card ─── */
+    .live-results {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-glass);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      overflow: hidden;
+      transition: box-shadow var(--motion-snap) var(--ease-soft);
+    }
+    .live-results .live-divider {
+      height: 1px;
+      background: var(--separator-lt);
+      margin: 0 1.15rem;
+    }
+    .live-results .result-row { opacity: 1; transform: none; min-height: 60px; }
+    .live-results .result-row + .result-row { border-top: 1px solid var(--separator-lt); }
+    .live-results .live-section-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: var(--space-3) 1.15rem 0.35rem;
+    }
+
+    /* ─── Number tween wrapper ─── */
+    .tween {
+      display: inline-block;
+      will-change: transform, color;
+      transition: color var(--motion-snap) var(--ease-soft);
+    }
+    @keyframes tweenPulse {
+      0%, 100% { transform: scale(1); }
+      35% { transform: scale(1.05); }
+    }
+    .tween--pulse { animation: tweenPulse var(--motion-snap) var(--ease-spring); }
+
+    /* ─── Modal refinements (spring entry) ─── */
+    .modal-overlay.open .modal {
+      animation: modalIn var(--motion-stage) var(--ease-spring);
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.92) translateY(20px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    /* ─── Cal nav refinements ─── */
+    .cal-nav { transition: transform var(--motion-fast) var(--ease-spring), background var(--motion-fast) var(--ease-soft); }
+    .cal-nav:hover { background: var(--accent-soft); }
+
+    /* ─── Field focus springs ─── */
+    .field-input { transition: border-color var(--motion-snap) var(--ease-soft), box-shadow var(--motion-snap) var(--ease-soft), background var(--motion-snap) var(--ease-soft), transform var(--motion-fast) var(--ease-spring); }
+    .field-input:focus { transform: scale(1.005); }
+
+    /* ─── Toggle button refinements ─── */
+    .toggle-btn { transition: background var(--motion-snap) var(--ease-soft), color var(--motion-snap) var(--ease-soft), transform var(--motion-fast) var(--ease-spring), box-shadow var(--motion-snap) var(--ease-soft); }
+    .toggle-btn:active { transform: scale(0.96); }
+
+    /* ─── Submit button refinements ─── */
+    .submit-btn, .back-btn, .advanced-btn, .reset-btn, .copy-btn, .modal-close {
+      transition: transform var(--motion-fast) var(--ease-spring), opacity var(--motion-fast) var(--ease-soft), background var(--motion-snap) var(--ease-soft), border-color var(--motion-snap) var(--ease-soft), color var(--motion-snap) var(--ease-soft), box-shadow var(--motion-snap) var(--ease-soft);
+    }
+
     @media (max-width: 520px) {
       .app { padding-inline: 0.9rem; }
       .field, .result-row { padding-inline: 1rem; align-items: flex-start; }
@@ -784,8 +1080,8 @@
   <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode"><span aria-hidden="true">&#127769;</span></button>
   <div class="app">
 
-    <!-- INPUT PAGE -->
-    <div class="page active" id="input-page">
+    <!-- CALCULATOR PAGE (unified) -->
+    <div class="page active" id="calculator-page">
       <div class="page-header">
         <div class="eyebrow">Workflow tool</div>
         <h1 class="page-title page-title--input">Calculator</h1>
@@ -796,123 +1092,95 @@
         </div>
       </div>
 
-      <div class="section">
-        <p class="section-header">Shifts</p>
-        <div class="field-list">
-          <div class="field">
-            <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
-            <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
-            <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="double-days">Amount of 10PM Cancellations (after your 3PM Shift)</label>
-            <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label">Distance</label>
-            <div class="toggle-group">
-              <button type="button" class="toggle-btn active" id="btn-short" onclick="setDistance('SHORT')">Short</button>
-              <button type="button" class="toggle-btn" id="btn-long" onclick="setDistance('LONG')">Long</button>
+      <div class="section mode-toggle-wrap">
+        <div class="segmented-control" id="mode-segmented" role="tablist" aria-label="Calculation mode">
+          <span class="segmented-thumb" id="mode-thumb"></span>
+          <button type="button" class="segmented-option" id="mode-basic" role="tab" aria-selected="true" data-mode="BASIC">Basic</button>
+          <button type="button" class="segmented-option" id="mode-advanced" role="tab" aria-selected="false" data-mode="ADVANCED">Advanced</button>
+        </div>
+      </div>
+
+      <!-- BASIC mode block -->
+      <div class="calc-mode-block active" id="mode-block-basic">
+        <div class="section">
+          <p class="section-header">Shifts</p>
+          <div class="field-list">
+            <div class="field">
+              <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
+              <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
+              <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="total-7am">Total 7AM Shifts</label>
+              <input class="field-input" id="total-7am" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="double-days">10PM Cancellations (after a 3PM Shift)</label>
+              <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label">Distance</label>
+              <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
+                <span class="segmented-thumb" id="distance-thumb"></span>
+                <button type="button" class="segmented-option" id="dist-short" role="tab" aria-selected="true" data-dist="SHORT">Short</button>
+                <button type="button" class="segmented-option" id="dist-long" role="tab" aria-selected="false" data-dist="LONG">Long</button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="btn-wrap">
-        <button type="button" class="submit-btn" id="calc-btn" onclick="submitData()">Calculate</button>
-        <div class="btn-divider"><span>or</span></div>
-        <button type="button" class="advanced-btn" onclick="showPage(pageAdv)">Advanced</button>
-        <button type="button" class="advanced-btn" onclick="showPage(pageExtra)">Extra Hours</button>
-        <button type="button" class="reset-btn" onclick="resetFields(FIELD_IDS, fields)">Clear All</button>
-      </div>
-
-      <div class="page-footer">
-        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
-        <div class="footer-links">
-          <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
-          <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ADVANCED PAGE -->
-    <div class="page" id="advanced-page">
-      <div class="page-header">
-        <div class="eyebrow">Combined mode</div>
-        <h1 class="page-title page-title--input">Advanced</h1>
-        <p class="page-subtitle">Short &amp; Long Distance Combined</p>
-        <div class="hint-wrap">
-          <span class="hint-label">How to Use</span>
-          <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
-        </div>
-      </div>
-
-      <div class="section">
-        <p class="section-header section-header--short">Short Distance Shifts</p>
-        <div class="field-list field-list--short">
-          <div class="field">
-            <label class="field-label" for="adv-3pm-s">Total 3PM Shifts</label>
-            <input class="field-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="adv-10pm-s">Total 10PM Shifts</label>
-            <input class="field-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="adv-dd-s">Amount of 10PM Cancellations (after your 3PM Shift)</label>
-            <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+      <!-- ADVANCED mode block -->
+      <div class="calc-mode-block" id="mode-block-advanced">
+        <div class="section">
+          <p class="section-header section-header--short">Short Distance Shifts</p>
+          <div class="field-list field-list--short">
+            <div class="field field--triple">
+              <div class="mini-field">
+                <span class="mini-label">3PM</span>
+                <input class="mini-input" id="adv-3pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Short 3PM" />
+              </div>
+              <div class="mini-field">
+                <span class="mini-label">10PM</span>
+                <input class="mini-input" id="adv-10pm-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Short 10PM" />
+              </div>
+              <div class="mini-field">
+                <span class="mini-label">7AM</span>
+                <input class="mini-input" id="adv-7am-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Short 7AM" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="adv-dd-s">10PM Cancellations (after a 3PM Shift)</label>
+              <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="section">
-        <p class="section-header section-header--long">Long Distance Shifts</p>
-        <div class="field-list field-list--long">
-          <div class="field">
-            <label class="field-label" for="adv-3pm-l">Total 3PM Shifts</label>
-            <input class="field-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+        <div class="section">
+          <p class="section-header section-header--long">Long Distance Shifts</p>
+          <div class="field-list field-list--long">
+            <div class="field field--triple">
+              <div class="mini-field">
+                <span class="mini-label">3PM</span>
+                <input class="mini-input" id="adv-3pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Long 3PM" />
+              </div>
+              <div class="mini-field">
+                <span class="mini-label">10PM</span>
+                <input class="mini-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Long 10PM" />
+              </div>
+              <div class="mini-field">
+                <span class="mini-label">7AM</span>
+                <input class="mini-input" id="adv-7am-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Long 7AM" />
+              </div>
+            </div>
+            <div class="field">
+              <label class="field-label" for="adv-dd-l">10PM Cancellations (after a 3PM Shift)</label>
+              <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
           </div>
-          <div class="field">
-            <label class="field-label" for="adv-10pm-l">Total 10PM Shifts</label>
-            <input class="field-input" id="adv-10pm-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="adv-dd-l">Amount of 10PM Cancellations (after your 3PM Shift)</label>
-            <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-          </div>
-        </div>
-      </div>
-
-      <div class="btn-wrap">
-        <button type="button" class="submit-btn" id="adv-calc-btn" onclick="submitAdvanced()">Calculate</button>
-        <button type="button" class="reset-btn" onclick="resetFields(ADV_FIELD_IDS, advFields)">Clear All</button>
-        <div class="btn-divider"><span>or</span></div>
-        <button type="button" class="advanced-btn" onclick="showPage(pageInput)">&#8592; Back to Basic</button>
-      </div>
-
-      <div class="page-footer">
-        <p class="full-name">Workflow Coaching and Optimisation Co.</p>
-        <p class="creator">Created by L/CPL R. Marshall &#8212; Portland Division</p>
-        <div class="footer-links">
-          <button type="button" class="footer-link" onclick="showPage(pageAbout)">About</button>
-          <button type="button" class="footer-link" onclick="showPage(pageDisclaimer)">Disclaimers</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- EXTRA HOURS PAGE -->
-    <div class="page" id="extra-hours-page">
-      <div class="page-header">
-        <div class="eyebrow">Hours tracker</div>
-        <h1 class="page-title page-title--input">Extra Hours</h1>
-        <p class="page-subtitle">Overtime &amp; Holiday Pay</p>
-        <div class="hint-wrap">
-          <span class="hint-label">How to Use</span>
-          <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
         </div>
       </div>
 
@@ -944,30 +1212,42 @@
         </div>
       </div>
 
+      <div class="crosscheck" id="crosscheck" aria-live="polite">
+        <div class="crosscheck-header">
+          <span class="crosscheck-header-icon" aria-hidden="true">!</span>
+          <span>Counts and calendar don't match</span>
+        </div>
+        <ul class="crosscheck-list" id="crosscheck-list"></ul>
+      </div>
+
       <div class="section">
-        <p class="section-header">Breakdown</p>
-        <div class="field-list">
-          <div class="result-row visible"><span class="result-label">Total hours</span><span class="result-value" id="eh-total-hrs">0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Holiday hours</span><span class="result-value" id="eh-hol-hrs">0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Non-holiday hours</span><span class="result-value" id="eh-nh-hrs">0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Threshold</span><span class="result-value" id="eh-thresh">173.33</span></div>
-          <div class="result-row visible"><span class="result-label">Hours over threshold</span><span class="result-value" id="eh-over-hrs">0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Hourly rate</span><span class="result-value" id="eh-rate">$0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Holiday pay (&#215;2)</span><span class="result-value" id="eh-hol-pay">$0.00</span></div>
-          <div class="result-row visible"><span class="result-label">Overtime pay (&#215;1.5)</span><span class="result-value" id="eh-ot-pay">$0.00</span></div>
+        <p class="section-header">Live Breakdown</p>
+        <div class="live-results">
+          <p class="live-section-label">Allowance</p>
+          <div class="result-row"><span class="result-label">SP1</span><span class="result-value tween" id="live-sp1">$0.00</span></div>
+          <div class="result-row"><span class="result-label">SP2</span><span class="result-value tween" id="live-sp2">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Meal</span><span class="result-value tween" id="live-meal">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Taxi</span><span class="result-value tween" id="live-taxi">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Distance</span><span class="distance-tag" id="live-distance">Short</span></div>
+          <p class="live-section-label">Extra Hours</p>
+          <div class="result-row"><span class="result-label">Total hours</span><span class="result-value tween" id="live-total-hrs">0.00</span></div>
+          <div class="result-row"><span class="result-label">Holiday hours</span><span class="result-value tween" id="live-hol-hrs">0.00</span></div>
+          <div class="result-row"><span class="result-label">Non-holiday hours</span><span class="result-value tween" id="live-nh-hrs">0.00</span></div>
+          <div class="result-row"><span class="result-label">Hours over 173.33</span><span class="result-value tween" id="live-over-hrs">0.00</span></div>
+          <div class="result-row"><span class="result-label">Hourly rate</span><span class="result-value tween" id="live-rate">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Holiday pay (&#215;2)</span><span class="result-value tween" id="live-hol-pay">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Overtime pay (&#215;1.5)</span><span class="result-value tween" id="live-ot-pay">$0.00</span></div>
         </div>
       </div>
 
       <div class="total-row" style="opacity:1;">
-        <span class="total-label">Total Extra</span>
-        <span class="total-value" id="eh-total-pay">$0.00</span>
+        <span class="total-label">Total</span>
+        <span class="total-value tween" id="live-grand-total">$0.00</span>
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="copy-btn" id="eh-copy-btn" onclick="copyExtraHoursResults()">&#9112; Copy Results</button>
-        <button type="button" class="reset-btn" onclick="resetExtraHours()">Clear All</button>
-        <div class="btn-divider"><span>or</span></div>
-        <button type="button" class="advanced-btn" onclick="showPage(pageInput)">&#8592; Back to Basic</button>
+        <button type="button" class="submit-btn" id="calc-btn" onclick="submitCombined()">Calculate Snapshot</button>
+        <button type="button" class="reset-btn" onclick="resetAll()">Clear All</button>
       </div>
 
       <div class="page-footer">
@@ -980,16 +1260,16 @@
       </div>
     </div>
 
-    <!-- RESULTS PAGE -->
+    <!-- RESULTS PAGE (combined snapshot) -->
     <div class="page" id="results-page">
       <div class="page-header">
-        <div class="eyebrow">Allowance breakdown</div>
+        <div class="eyebrow" id="res-eyebrow">Snapshot</div>
         <h1 class="page-title page-title--results">Results</h1>
-        <p class="page-subtitle">Night Shift Calculator</p>
+        <p class="page-subtitle" id="res-subtitle">&#8212;</p>
       </div>
 
       <div class="section">
-        <p class="section-header">Breakdown</p>
+        <p class="section-header">Allowance</p>
         <div class="field-list">
           <div class="result-row" id="row-sp1">
             <span class="result-label">SP1</span>
@@ -1011,11 +1291,37 @@
             <span class="result-label">Distance</span>
             <span class="distance-tag" id="r-distance">&#8212;</span>
           </div>
+          <div class="result-row" id="row-allowance-subtotal">
+            <span class="result-label">Allowance subtotal</span>
+            <span class="result-value" id="r-allowance-total">&#8212;</span>
+          </div>
         </div>
       </div>
 
+      <div class="section">
+        <p class="section-header">Extra Hours</p>
+        <div class="field-list">
+          <div class="result-row" id="row-eh-total"><span class="result-label">Total hours</span><span class="result-value" id="r-eh-total">&#8212;</span></div>
+          <div class="result-row" id="row-eh-hol"><span class="result-label">Holiday hours</span><span class="result-value" id="r-eh-hol">&#8212;</span></div>
+          <div class="result-row" id="row-eh-nh"><span class="result-label">Non-holiday hours</span><span class="result-value" id="r-eh-nh">&#8212;</span></div>
+          <div class="result-row" id="row-eh-over"><span class="result-label">Hours over 173.33</span><span class="result-value" id="r-eh-over">&#8212;</span></div>
+          <div class="result-row" id="row-eh-rate"><span class="result-label">Hourly rate</span><span class="result-value" id="r-eh-rate">&#8212;</span></div>
+          <div class="result-row" id="row-eh-hol-pay"><span class="result-label">Holiday pay (&#215;2)</span><span class="result-value" id="r-eh-hol-pay">&#8212;</span></div>
+          <div class="result-row" id="row-eh-ot-pay"><span class="result-label">Overtime pay (&#215;1.5)</span><span class="result-value" id="r-eh-ot-pay">&#8212;</span></div>
+          <div class="result-row" id="row-eh-subtotal"><span class="result-label">Extra Hours subtotal</span><span class="result-value" id="r-eh-total-pay">&#8212;</span></div>
+        </div>
+      </div>
+
+      <div class="crosscheck" id="r-crosscheck" aria-live="polite">
+        <div class="crosscheck-header">
+          <span class="crosscheck-header-icon" aria-hidden="true">!</span>
+          <span>Counts and calendar didn't match at snapshot</span>
+        </div>
+        <ul class="crosscheck-list" id="r-crosscheck-list"></ul>
+      </div>
+
       <div class="total-row" id="total-row" style="opacity:0;transition:opacity 0.3s ease;">
-        <span class="total-label">Total</span>
+        <span class="total-label">Grand Total</span>
         <span class="total-value" id="r-total">&#8212;</span>
       </div>
 
@@ -1054,17 +1360,19 @@
           <ul class="info-list">
             <li>SP1 &#8212; your 3PM shift allowance</li>
             <li>SP2 &#8212; your 10PM shift allowance</li>
-            <li>Meal &#8212; meal allowance based on total shifts worked</li>
+            <li>Meal &#8212; meal allowance based on total 3PM and 10PM shifts</li>
             <li>Taxi &#8212; transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+            <li>Extra Hours &#8212; overtime pay (&#215;1.5) for non-holiday hours above 173.33, plus holiday pay (&#215;2) for any hours worked on a Jamaica public holiday</li>
+            <li>Cross-check &#8212; flags when the entered shift counts don't match the calendar entries for the active pay period</li>
           </ul>
         </div>
         <div class="info-section">
           <p class="info-heading">Who it's for</p>
-          <p class="info-text">This app is for JFB members who need to calculate their night shift. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place.</p>
+          <p class="info-text">This app is for JFB members who need to calculate their night shift. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place &#8212; and now combines allowance and overtime pay on a single screen.</p>
         </div>
         <div class="info-section">
           <p class="info-heading">How to get started</p>
-          <p class="info-text">Open the app, enter your shift numbers for the period, select your distance, and tap Calculate. Use Advanced mode if you have a mix of short and long distance shifts. Add it to your home screen for quick access between shifts.</p>
+          <p class="info-text">Open the app and pick Basic or Advanced. Enter your shift counts (3PM, 10PM, 7AM, and any 10PM cancellations), select your distance, and add your monthly basic allowance. Tap days on the calendar to log the same shifts &#8212; the cross-check tells you if anything's missing. Results update live; tap Calculate Snapshot to capture a clean copy for sharing. Add the app to your home screen for quick access between shifts.</p>
         </div>
         <div class="info-divider"></div>
         <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
@@ -1124,63 +1432,71 @@
     <div class="modal">
       <p class="modal-title">How to Use</p>
 
-      <p class="modal-section-title modal-section-title--first">Standard</p>
+      <p class="modal-section-title modal-section-title--first">Mode</p>
+      <div class="modal-item">
+        <span class="modal-icon">&#9881;&#65039;</span>
+        <p class="modal-text"><strong>Basic vs Advanced</strong> &#8212; Use the segmented control at the top. Basic = one set of counts plus a single distance toggle. Advanced = separate Short and Long distance counts that combine into one taxi allowance.</p>
+      </div>
+
+      <p class="modal-section-title">Counts</p>
       <div class="modal-item">
         <span class="modal-icon">&#128339;</span>
-        <p class="modal-text"><strong>Total 3PM Shifts</strong> &#8212; Enter the total number of 3PM shifts worked this period, including regular, extra, and exchanges.</p>
-      </div>
-      <div class="modal-item">
-        <span class="modal-icon">&#128345;</span>
-        <p class="modal-text"><strong>Total 10PM Shifts</strong> &#8212; Enter the total number of 10PM shifts worked, including regular, extra, and exchanges.</p>
+        <p class="modal-text"><strong>3PM, 10PM, 7AM</strong> &#8212; Enter the totals for each shift type worked this period (regular, extra, exchanges). 7AM shifts are used for the cross-check and the 173.33-hour threshold; they don't add to SP1 / SP2 / Meal / Taxi.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128197;</span>
-        <p class="modal-text"><strong>Amount of 10PM Cancellations (after your 3PM Shift)</strong> &#8212; Enter the number of days where your 10PM days leave was cancelled after working a 3PM shift. This deducts 2 from the taxi count per day.</p>
+        <p class="modal-text"><strong>10PM Cancellations</strong> &#8212; Days where your 10PM leave was cancelled after a 3PM shift. Deducts 2 from the taxi count per day.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128205;</span>
-        <p class="modal-text"><strong>Distance</strong> &#8212; Select Short ($950/shift) or Long ($2,000/shift) for your taxi allowance rate.</p>
+        <p class="modal-text"><strong>Distance</strong> &#8212; Short ($950/shift) or Long ($2,000/shift) taxi allowance rate. In Advanced mode, set distance per-shift in the day modal.</p>
       </div>
 
-      <p class="modal-section-title">Advanced</p>
+      <p class="modal-section-title">Cross-check</p>
       <div class="modal-item">
-        <span class="modal-icon">&#9889;</span>
-        <p class="modal-text"><strong>Advanced</strong> &#8212; Use this if you have a mix of short and long distance shifts in the same period. Enter your short and long distance shifts separately. The calculator combines both into a single set of results.</p>
+        <span class="modal-icon">&#9888;&#65039;</span>
+        <p class="modal-text"><strong>Counts vs Calendar</strong> &#8212; The counts you enter must match the shifts on the calendar for the active pay period. Mismatches show an amber banner with the discrepancies; tap an issue to highlight the affected calendar days. The Calculate button still works &#8212; the warning is informational.</p>
       </div>
 
-      <p class="modal-section-title">Extra Hours</p>
+      <p class="modal-section-title">Calendar</p>
       <div class="modal-item">
         <span class="modal-icon">&#128197;</span>
         <p class="modal-text"><strong>Pay period</strong> &#8212; Each pay period runs from the 16th of one month to the 15th of the next. Use the chevrons above the calendar to navigate between periods.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128338;</span>
-        <p class="modal-text"><strong>Tap a day</strong> &#8212; Toggle 7AM (8h), 3PM (7h), and 10PM (9h) shifts. Multiple shifts on the same day are allowed. Days outside the active pay period are dimmed but still tappable.</p>
+        <p class="modal-text"><strong>Tap a day</strong> &#8212; Toggle 7AM (8h), 3PM (7h), and 10PM (9h) shifts. Multiple shifts per day allowed. In Advanced mode, an extra Short / Long row appears for each active shift.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#127769;</span>
-        <p class="modal-text"><strong>10PM crosses midnight</strong> &#8212; A 10PM shift counts 2 hours on the start date and 7 hours on the next day. Holiday status is checked separately for each portion.</p>
+        <p class="modal-text"><strong>10PM crosses midnight</strong> &#8212; Counts 2h on the start date and 7h on the next day. Holiday status is checked separately for each portion.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128293;</span>
-        <p class="modal-text"><strong>Holidays</strong> &#8212; Jamaica public holidays are pre-marked. Tap any day and toggle Holiday to add or remove. Holiday hours are paid at &#215;2 the hourly rate; non-holiday hours above 173.33 are paid at &#215;1.5.</p>
+        <p class="modal-text"><strong>Holidays</strong> &#8212; Jamaica public holidays are pre-marked. Tap any day and toggle Holiday to add or remove. Holiday hours are paid at &#215;2; non-holiday hours above 173.33 are paid at &#215;1.5.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128176;</span>
-        <p class="modal-text"><strong>Basic allowance</strong> &#8212; Enter your monthly basic. The hourly rate is monthly &#247; 173.33. Results update live as you tap.</p>
+        <p class="modal-text"><strong>Basic allowance</strong> &#8212; Enter your monthly basic. Hourly rate = monthly &#247; 173.33.</p>
+      </div>
+
+      <p class="modal-section-title">Snapshot</p>
+      <div class="modal-item">
+        <span class="modal-icon">&#128190;</span>
+        <p class="modal-text"><strong>Calculate Snapshot</strong> &#8212; Captures the live values into the Results page so you can copy or share them. Live values keep updating as you edit.</p>
       </div>
 
       <p class="modal-section-title">Install</p>
       <div class="modal-item modal-item--last">
         <span class="modal-icon">&#128242;</span>
-        <p class="modal-text"><strong>Add to Home Screen</strong> &#8212; On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app will run fullscreen just like a native app, and works offline.</p>
+        <p class="modal-text"><strong>Add to Home Screen</strong> &#8212; On iPhone, tap the Share button in Safari and select "Add to Home Screen". On Android, tap the menu in Chrome and select "Add to Home Screen". The app runs fullscreen and works offline.</p>
       </div>
 
       <button type="button" class="modal-close" onclick="closeHint()">Got It</button>
     </div>
   </div>
 
-  <!-- Day-edit modal (Extra Hours) -->
+  <!-- Day-edit modal -->
   <div class="modal-overlay" id="day-modal" onclick="closeDayModalOnOverlay(event)">
     <div class="modal">
       <p class="modal-title" id="day-modal-title">Edit day</p>
@@ -1189,13 +1505,37 @@
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--7AM"></span>7AM shift (8h)</span>
           <button type="button" class="day-toggle" id="day-toggle-7AM" data-shift="7AM">Off</button>
         </div>
+        <div class="day-modal-distance" id="day-dist-7AM" hidden>
+          <span>Distance</span>
+          <div class="segmented-control segmented-control--inline" data-shift="7AM">
+            <span class="segmented-thumb"></span>
+            <button type="button" class="segmented-option" data-dist="SHORT" aria-selected="true">Short</button>
+            <button type="button" class="segmented-option" data-dist="LONG" aria-selected="false">Long</button>
+          </div>
+        </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--3PM"></span>3PM shift (7h)</span>
           <button type="button" class="day-toggle" id="day-toggle-3PM" data-shift="3PM">Off</button>
         </div>
+        <div class="day-modal-distance" id="day-dist-3PM" hidden>
+          <span>Distance</span>
+          <div class="segmented-control segmented-control--inline" data-shift="3PM">
+            <span class="segmented-thumb"></span>
+            <button type="button" class="segmented-option" data-dist="SHORT" aria-selected="true">Short</button>
+            <button type="button" class="segmented-option" data-dist="LONG" aria-selected="false">Long</button>
+          </div>
+        </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--10PM"></span>10PM shift (9h)</span>
           <button type="button" class="day-toggle" id="day-toggle-10PM" data-shift="10PM">Off</button>
+        </div>
+        <div class="day-modal-distance" id="day-dist-10PM" hidden>
+          <span>Distance</span>
+          <div class="segmented-control segmented-control--inline" data-shift="10PM">
+            <span class="segmented-thumb"></span>
+            <button type="button" class="segmented-option" data-dist="SHORT" aria-selected="true">Short</button>
+            <button type="button" class="segmented-option" data-dist="LONG" aria-selected="false">Long</button>
+          </div>
         </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--holiday"></span><span id="day-holiday-label">Public holiday</span></span>
@@ -1274,66 +1614,186 @@
     })();
 
     // ─── Constants ───
-    const FIELD_IDS     = ['total-3pm', 'total-10pm', 'double-days'];
-    const ADV_FIELD_IDS = ['adv-3pm-s', 'adv-10pm-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-dd-l'];
-    const RESULT_ROWS   = ['row-sp1', 'row-sp2', 'row-meal', 'row-taxi', 'row-dist'];
+    const BASIC_FIELD_IDS = ['total-3pm', 'total-10pm', 'total-7am', 'double-days'];
+    const ADV_FIELD_IDS   = ['adv-3pm-s', 'adv-10pm-s', 'adv-7am-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-7am-l', 'adv-dd-l'];
     const SP1_RATE      = 66.6;
     const SP2_RATE      = 200;
     const MEAL_RATE     = 950;
     const TAXI_SHORT    = 950;
     const TAXI_LONG     = 2000;
-    // Extra Hours
     const SHIFT_HOURS    = { '7AM': 8, '3PM': 7, '10PM': 9 };
     const SHIFT_ORDER    = ['7AM', '3PM', '10PM'];
     const HOURS_THRESHOLD = 173.33;
     const HOLIDAY_MULT    = 2;
     const OVERTIME_MULT   = 1.5;
-    const STORAGE_KEY_EXTRA = 'extraHours.v1';
-    const STORAGE_KEY_BASIC = 'nsCalc.basicFields.v1';
-    const STORAGE_KEY_ADV   = 'nsCalc.advFields.v1';
+    const STORAGE_KEY_EXTRA = 'extraHours.v2';
+    const STORAGE_KEY_BASIC = 'nsCalc.basicFields.v2';
+    const STORAGE_KEY_ADV   = 'nsCalc.advFields.v2';
+    const STORAGE_KEY_MODE  = 'nsCalc.mode.v1';
+    const MOTION = { fast: 140, snap: 220, stage: 380 };
+
+    function reducedMotion() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
 
     // ─── State ───
+    let mode     = 'BASIC';
     let distance = 'SHORT';
     let prevPage = null;
     let infoReturnPage = null;
     let confirmCallback = null;
+    let lastSnapshot = null;
+    let lastIssues = [];
+    let dayModalDate = null;
 
     // ─── Cached DOM references ───
-    const fields    = Object.fromEntries(FIELD_IDS.map(id => [id, document.getElementById(id)]));
-    const advFields = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
-    const results   = Object.fromEntries(['sp1','sp2','meal','taxi','total','distance'].map(id => [id, document.getElementById('r-' + id)]));
-    const rows      = RESULT_ROWS.map(id => document.getElementById(id));
-    const totalRow  = document.getElementById('total-row');
-    const pageInput      = document.getElementById('input-page');
-    const pageAdv        = document.getElementById('advanced-page');
-    const pageExtra      = document.getElementById('extra-hours-page');
+    const basicFields = Object.fromEntries(BASIC_FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const advFields   = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const pageCalc       = document.getElementById('calculator-page');
     const pageRes        = document.getElementById('results-page');
     const pageAbout      = document.getElementById('about-page');
     const pageDisclaimer = document.getElementById('disclaimer-page');
-    const pages          = [pageInput, pageAdv, pageExtra, pageRes, pageAbout, pageDisclaimer];
-    const btnShort       = document.getElementById('btn-short');
-    const btnLong        = document.getElementById('btn-long');
+    const pages          = [pageCalc, pageRes, pageAbout, pageDisclaimer];
     const calcBtn        = document.getElementById('calc-btn');
-    const advCalcBtn     = document.getElementById('adv-calc-btn');
     const hintModal      = document.getElementById('hint-modal');
     const alertModal     = document.getElementById('alert-modal');
+    const dayModal       = document.getElementById('day-modal');
     const copyBtn        = document.getElementById('copy-btn');
+    const totalRow       = document.getElementById('total-row');
+    const calBody        = document.getElementById('cal-body');
+    const calTitle       = document.getElementById('cal-title');
+    const calPrevBtn     = document.getElementById('cal-prev');
+    const calNextBtn     = document.getElementById('cal-next');
+    const basicSalaryInput = document.getElementById('basic-salary');
+    const crosscheckEl   = document.getElementById('crosscheck');
+    const crosscheckList = document.getElementById('crosscheck-list');
+
+    const modeSegmented   = document.getElementById('mode-segmented');
+    const modeThumb       = document.getElementById('mode-thumb');
+    const modeBasicBtn    = document.getElementById('mode-basic');
+    const modeAdvancedBtn = document.getElementById('mode-advanced');
+    const modeBlockBasic    = document.getElementById('mode-block-basic');
+    const modeBlockAdvanced = document.getElementById('mode-block-advanced');
+
+    const distSegmented = document.getElementById('distance-segmented');
+    const distThumb     = document.getElementById('distance-thumb');
+    const distShortBtn  = document.getElementById('dist-short');
+    const distLongBtn   = document.getElementById('dist-long');
+
+    const liveEls = {
+      sp1:    document.getElementById('live-sp1'),
+      sp2:    document.getElementById('live-sp2'),
+      meal:   document.getElementById('live-meal'),
+      taxi:   document.getElementById('live-taxi'),
+      dist:   document.getElementById('live-distance'),
+      totalHrs: document.getElementById('live-total-hrs'),
+      holHrs: document.getElementById('live-hol-hrs'),
+      nhHrs:  document.getElementById('live-nh-hrs'),
+      overHrs: document.getElementById('live-over-hrs'),
+      rate:   document.getElementById('live-rate'),
+      holPay: document.getElementById('live-hol-pay'),
+      otPay:  document.getElementById('live-ot-pay'),
+      grand:  document.getElementById('live-grand-total')
+    };
+
+    const resEls = {
+      eyebrow:   document.getElementById('res-eyebrow'),
+      subtitle:  document.getElementById('res-subtitle'),
+      sp1:       document.getElementById('r-sp1'),
+      sp2:       document.getElementById('r-sp2'),
+      meal:      document.getElementById('r-meal'),
+      taxi:      document.getElementById('r-taxi'),
+      distance:  document.getElementById('r-distance'),
+      allowanceTotal: document.getElementById('r-allowance-total'),
+      ehTotal:   document.getElementById('r-eh-total'),
+      ehHol:     document.getElementById('r-eh-hol'),
+      ehNh:      document.getElementById('r-eh-nh'),
+      ehOver:    document.getElementById('r-eh-over'),
+      ehRate:    document.getElementById('r-eh-rate'),
+      ehHolPay:  document.getElementById('r-eh-hol-pay'),
+      ehOtPay:   document.getElementById('r-eh-ot-pay'),
+      ehTotalPay: document.getElementById('r-eh-total-pay'),
+      grand:     document.getElementById('r-total'),
+      crosscheck: document.getElementById('r-crosscheck'),
+      crosscheckList: document.getElementById('r-crosscheck-list')
+    };
+
+    const dayModalTitle = document.getElementById('day-modal-title');
+    const dayHolidayLbl = document.getElementById('day-holiday-label');
+    const dayToggleEls  = {
+      '7AM':  document.getElementById('day-toggle-7AM'),
+      '3PM':  document.getElementById('day-toggle-3PM'),
+      '10PM': document.getElementById('day-toggle-10PM'),
+      'holiday': document.getElementById('day-toggle-holiday')
+    };
+    const dayDistEls = {
+      '7AM':  document.getElementById('day-dist-7AM'),
+      '3PM':  document.getElementById('day-dist-3PM'),
+      '10PM': document.getElementById('day-dist-10PM')
+    };
 
     // ─── Helpers ───
-    function val(id, map) { return parseFloat((map || fields)[id].value) || 0; }
-
+    function val(el) { return el ? (parseFloat(el.value) || 0) : 0; }
+    function valById(id, map) { return val(map[id]); }
     function round2(n) { return Math.round(n * 100) / 100; }
+    function fmt(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function fmtHrs(n) { return n.toFixed(2); }
 
-    function fmt(n) {
-      return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    function safeGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function safeSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+    function safeRemove(key) { try { localStorage.removeItem(key); } catch (e) {} }
+
+    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+    function toYMD(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+    function fromYMD(s) { const p = s.split('-'); return new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)); }
+    function addDays(d, n) { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate()); r.setDate(r.getDate()+n); return r; }
+    function sameYMD(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+    // ─── Migration: v1 storage → v2 ───
+    function migrateStorage() {
+      const oldEH = safeGet('extraHours.v1');
+      if (oldEH && !safeGet(STORAGE_KEY_EXTRA)) {
+        try {
+          const data = JSON.parse(oldEH);
+          if (data && data.days) {
+            const newDays = {};
+            Object.keys(data.days).forEach(function(ymd) {
+              const entry = data.days[ymd];
+              if (!entry || !entry.shifts) return;
+              const newShifts = {};
+              if (Array.isArray(entry.shifts)) {
+                entry.shifts.forEach(function(code) { newShifts[code] = null; });
+              } else if (typeof entry.shifts === 'object') {
+                Object.keys(entry.shifts).forEach(function(code) { newShifts[code] = entry.shifts[code]; });
+              }
+              if (Object.keys(newShifts).length) newDays[ymd] = { shifts: newShifts };
+            });
+            data.days = newDays;
+            safeSet(STORAGE_KEY_EXTRA, JSON.stringify(data));
+          }
+        } catch (e) {}
+        safeRemove('extraHours.v1');
+      }
+      const oldB = safeGet('nsCalc.basicFields.v1');
+      if (oldB && !safeGet(STORAGE_KEY_BASIC)) {
+        safeSet(STORAGE_KEY_BASIC, oldB);
+        safeRemove('nsCalc.basicFields.v1');
+      }
+      const oldA = safeGet('nsCalc.advFields.v1');
+      if (oldA && !safeGet(STORAGE_KEY_ADV)) {
+        safeSet(STORAGE_KEY_ADV, oldA);
+        safeRemove('nsCalc.advFields.v1');
+      }
     }
+    migrateStorage();
 
-    function validate(ids, map) {
-      const m = map || fields;
+    // ─── Validation ───
+    function validateInputs(ids, map) {
       let valid = true;
       ids.forEach(function(id) {
-        const el  = m[id];
-        const n   = parseFloat(el.value);
+        const el = map[id];
+        if (!el) return;
+        const n = parseFloat(el.value);
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
         if (bad) {
@@ -1343,15 +1803,6 @@
         }
       });
       return valid;
-    }
-
-    function renderResults(rSP1, rSP2, rMeal, rTaxi, distLabel) {
-      results.sp1.textContent      = fmt(rSP1);
-      results.sp2.textContent      = fmt(rSP2);
-      results.meal.textContent     = fmt(rMeal);
-      results.taxi.textContent     = fmt(rTaxi);
-      results.total.textContent    = fmt(round2(rSP1 + rSP2 + rMeal + rTaxi));
-      results.distance.textContent = distLabel;
     }
 
     // ─── Custom modal (replaces native alert / confirm) ───
@@ -1368,356 +1819,35 @@
       actions.appendChild(btn);
       alertModal.classList.add('open');
     }
-
-    function showConfirm(message, callback) {
+    function showConfirm(message, callback, yesLabel) {
       document.getElementById('alert-title').textContent = 'Confirm';
       document.getElementById('alert-message').textContent = message;
       confirmCallback = callback;
       const actions = document.getElementById('alert-actions');
       actions.innerHTML = '';
-
       const yesBtn = document.createElement('button');
       yesBtn.type = 'button';
       yesBtn.className = 'modal-close';
-      yesBtn.textContent = 'Clear All';
-      yesBtn.onclick = function() {
-        closeAlert();
-        if (confirmCallback) confirmCallback();
-        confirmCallback = null;
-      };
+      yesBtn.textContent = yesLabel || 'Confirm';
+      yesBtn.onclick = function() { closeAlert(); if (confirmCallback) confirmCallback(); confirmCallback = null; };
       actions.appendChild(yesBtn);
-
       const noBtn = document.createElement('button');
       noBtn.type = 'button';
       noBtn.className = 'back-btn';
       noBtn.textContent = 'Cancel';
-      noBtn.onclick = function() {
-        closeAlert();
-        confirmCallback = null;
-      };
+      noBtn.onclick = function() { closeAlert(); confirmCallback = null; };
       actions.appendChild(noBtn);
-
       alertModal.classList.add('open');
     }
-
     function closeAlert() { alertModal.classList.remove('open'); }
     function closeAlertOnOverlay(e) { if (e.target === alertModal) closeAlert(); }
-
-    // ─── Copy results to clipboard ───
-    function showCopied() {
-      copyBtn.classList.add('copied');
-      copyBtn.textContent = '\u2713 Copied';
-      setTimeout(function() {
-        copyBtn.classList.remove('copied');
-        copyBtn.textContent = '\u2398 Copy Results';
-      }, 2000);
-    }
-
-    function copyResults() {
-      const date = new Date().toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
-      const divider = '\u2500'.repeat(30);
-      const text = [
-        'Night Shift \u2014 ' + date,
-        '',
-        'Night Shift Results',
-        divider,
-        'SP1         ' + results.sp1.textContent,
-        'SP2         ' + results.sp2.textContent,
-        'Meal        ' + results.meal.textContent,
-        'Taxi        ' + results.taxi.textContent,
-        'Distance    ' + results.distance.textContent,
-        divider,
-        'Total       ' + results.total.textContent,
-      ].join('\n');
-
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(showCopied).catch(function() { fallbackCopy(text); });
-      } else {
-        fallbackCopy(text);
-      }
-    }
-
-    function fallbackCopy(text) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        const ok = document.execCommand('copy');
-        if (ok) showCopied();
-      } catch (e) { /* silently fail */ }
-      document.body.removeChild(ta);
-    }
-
-    // ─── Reset result rows so they re-animate next time ───
-    function resetResultRows() {
-      rows.forEach(function(r) { r.classList.remove('visible'); });
-      totalRow.style.opacity = '0';
-    }
-
-    // Stagger result rows into view
-    function animateResults() {
-      rows.forEach(function(r, i) {
-        setTimeout(function() { r.classList.add('visible'); }, i * 60);
-      });
-      setTimeout(function() { totalRow.style.opacity = '1'; }, rows.length * 60 + 60);
-    }
-
-    // Success flash on Calculate button then navigate
-    function flashAndNavigate(btn, targetPage) {
-      btn.classList.add('success');
-      setTimeout(function() {
-        btn.classList.remove('success');
-        resetResultRows();
-        showPage(targetPage);
-        setTimeout(animateResults, 50);
-      }, 400);
-    }
-
-    // ─── Clear / Reset ───
-    function resetFields(ids, map) {
-      showConfirm('Clear all fields?', function() {
-        ids.forEach(function(id) {
-          const el = map[id];
-          el.value = '';
-          el.classList.remove('error');
-        });
-      });
-    }
 
     // ─── Hint modal ───
     function openHint()  { hintModal.classList.add('open'); }
     function closeHint() { hintModal.classList.remove('open'); }
     function closeHintOnOverlay(e) { if (e.target === hintModal) closeHint(); }
 
-    // Close modals on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        if (alertModal.classList.contains('open')) closeAlert();
-        if (hintModal.classList.contains('open')) closeHint();
-      }
-    });
-
-    // ─── Distance toggle ───
-    function setDistance(v) {
-      distance = v;
-      btnShort.className = 'toggle-btn' + (v === 'SHORT' ? ' active' : '');
-      btnLong.className  = 'toggle-btn' + (v === 'LONG'  ? ' active' : '');
-    }
-
-    // ─── Standard submit ───
-    function submitData() {
-      if (!validate(FIELD_IDS)) return;
-
-      const all3       = val('total-3pm');
-      const all10      = val('total-10pm');
-      const doubleDays = val('double-days');
-
-      if (doubleDays > all3) {
-        showAlert('Cancellations cannot exceed 3PM shifts.');
-        return;
-      }
-
-      const rSP1  = round2(all3  * SP1_RATE);
-      const rSP2  = round2(all10 * SP2_RATE);
-      const rMeal = round2((all3 + all10) * MEAL_RATE);
-      const rTaxi = round2(Math.max(0, all3 + all10 - doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
-
-      renderResults(rSP1, rSP2, rMeal, rTaxi, distance === 'SHORT' ? 'Short' : 'Long');
-      prevPage = pageInput;
-      flashAndNavigate(calcBtn, pageRes);
-    }
-
-    // ─── Advanced submit ───
-    function submitAdvanced() {
-      if (!validate(ADV_FIELD_IDS, advFields)) return;
-
-      const s3  = val('adv-3pm-s', advFields);
-      const s10 = val('adv-10pm-s', advFields);
-      const sdd = val('adv-dd-s',  advFields);
-      const l3  = val('adv-3pm-l', advFields);
-      const l10 = val('adv-10pm-l', advFields);
-      const ldd = val('adv-dd-l',  advFields);
-
-      if (sdd > s3) {
-        showAlert('Short distance cancellations cannot exceed short distance 3PM shifts.');
-        return;
-      }
-      if (ldd > l3) {
-        showAlert('Long distance cancellations cannot exceed long distance 3PM shifts.');
-        return;
-      }
-
-      const rSP1  = round2((s3  + l3)  * SP1_RATE);
-      const rSP2  = round2((s10 + l10) * SP2_RATE);
-      const rMeal = round2((s3 + l3 + s10 + l10) * MEAL_RATE);
-      const rTaxi = round2(
-        Math.max(0, s3 + s10 - sdd * 2) * TAXI_SHORT +
-        Math.max(0, l3 + l10 - ldd * 2) * TAXI_LONG
-      );
-
-      renderResults(rSP1, rSP2, rMeal, rTaxi, 'Short + Long');
-      prevPage = pageAdv;
-      flashAndNavigate(advCalcBtn, pageRes);
-    }
-
-    // ─── Navigation ───
-    function getCurrentActivePage() {
-      for (let i = 0; i < pages.length; i++) {
-        if (pages[i].classList.contains('active')) return pages[i];
-      }
-      return pageInput;
-    }
-
-    function goBack() { showPage(prevPage || pageInput); }
-
-    function goBackFromInfo() {
-      showPage(infoReturnPage || pageInput);
-    }
-
-    function showPage(el) {
-      if (el === pageAbout || el === pageDisclaimer) {
-        infoReturnPage = getCurrentActivePage();
-      }
-      pages.forEach(function(p) { p.classList.remove('active'); });
-      el.classList.add('active');
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }
-
-    // ─── Input clamping + Enter key navigation ───
-    const standardInputs = FIELD_IDS.map(function(id) { return fields[id]; });
-    const advancedInputs = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
-
-    function attachInputHandlers(inputs, submitFn) {
-      inputs.forEach(function(el, i) {
-        el.addEventListener('input', function() {
-          const n = parseFloat(el.value);
-          el.classList.remove('error');
-          if (!isNaN(n)) {
-            if (n > 99) el.value = 99;
-            if (n < 0)  el.value = 0;
-          }
-        });
-        el.addEventListener('keydown', function(e) {
-          if (e.key !== 'Enter') return;
-          e.preventDefault();
-          const next = inputs[i + 1];
-          if (next) {
-            next.focus();
-          } else {
-            el.blur();
-            submitFn();
-          }
-        });
-      });
-    }
-
-    attachInputHandlers(standardInputs, submitData);
-    attachInputHandlers(advancedInputs, submitAdvanced);
-
-    // ─── Persistence: Basic & Advanced fields ───
-    function safeGet(key) {
-      try { return localStorage.getItem(key); } catch (e) { return null; }
-    }
-    function safeSet(key, value) {
-      try { localStorage.setItem(key, value); } catch (e) { /* ignore quota errors */ }
-    }
-    function safeRemove(key) {
-      try { localStorage.removeItem(key); } catch (e) {}
-    }
-
-    let _basicSaveTimer = null;
-    function saveBasicFields() {
-      clearTimeout(_basicSaveTimer);
-      _basicSaveTimer = setTimeout(function() {
-        const data = { distance: distance };
-        FIELD_IDS.forEach(function(id) { data[id] = fields[id].value; });
-        safeSet(STORAGE_KEY_BASIC, JSON.stringify(data));
-      }, 250);
-    }
-    function loadBasicFields() {
-      const raw = safeGet(STORAGE_KEY_BASIC);
-      if (!raw) return;
-      let data; try { data = JSON.parse(raw); } catch (e) { return; }
-      if (!data || typeof data !== 'object') return;
-      FIELD_IDS.forEach(function(id) {
-        if (typeof data[id] === 'string') fields[id].value = data[id];
-      });
-      if (data.distance === 'SHORT' || data.distance === 'LONG') setDistance(data.distance);
-    }
-
-    let _advSaveTimer = null;
-    function saveAdvFields() {
-      clearTimeout(_advSaveTimer);
-      _advSaveTimer = setTimeout(function() {
-        const data = {};
-        ADV_FIELD_IDS.forEach(function(id) { data[id] = advFields[id].value; });
-        safeSet(STORAGE_KEY_ADV, JSON.stringify(data));
-      }, 250);
-    }
-    function loadAdvFields() {
-      const raw = safeGet(STORAGE_KEY_ADV);
-      if (!raw) return;
-      let data; try { data = JSON.parse(raw); } catch (e) { return; }
-      if (!data || typeof data !== 'object') return;
-      ADV_FIELD_IDS.forEach(function(id) {
-        if (typeof data[id] === 'string') advFields[id].value = data[id];
-      });
-    }
-
-    FIELD_IDS.forEach(function(id) { fields[id].addEventListener('input', saveBasicFields); });
-    ADV_FIELD_IDS.forEach(function(id) { advFields[id].addEventListener('input', saveAdvFields); });
-
-    // Wrap setDistance so distance changes also persist
-    const _origSetDistance = setDistance;
-    setDistance = function(v) {
-      _origSetDistance(v);
-      saveBasicFields();
-    };
-
-    // Wrap resetFields so cleared fields also clear their persisted copy
-    resetFields = function(ids, map) {
-      showConfirm('Clear all fields?', function() {
-        ids.forEach(function(id) {
-          const el = map[id];
-          el.value = '';
-          el.classList.remove('error');
-        });
-        if (map === fields) {
-          safeRemove(STORAGE_KEY_BASIC);
-        } else if (map === advFields) {
-          safeRemove(STORAGE_KEY_ADV);
-        }
-      });
-    };
-
-    loadBasicFields();
-    loadAdvFields();
-
-    // ═══════════════════════════════════════════════
-    // ═══════════ Extra Hours ═══════════
-    // ═══════════════════════════════════════════════
-
-    // ─── Date helpers ───
-    function pad2(n) { return n < 10 ? '0' + n : '' + n; }
-    function toYMD(d) {
-      return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-    }
-    function fromYMD(s) {
-      const parts = s.split('-');
-      return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    }
-    function addDays(d, n) {
-      const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      r.setDate(r.getDate() + n);
-      return r;
-    }
-    function sameYMD(a, b) {
-      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    }
-
-    // ─── Easter (Anonymous Gregorian / Meeus-Jones-Butcher) ───
+    // ─── Easter / holidays ───
     function computeEaster(year) {
       const a = year % 19;
       const b = Math.floor(year / 100);
@@ -1735,33 +1865,29 @@
       const day   = ((h + L - 7 * m + 114) % 31) + 1;
       return new Date(year, month - 1, day);
     }
-
     function thirdMondayOfOctober(year) {
       const oct1 = new Date(year, 9, 1);
-      // weekday: 0=Sun..6=Sat. Monday is 1.
       const offsetToFirstMon = (1 - oct1.getDay() + 7) % 7;
       return new Date(year, 9, 1 + offsetToFirstMon + 14);
     }
-
     const _holidayCache = new Map();
     function getHolidaysForYear(year) {
       if (_holidayCache.has(year)) return _holidayCache.get(year);
       const set = new Set();
-      set.add(toYMD(new Date(year, 0, 1)));    // New Year's Day
-      set.add(toYMD(new Date(year, 4, 23)));   // Labour Day
-      set.add(toYMD(new Date(year, 7, 1)));    // Emancipation Day
-      set.add(toYMD(new Date(year, 7, 6)));    // Independence Day
-      set.add(toYMD(new Date(year, 11, 25)));  // Christmas Day
-      set.add(toYMD(new Date(year, 11, 26)));  // Boxing Day
+      set.add(toYMD(new Date(year, 0, 1)));
+      set.add(toYMD(new Date(year, 4, 23)));
+      set.add(toYMD(new Date(year, 7, 1)));
+      set.add(toYMD(new Date(year, 7, 6)));
+      set.add(toYMD(new Date(year, 11, 25)));
+      set.add(toYMD(new Date(year, 11, 26)));
       const easter = computeEaster(year);
-      set.add(toYMD(addDays(easter, -46)));    // Ash Wednesday
-      set.add(toYMD(addDays(easter, -2)));     // Good Friday
-      set.add(toYMD(addDays(easter, 1)));      // Easter Monday
-      set.add(toYMD(thirdMondayOfOctober(year))); // National Heroes' Day
+      set.add(toYMD(addDays(easter, -46)));
+      set.add(toYMD(addDays(easter, -2)));
+      set.add(toYMD(addDays(easter, 1)));
+      set.add(toYMD(thirdMondayOfOctober(year)));
       _holidayCache.set(year, set);
       return set;
     }
-
     function isBuiltInHoliday(ymd) {
       const year = parseInt(ymd.slice(0, 4), 10);
       return getHolidaysForYear(year).has(ymd);
@@ -1773,7 +1899,7 @@
       return isBuiltInHoliday(ymd);
     }
 
-    // ─── Pay period helpers ───
+    // ─── Pay periods ───
     function payPeriodStart(year, month) { return new Date(year, month, 16); }
     function payPeriodEnd(year, month)   { return new Date(year, month + 1, 15); }
     function currentPayPeriod(today) {
@@ -1801,14 +1927,13 @@
       return '16 ' + MONTH_SHORT[start.getMonth()] + ' ' + start.getFullYear() + ' – 15 ' + MONTH_SHORT[end.getMonth()] + ' ' + end.getFullYear();
     }
 
-    // ─── State ───
+    // ─── Extra Hours state ───
     let extraHoursState = {
       basicSalary: 0,
       customHolidays: {},
       days: {},
       viewPeriod: currentPayPeriod()
     };
-    let dayModalDate = null; // YMD string while modal is open
 
     function loadExtraHoursState() {
       const raw = safeGet(STORAGE_KEY_EXTRA);
@@ -1817,50 +1942,392 @@
       if (!data || typeof data !== 'object') return;
       if (typeof data.basicSalary === 'number') extraHoursState.basicSalary = data.basicSalary;
       if (data.customHolidays && typeof data.customHolidays === 'object') extraHoursState.customHolidays = data.customHolidays;
-      if (data.days && typeof data.days === 'object') extraHoursState.days = data.days;
+      if (data.days && typeof data.days === 'object') {
+        const days = {};
+        Object.keys(data.days).forEach(function(ymd) {
+          const entry = data.days[ymd];
+          if (!entry || !entry.shifts) return;
+          let shifts = {};
+          if (Array.isArray(entry.shifts)) {
+            entry.shifts.forEach(function(c) { shifts[c] = null; });
+          } else if (typeof entry.shifts === 'object') {
+            shifts = entry.shifts;
+          }
+          if (Object.keys(shifts).length) days[ymd] = { shifts: shifts };
+        });
+        extraHoursState.days = days;
+      }
       if (data.viewPeriod && typeof data.viewPeriod.year === 'number' && typeof data.viewPeriod.month === 'number') {
         extraHoursState.viewPeriod = { year: data.viewPeriod.year, month: data.viewPeriod.month };
       }
     }
-
     let _ehSaveTimer = null;
     function saveExtraHoursState() {
       clearTimeout(_ehSaveTimer);
-      _ehSaveTimer = setTimeout(function() {
-        safeSet(STORAGE_KEY_EXTRA, JSON.stringify(extraHoursState));
+      _ehSaveTimer = setTimeout(function() { safeSet(STORAGE_KEY_EXTRA, JSON.stringify(extraHoursState)); }, 250);
+    }
+
+    // ─── Persistence: Basic / Advanced fields & Mode ───
+    let _basicSaveTimer = null;
+    function saveBasicFields() {
+      clearTimeout(_basicSaveTimer);
+      _basicSaveTimer = setTimeout(function() {
+        const data = { distance: distance };
+        BASIC_FIELD_IDS.forEach(function(id) { data[id] = basicFields[id].value; });
+        safeSet(STORAGE_KEY_BASIC, JSON.stringify(data));
       }, 250);
+    }
+    function loadBasicFields() {
+      const raw = safeGet(STORAGE_KEY_BASIC);
+      if (!raw) return;
+      let data; try { data = JSON.parse(raw); } catch (e) { return; }
+      if (!data || typeof data !== 'object') return;
+      BASIC_FIELD_IDS.forEach(function(id) {
+        if (typeof data[id] === 'string') basicFields[id].value = data[id];
+      });
+      if (data.distance === 'SHORT' || data.distance === 'LONG') distance = data.distance;
+    }
+    let _advSaveTimer = null;
+    function saveAdvFields() {
+      clearTimeout(_advSaveTimer);
+      _advSaveTimer = setTimeout(function() {
+        const data = {};
+        ADV_FIELD_IDS.forEach(function(id) { data[id] = advFields[id].value; });
+        safeSet(STORAGE_KEY_ADV, JSON.stringify(data));
+      }, 250);
+    }
+    function loadAdvFields() {
+      const raw = safeGet(STORAGE_KEY_ADV);
+      if (!raw) return;
+      let data; try { data = JSON.parse(raw); } catch (e) { return; }
+      if (!data || typeof data !== 'object') return;
+      ADV_FIELD_IDS.forEach(function(id) {
+        if (typeof data[id] === 'string') advFields[id].value = data[id];
+      });
+    }
+    function loadMode() {
+      const raw = safeGet(STORAGE_KEY_MODE);
+      return (raw === 'BASIC' || raw === 'ADVANCED') ? raw : 'BASIC';
+    }
+    function saveMode() { safeSet(STORAGE_KEY_MODE, mode); }
+
+    // ─── Segmented control thumb positioning ───
+    function positionSegmentedThumb(container, thumb, target, animate) {
+      if (!container || !thumb || !target) return;
+      const padLeft = parseFloat(getComputedStyle(container).paddingLeft) || 0;
+      const offLeft = target.offsetLeft;
+      const width   = target.offsetWidth;
+      thumb.style.width = width + 'px';
+      if (!animate || reducedMotion()) {
+        const prev = thumb.style.transition;
+        thumb.style.transition = 'none';
+        thumb.style.transform = 'translateX(' + (offLeft - padLeft) + 'px)';
+        void thumb.offsetWidth;
+        thumb.style.transition = prev || '';
+      } else {
+        thumb.style.transform = 'translateX(' + (offLeft - padLeft) + 'px)';
+      }
+    }
+
+    // ─── Mode toggle ───
+    function setMode(m, animate) {
+      if (m !== 'BASIC' && m !== 'ADVANCED') return;
+      mode = m;
+      modeBasicBtn.setAttribute('aria-selected', m === 'BASIC' ? 'true' : 'false');
+      modeAdvancedBtn.setAttribute('aria-selected', m === 'ADVANCED' ? 'true' : 'false');
+      modeBlockBasic.classList.toggle('active', m === 'BASIC');
+      modeBlockAdvanced.classList.toggle('active', m === 'ADVANCED');
+      positionSegmentedThumb(modeSegmented, modeThumb, m === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, animate);
+      saveMode();
+      if (dayModalDate) syncDayModalToggles();
+      renderLive();
+    }
+
+    function setDistance(v, animate) {
+      if (v !== 'SHORT' && v !== 'LONG') return;
+      distance = v;
+      distShortBtn.setAttribute('aria-selected', v === 'SHORT' ? 'true' : 'false');
+      distLongBtn.setAttribute('aria-selected', v === 'LONG' ? 'true' : 'false');
+      positionSegmentedThumb(distSegmented, distThumb, v === 'SHORT' ? distShortBtn : distLongBtn, animate !== false);
+      saveBasicFields();
+      renderLive();
+    }
+
+    // ─── Calculation: allowance ───
+    function gatherBasic() {
+      return {
+        all3:        valById('total-3pm', basicFields),
+        all10:       valById('total-10pm', basicFields),
+        all7:        valById('total-7am', basicFields),
+        doubleDays:  valById('double-days', basicFields)
+      };
+    }
+    function gatherAdvanced() {
+      return {
+        s3:  valById('adv-3pm-s', advFields),
+        s10: valById('adv-10pm-s', advFields),
+        s7:  valById('adv-7am-s', advFields),
+        sdd: valById('adv-dd-s',  advFields),
+        l3:  valById('adv-3pm-l', advFields),
+        l10: valById('adv-10pm-l', advFields),
+        l7:  valById('adv-7am-l', advFields),
+        ldd: valById('adv-dd-l',  advFields)
+      };
+    }
+    function computeAllowance(modeArg) {
+      if (modeArg === 'BASIC') {
+        const i = gatherBasic();
+        const rSP1  = round2(i.all3  * SP1_RATE);
+        const rSP2  = round2(i.all10 * SP2_RATE);
+        const rMeal = round2((i.all3 + i.all10) * MEAL_RATE);
+        const rTaxi = round2(Math.max(0, i.all3 + i.all10 - i.doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
+        return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: distance === 'SHORT' ? 'Short' : 'Long' };
+      }
+      const i = gatherAdvanced();
+      const rSP1  = round2((i.s3  + i.l3)  * SP1_RATE);
+      const rSP2  = round2((i.s10 + i.l10) * SP2_RATE);
+      const rMeal = round2((i.s3 + i.l3 + i.s10 + i.l10) * MEAL_RATE);
+      const rTaxi = round2(
+        Math.max(0, i.s3 + i.s10 - i.sdd * 2) * TAXI_SHORT +
+        Math.max(0, i.l3 + i.l10 - i.ldd * 2) * TAXI_LONG
+      );
+      return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short + Long' };
+    }
+
+    // ─── Calculation: extra hours ───
+    function computeExtraHours() {
+      const period = extraHoursState.viewPeriod;
+      const start  = payPeriodStart(period.year, period.month);
+      const end    = payPeriodEnd(period.year, period.month);
+      const monthly = extraHoursState.basicSalary || 0;
+      const rate = monthly > 0 ? monthly / HOURS_THRESHOLD : 0;
+      let totalHours = 0;
+      let holidayHours = 0;
+      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+        const dStr = toYMD(d);
+        const entry = extraHoursState.days[dStr];
+        if (!entry || !entry.shifts) continue;
+        const codes = Object.keys(entry.shifts);
+        for (let i = 0; i < codes.length; i++) {
+          const code = codes[i];
+          if (code === '7AM') {
+            totalHours += 8;
+            if (isHoliday(dStr)) holidayHours += 8;
+          } else if (code === '3PM') {
+            totalHours += 7;
+            if (isHoliday(dStr)) holidayHours += 7;
+          } else if (code === '10PM') {
+            if (d >= start && d <= end) {
+              totalHours += 2;
+              if (isHoliday(dStr)) holidayHours += 2;
+            }
+          }
+        }
+      }
+      const scanStart = addDays(start, -1);
+      for (let d = new Date(scanStart); d <= end; d = addDays(d, 1)) {
+        const dStr = toYMD(d);
+        const entry = extraHoursState.days[dStr];
+        if (!entry || !entry.shifts) continue;
+        if (!('10PM' in entry.shifts)) continue;
+        const next = addDays(d, 1);
+        const nextStr = toYMD(next);
+        if (next >= start && next <= end) {
+          totalHours += 7;
+          if (isHoliday(nextStr)) holidayHours += 7;
+        }
+      }
+      const nonHoliday = totalHours - holidayHours;
+      const overHours  = Math.max(0, nonHoliday - HOURS_THRESHOLD);
+      const holidayPay = holidayHours * rate * HOLIDAY_MULT;
+      const overtimePay = overHours * rate * OVERTIME_MULT;
+      return {
+        totalHours: totalHours, holidayHours: holidayHours, nonHoliday: nonHoliday,
+        overHours: overHours, rate: rate,
+        holidayPay: holidayPay, overtimePay: overtimePay,
+        totalPay: holidayPay + overtimePay
+      };
+    }
+
+    // ─── Cross-check ───
+    function crossCheck() {
+      const period = extraHoursState.viewPeriod;
+      const start = payPeriodStart(period.year, period.month);
+      const end   = payPeriodEnd(period.year, period.month);
+      const buckets = {
+        '7AM':  { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } },
+        '3PM':  { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } },
+        '10PM': { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } }
+      };
+      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+        const ymd = toYMD(d);
+        const entry = extraHoursState.days[ymd];
+        if (!entry || !entry.shifts) continue;
+        Object.keys(entry.shifts).forEach(function(code) {
+          if (!buckets[code]) return;
+          buckets[code].ANY += 1;
+          buckets[code].dates.ANY.push(ymd);
+          const dist = entry.shifts[code];
+          if (dist === 'SHORT' || dist === 'LONG') {
+            buckets[code][dist] += 1;
+            buckets[code].dates[dist].push(ymd);
+          }
+        });
+      }
+      const issues = [];
+      if (mode === 'BASIC') {
+        const map = { '7AM': 'total-7am', '3PM': 'total-3pm', '10PM': 'total-10pm' };
+        SHIFT_ORDER.forEach(function(code) {
+          const entered = valById(map[code], basicFields);
+          const cal = buckets[code].ANY;
+          if (entered !== cal) {
+            issues.push({ code: code, scope: 'TOTAL', entered: entered, calendar: cal, fieldId: map[code], dates: buckets[code].dates.ANY });
+          }
+        });
+      } else {
+        const map = {
+          '7AM':  { SHORT: 'adv-7am-s', LONG: 'adv-7am-l' },
+          '3PM':  { SHORT: 'adv-3pm-s', LONG: 'adv-3pm-l' },
+          '10PM': { SHORT: 'adv-10pm-s', LONG: 'adv-10pm-l' }
+        };
+        SHIFT_ORDER.forEach(function(code) {
+          const enteredS = valById(map[code].SHORT, advFields);
+          const enteredL = valById(map[code].LONG,  advFields);
+          if (enteredS !== buckets[code].SHORT) {
+            issues.push({ code: code, scope: 'SHORT', entered: enteredS, calendar: buckets[code].SHORT, fieldId: map[code].SHORT, dates: buckets[code].dates.SHORT });
+          }
+          if (enteredL !== buckets[code].LONG) {
+            issues.push({ code: code, scope: 'LONG', entered: enteredL, calendar: buckets[code].LONG, fieldId: map[code].LONG, dates: buckets[code].dates.LONG });
+          }
+          const unassigned = buckets[code].ANY - buckets[code].SHORT - buckets[code].LONG;
+          if (unassigned > 0) {
+            const unDates = buckets[code].dates.ANY.filter(function(ymd) {
+              const entry = extraHoursState.days[ymd];
+              return entry && entry.shifts && entry.shifts[code] !== 'SHORT' && entry.shifts[code] !== 'LONG';
+            });
+            issues.push({ code: code, scope: 'UNASSIGNED', count: unassigned, dates: unDates });
+          }
+        });
+      }
+      return issues;
+    }
+
+    function describeIssue(issue) {
+      const code = issue.code;
+      if (issue.scope === 'TOTAL') {
+        return '<strong>' + code + '</strong> &mdash; counted ' + issue.entered + ', calendar shows ' + issue.calendar + '.';
+      }
+      if (issue.scope === 'SHORT' || issue.scope === 'LONG') {
+        return '<strong>' + code + ' ' + (issue.scope === 'SHORT' ? 'Short' : 'Long') + '</strong> &mdash; counted ' + issue.entered + ', calendar shows ' + issue.calendar + '.';
+      }
+      if (issue.scope === 'UNASSIGNED') {
+        return '<strong>' + code + '</strong> &mdash; ' + issue.count + ' calendar shift' + (issue.count === 1 ? '' : 's') + ' missing a Short / Long flag.';
+      }
+      return '';
+    }
+
+    function renderCrossCheck(issues) {
+      lastIssues = issues;
+      const allInputs = BASIC_FIELD_IDS.concat(ADV_FIELD_IDS);
+      allInputs.forEach(function(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('field-input--warn');
+      });
+      if (!issues.length) {
+        crosscheckEl.classList.remove('visible');
+        crosscheckList.innerHTML = '';
+        return;
+      }
+      crosscheckEl.classList.add('visible');
+      crosscheckList.innerHTML = '';
+      issues.forEach(function(issue) {
+        const li = document.createElement('li');
+        li.className = 'crosscheck-issue';
+        li.innerHTML = describeIssue(issue);
+        li.addEventListener('click', function() { highlightIssue(issue); });
+        crosscheckList.appendChild(li);
+        if (issue.fieldId) {
+          const el = document.getElementById(issue.fieldId);
+          if (el) el.classList.add('field-input--warn');
+        }
+      });
+    }
+
+    function highlightIssue(issue) {
+      if (!issue.dates || !issue.dates.length) return;
+      Array.prototype.forEach.call(document.querySelectorAll('.cal-day--warn-pulse'), function(el) {
+        el.classList.remove('cal-day--warn-pulse');
+      });
+      issue.dates.forEach(function(ymd) {
+        const cell = document.querySelector('.cal-day[data-ymd="' + ymd + '"]');
+        if (cell) cell.classList.add('cal-day--warn-pulse');
+      });
+      const first = document.querySelector('.cal-day[data-ymd="' + issue.dates[0] + '"]');
+      if (first) first.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'center' });
+      setTimeout(function() {
+        Array.prototype.forEach.call(document.querySelectorAll('.cal-day--warn-pulse'), function(el) {
+          el.classList.remove('cal-day--warn-pulse');
+        });
+      }, 1700);
+    }
+
+    // ─── Number tween (write final value, pulse on change) ───
+    const _tweenStates = new WeakMap();
+    function tweenValue(el, to, formatter) {
+      if (!el) return;
+      const prev = _tweenStates.get(el);
+      const from = prev ? prev.current : to;
+      _tweenStates.set(el, { current: to });
+      el.textContent = formatter(to);
+      if (from === to || reducedMotion()) return;
+      // Restart the pulse animation
+      el.classList.remove('tween--pulse');
+      void el.offsetWidth;
+      el.classList.add('tween--pulse');
+    }
+    function tweenMoney(el, to) { tweenValue(el, to, function(v) { return fmt(v); }); }
+    function tweenHours(el, to) { tweenValue(el, to, function(v) { return fmtHrs(v); }); }
+
+    // ─── Live render ───
+    function renderLive() {
+      const a = computeAllowance(mode);
+      const e = computeExtraHours();
+      tweenMoney(liveEls.sp1,  a.rSP1);
+      tweenMoney(liveEls.sp2,  a.rSP2);
+      tweenMoney(liveEls.meal, a.rMeal);
+      tweenMoney(liveEls.taxi, a.rTaxi);
+      liveEls.dist.textContent = a.distLabel;
+      tweenHours(liveEls.totalHrs, e.totalHours);
+      tweenHours(liveEls.holHrs,   e.holidayHours);
+      tweenHours(liveEls.nhHrs,    e.nonHoliday);
+      tweenHours(liveEls.overHrs,  e.overHours);
+      tweenMoney(liveEls.rate,    e.rate);
+      tweenMoney(liveEls.holPay,  e.holidayPay);
+      tweenMoney(liveEls.otPay,   e.overtimePay);
+      tweenMoney(liveEls.grand,   round2(a.total + e.totalPay));
+      const issues = crossCheck();
+      renderCrossCheck(issues);
     }
 
     // ─── Calendar rendering ───
-    const calBody    = document.getElementById('cal-body');
-    const calTitle   = document.getElementById('cal-title');
-    const calPrevBtn = document.getElementById('cal-prev');
-    const calNextBtn = document.getElementById('cal-next');
-    const basicSalaryInput = document.getElementById('basic-salary');
-
     function renderCalendar() {
       const period = extraHoursState.viewPeriod;
       calTitle.textContent = payPeriodLabel(period);
       const start = payPeriodStart(period.year, period.month);
       const end   = payPeriodEnd(period.year, period.month);
       const today = new Date();
-
       calBody.innerHTML = '';
-      // Build two month-blocks: [start.month] and [end.month]
       const months = [
         { year: start.getFullYear(), month: start.getMonth() },
         { year: end.getFullYear(),   month: end.getMonth()   }
       ];
-
       months.forEach(function(mObj) {
         const block = document.createElement('div');
         block.className = 'cal-month-block';
-
         const label = document.createElement('div');
         label.className = 'cal-monthlabel';
         label.textContent = MONTH_SHORT[mObj.month] + ' ' + mObj.year;
         block.appendChild(label);
-
         const wkdays = document.createElement('div');
         wkdays.className = 'cal-weekdays';
         ['S','M','T','W','T','F','S'].forEach(function(d) {
@@ -1869,13 +2336,11 @@
           wkdays.appendChild(s);
         });
         block.appendChild(wkdays);
-
         const grid = document.createElement('div');
         grid.className = 'cal-grid';
         const firstOfMonth = new Date(mObj.year, mObj.month, 1);
         const daysInMonth  = new Date(mObj.year, mObj.month + 1, 0).getDate();
-        const startWeekday = firstOfMonth.getDay(); // 0=Sun
-
+        const startWeekday = firstOfMonth.getDay();
         for (let i = 0; i < startWeekday; i++) {
           const blank = document.createElement('div');
           blank.className = 'cal-day cal-day--blank';
@@ -1896,31 +2361,29 @@
       const cell = document.createElement('button');
       cell.type = 'button';
       cell.className = 'cal-day';
+      cell.setAttribute('data-ymd', ymd);
       if (!inPeriod) cell.classList.add('cal-day--out-of-period');
       if (today && sameYMD(date, today)) cell.classList.add('cal-day--today');
       const entry = extraHoursState.days[ymd];
-      const shifts = (entry && entry.shifts) ? entry.shifts : [];
-      if (shifts.length) cell.classList.add('cal-day--has-shifts');
+      const shifts = (entry && entry.shifts) ? entry.shifts : {};
+      const codes = Object.keys(shifts);
+      if (codes.length) cell.classList.add('cal-day--has-shifts');
       if (isHoliday(ymd)) cell.classList.add('cal-day--holiday');
-
       const num = document.createElement('span');
       num.className = 'cal-day-num';
       num.textContent = date.getDate();
       cell.appendChild(num);
-
       const dots = document.createElement('span');
       dots.className = 'cal-dots';
       SHIFT_ORDER.forEach(function(code) {
-        if (shifts.indexOf(code) !== -1) {
+        if (code in shifts) {
           const dot = document.createElement('span');
           dot.className = 'cal-dot cal-dot--' + code;
           dots.appendChild(dot);
         }
       });
       cell.appendChild(dots);
-
       cell.addEventListener('click', function() {
-        // If outside the active pay period, jump to that day's pay period first
         if (!inPeriod) {
           extraHoursState.viewPeriod = currentPayPeriod(date);
           renderCalendar();
@@ -1931,16 +2394,6 @@
     }
 
     // ─── Day modal ───
-    const dayModal       = document.getElementById('day-modal');
-    const dayModalTitle  = document.getElementById('day-modal-title');
-    const dayHolidayLbl  = document.getElementById('day-holiday-label');
-    const dayToggleEls   = {
-      '7AM':  document.getElementById('day-toggle-7AM'),
-      '3PM':  document.getElementById('day-toggle-3PM'),
-      '10PM': document.getElementById('day-toggle-10PM'),
-      'holiday': document.getElementById('day-toggle-holiday')
-    };
-
     function openDayModal(ymd) {
       dayModalDate = ymd;
       const date = fromYMD(ymd);
@@ -1950,21 +2403,42 @@
       dayHolidayLbl.textContent = builtIn ? 'Public holiday (built-in)' : 'Public holiday';
       syncDayModalToggles();
       dayModal.classList.add('open');
+      requestAnimationFrame(function() {
+        SHIFT_ORDER.forEach(function(code) {
+          const wrap = dayDistEls[code];
+          if (wrap.hidden) return;
+          const seg = wrap.querySelector('.segmented-control');
+          const thumb = wrap.querySelector('.segmented-thumb');
+          const sel = wrap.querySelector('.segmented-option[aria-selected="true"]') || wrap.querySelector('.segmented-option');
+          positionSegmentedThumb(seg, thumb, sel, false);
+        });
+      });
     }
-    function closeDayModal() {
-      dayModal.classList.remove('open');
-      dayModalDate = null;
-    }
+    function closeDayModal() { dayModal.classList.remove('open'); dayModalDate = null; }
     function closeDayModalOnOverlay(e) { if (e.target === dayModal) closeDayModal(); }
 
     function syncDayModalToggles() {
       const entry = extraHoursState.days[dayModalDate];
-      const shifts = (entry && entry.shifts) ? entry.shifts : [];
+      const shifts = (entry && entry.shifts) ? entry.shifts : {};
       SHIFT_ORDER.forEach(function(code) {
-        const on = shifts.indexOf(code) !== -1;
+        const on = code in shifts;
         const el = dayToggleEls[code];
         el.classList.toggle('active', on);
         el.textContent = on ? 'On' : 'Off';
+        const distWrap = dayDistEls[code];
+        if (on && mode === 'ADVANCED') {
+          distWrap.hidden = false;
+          const dist = shifts[code] === 'LONG' ? 'LONG' : 'SHORT';
+          Array.prototype.forEach.call(distWrap.querySelectorAll('.segmented-option'), function(opt) {
+            opt.setAttribute('aria-selected', opt.getAttribute('data-dist') === dist ? 'true' : 'false');
+          });
+          const seg = distWrap.querySelector('.segmented-control');
+          const thumb = distWrap.querySelector('.segmented-thumb');
+          const sel = distWrap.querySelector('.segmented-option[aria-selected="true"]');
+          requestAnimationFrame(function() { positionSegmentedThumb(seg, thumb, sel, false); });
+        } else {
+          distWrap.hidden = true;
+        }
       });
       const hol = isHoliday(dayModalDate);
       dayToggleEls.holiday.classList.toggle('active', hol);
@@ -1974,43 +2448,41 @@
     SHIFT_ORDER.forEach(function(code) {
       dayToggleEls[code].addEventListener('click', function() {
         if (!dayModalDate) return;
-        const entry = extraHoursState.days[dayModalDate] || { shifts: [] };
-        const idx = entry.shifts.indexOf(code);
-        if (idx === -1) entry.shifts.push(code);
-        else entry.shifts.splice(idx, 1);
-        if (entry.shifts.length) {
-          extraHoursState.days[dayModalDate] = entry;
+        const entry = extraHoursState.days[dayModalDate] || { shifts: {} };
+        if (code in entry.shifts) {
+          delete entry.shifts[code];
         } else {
-          delete extraHoursState.days[dayModalDate];
+          entry.shifts[code] = mode === 'ADVANCED' ? 'SHORT' : null;
         }
+        if (Object.keys(entry.shifts).length) extraHoursState.days[dayModalDate] = entry;
+        else delete extraHoursState.days[dayModalDate];
         afterStateChange();
+      });
+      const wrap = dayDistEls[code];
+      Array.prototype.forEach.call(wrap.querySelectorAll('.segmented-option'), function(opt) {
+        opt.addEventListener('click', function() {
+          if (!dayModalDate) return;
+          const entry = extraHoursState.days[dayModalDate];
+          if (!entry || !(code in entry.shifts)) return;
+          entry.shifts[code] = opt.getAttribute('data-dist');
+          afterStateChange();
+        });
       });
     });
 
     dayToggleEls.holiday.addEventListener('click', function() {
       if (!dayModalDate) return;
       const builtIn = isBuiltInHoliday(dayModalDate);
-      const current = isHoliday(dayModalDate);
-      const next = !current;
-      if (next === builtIn) {
-        // Matches built-in - clear any override
-        delete extraHoursState.customHolidays[dayModalDate];
-      } else {
-        extraHoursState.customHolidays[dayModalDate] = next;
-      }
+      const next = !isHoliday(dayModalDate);
+      if (next === builtIn) delete extraHoursState.customHolidays[dayModalDate];
+      else extraHoursState.customHolidays[dayModalDate] = next;
       afterStateChange();
     });
 
     function clearDayInModal() {
       if (!dayModalDate) return;
       delete extraHoursState.days[dayModalDate];
-      const builtIn = isBuiltInHoliday(dayModalDate);
-      if (builtIn) {
-        // Resetting an override is fine; if user had un-marked it, restore default
-        delete extraHoursState.customHolidays[dayModalDate];
-      } else {
-        delete extraHoursState.customHolidays[dayModalDate];
-      }
+      delete extraHoursState.customHolidays[dayModalDate];
       afterStateChange();
     }
 
@@ -2018,196 +2490,252 @@
       saveExtraHoursState();
       syncDayModalToggles();
       renderCalendar();
-      renderExtraHoursResults();
+      renderLive();
     }
 
-    // ─── Calculation ───
-    function computeExtraHours() {
-      const period = extraHoursState.viewPeriod;
-      const start  = payPeriodStart(period.year, period.month);
-      const end    = payPeriodEnd(period.year, period.month);
-      const monthly = extraHoursState.basicSalary || 0;
-      const rate = monthly > 0 ? monthly / HOURS_THRESHOLD : 0;
-
-      let totalHours = 0;
-      let holidayHours = 0;
-
-      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-        const dStr = toYMD(d);
-        const entry = extraHoursState.days[dStr];
-        if (!entry || !entry.shifts || !entry.shifts.length) continue;
-
-        for (let i = 0; i < entry.shifts.length; i++) {
-          const code = entry.shifts[i];
-          if (code === '7AM') {
-            totalHours += 8;
-            if (isHoliday(dStr)) holidayHours += 8;
-          } else if (code === '3PM') {
-            totalHours += 7;
-            if (isHoliday(dStr)) holidayHours += 7;
-          } else if (code === '10PM') {
-            // 2h on dStr (10PM-midnight)
-            if (d >= start && d <= end) {
-              totalHours += 2;
-              if (isHoliday(dStr)) holidayHours += 2;
-            }
-          }
-        }
+    // ─── Snapshot / Calculate ───
+    function submitCombined() {
+      const ids = mode === 'BASIC' ? BASIC_FIELD_IDS : ADV_FIELD_IDS;
+      const map = mode === 'BASIC' ? basicFields : advFields;
+      if (!validateInputs(ids, map)) return;
+      if (mode === 'BASIC') {
+        const i = gatherBasic();
+        if (i.doubleDays > i.all3) { showAlert('Cancellations cannot exceed 3PM shifts.'); return; }
+      } else {
+        const i = gatherAdvanced();
+        if (i.sdd > i.s3) { showAlert('Short distance cancellations cannot exceed short distance 3PM shifts.'); return; }
+        if (i.ldd > i.l3) { showAlert('Long distance cancellations cannot exceed long distance 3PM shifts.'); return; }
       }
-
-      // Second pass: handle the carry-over portion of 10PM shifts that started
-      // on the day BEFORE the pay period start (their 7h on the period's first day).
-      // Walk one day before through end-1 - any 10PM shift adds 7h to the next day.
-      const scanStart = addDays(start, -1);
-      for (let d = new Date(scanStart); d <= end; d = addDays(d, 1)) {
-        const dStr = toYMD(d);
-        const entry = extraHoursState.days[dStr];
-        if (!entry || !entry.shifts) continue;
-        if (entry.shifts.indexOf('10PM') === -1) continue;
-        const next = addDays(d, 1);
-        const nextStr = toYMD(next);
-        if (next >= start && next <= end) {
-          totalHours += 7;
-          if (isHoliday(nextStr)) holidayHours += 7;
-        }
-      }
-
-      const nonHoliday = totalHours - holidayHours;
-      const overHours  = Math.max(0, nonHoliday - HOURS_THRESHOLD);
-      const holidayPay = holidayHours * rate * HOLIDAY_MULT;
-      const overtimePay = overHours * rate * OVERTIME_MULT;
-
-      return {
-        totalHours: totalHours,
-        holidayHours: holidayHours,
-        nonHoliday: nonHoliday,
-        overHours: overHours,
-        rate: rate,
-        holidayPay: holidayPay,
-        overtimePay: overtimePay,
-        totalPay: holidayPay + overtimePay
-      };
+      const allowance = computeAllowance(mode);
+      const extra     = computeExtraHours();
+      const issues    = crossCheck();
+      lastSnapshot = { mode: mode, allowance: allowance, extra: extra, issues: issues, period: extraHoursState.viewPeriod, capturedAt: new Date() };
+      renderResultsPage(lastSnapshot);
+      prevPage = pageCalc;
+      flashAndNavigate(calcBtn, pageRes, 'forward');
     }
 
-    // ─── Render results ───
-    const ehEls = {
-      total: document.getElementById('eh-total-hrs'),
-      hol:   document.getElementById('eh-hol-hrs'),
-      nh:    document.getElementById('eh-nh-hrs'),
-      over:  document.getElementById('eh-over-hrs'),
-      rate:  document.getElementById('eh-rate'),
-      holPay: document.getElementById('eh-hol-pay'),
-      otPay:  document.getElementById('eh-ot-pay'),
-      totalPay: document.getElementById('eh-total-pay')
-    };
-    function fmtHrs(n) { return n.toFixed(2); }
+    function renderResultsPage(snap) {
+      resEls.eyebrow.textContent  = snap.mode === 'ADVANCED' ? 'Advanced snapshot' : 'Basic snapshot';
+      resEls.subtitle.textContent = payPeriodLabel(snap.period);
+      resEls.sp1.textContent  = fmt(snap.allowance.rSP1);
+      resEls.sp2.textContent  = fmt(snap.allowance.rSP2);
+      resEls.meal.textContent = fmt(snap.allowance.rMeal);
+      resEls.taxi.textContent = fmt(snap.allowance.rTaxi);
+      resEls.distance.textContent = snap.allowance.distLabel;
+      resEls.allowanceTotal.textContent = fmt(snap.allowance.total);
+      resEls.ehTotal.textContent  = fmtHrs(snap.extra.totalHours);
+      resEls.ehHol.textContent    = fmtHrs(snap.extra.holidayHours);
+      resEls.ehNh.textContent     = fmtHrs(snap.extra.nonHoliday);
+      resEls.ehOver.textContent   = fmtHrs(snap.extra.overHours);
+      resEls.ehRate.textContent   = fmt(round2(snap.extra.rate));
+      resEls.ehHolPay.textContent = fmt(round2(snap.extra.holidayPay));
+      resEls.ehOtPay.textContent  = fmt(round2(snap.extra.overtimePay));
+      resEls.ehTotalPay.textContent = fmt(round2(snap.extra.totalPay));
+      resEls.grand.textContent = fmt(round2(snap.allowance.total + snap.extra.totalPay));
+      if (totalRow) totalRow.style.opacity = '1';
+      if (snap.issues && snap.issues.length) {
+        resEls.crosscheck.classList.add('visible');
+        resEls.crosscheckList.innerHTML = '';
+        snap.issues.forEach(function(issue) {
+          const li = document.createElement('li');
+          li.className = 'crosscheck-issue';
+          li.innerHTML = describeIssue(issue);
+          resEls.crosscheckList.appendChild(li);
+        });
+      } else {
+        resEls.crosscheck.classList.remove('visible');
+        resEls.crosscheckList.innerHTML = '';
+      }
+    }
 
-    function renderExtraHoursResults() {
-      const r = computeExtraHours();
-      ehEls.total.textContent  = fmtHrs(r.totalHours);
-      ehEls.hol.textContent    = fmtHrs(r.holidayHours);
-      ehEls.nh.textContent     = fmtHrs(r.nonHoliday);
-      ehEls.over.textContent   = fmtHrs(r.overHours);
-      ehEls.rate.textContent   = fmt(round2(r.rate));
-      ehEls.holPay.textContent = fmt(round2(r.holidayPay));
-      ehEls.otPay.textContent  = fmt(round2(r.overtimePay));
-      ehEls.totalPay.textContent = fmt(round2(r.totalPay));
+    function flashAndNavigate(btn, target, direction) {
+      btn.classList.add('success');
+      setTimeout(function() {
+        btn.classList.remove('success');
+        showPage(target, direction);
+      }, 320);
     }
 
     // ─── Copy results ───
-    const ehCopyBtn = document.getElementById('eh-copy-btn');
-    function showEhCopied() {
-      ehCopyBtn.classList.add('copied');
-      ehCopyBtn.textContent = '✓ Copied';
+    function showCopied() {
+      copyBtn.classList.add('copied');
+      copyBtn.textContent = '✓ Copied';
       setTimeout(function() {
-        ehCopyBtn.classList.remove('copied');
-        ehCopyBtn.textContent = '⎘ Copy Results';
+        copyBtn.classList.remove('copied');
+        copyBtn.textContent = '⎘ Copy Results';
       }, 2000);
     }
-    function ehFallbackCopy(text) {
+    function fallbackCopy(text) {
       const ta = document.createElement('textarea');
       ta.value = text;
       ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
       document.body.appendChild(ta);
       ta.select();
-      try {
-        const ok = document.execCommand('copy');
-        if (ok) showEhCopied();
-      } catch (e) {}
+      try { if (document.execCommand('copy')) showCopied(); } catch (e) {}
       document.body.removeChild(ta);
     }
-    function copyExtraHoursResults() {
-      const r = computeExtraHours();
-      const divider = '─'.repeat(30);
-      const text = [
-        'Extra Hours — ' + payPeriodLabel(extraHoursState.viewPeriod),
+    function copyResults() {
+      const snap = lastSnapshot;
+      if (!snap) return;
+      const date = snap.capturedAt.toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
+      const divider = '─'.repeat(34);
+      const lines = [
+        'Night Shift — ' + date,
+        'Pay period: ' + payPeriodLabel(snap.period),
+        'Mode: ' + (snap.mode === 'ADVANCED' ? 'Advanced (Short + Long)' : 'Basic'),
+        '',
+        'Allowance',
+        divider,
+        'SP1            ' + fmt(snap.allowance.rSP1),
+        'SP2            ' + fmt(snap.allowance.rSP2),
+        'Meal           ' + fmt(snap.allowance.rMeal),
+        'Taxi           ' + fmt(snap.allowance.rTaxi),
+        'Distance       ' + snap.allowance.distLabel,
+        'Subtotal       ' + fmt(snap.allowance.total),
+        '',
+        'Extra Hours',
+        divider,
+        'Total hours    ' + fmtHrs(snap.extra.totalHours),
+        'Holiday hours  ' + fmtHrs(snap.extra.holidayHours),
+        'Non-holiday    ' + fmtHrs(snap.extra.nonHoliday),
+        'Over 173.33    ' + fmtHrs(snap.extra.overHours),
+        'Hourly rate    ' + fmt(round2(snap.extra.rate)),
+        'Holiday pay    ' + fmt(round2(snap.extra.holidayPay)),
+        'Overtime pay   ' + fmt(round2(snap.extra.overtimePay)),
+        'Subtotal       ' + fmt(round2(snap.extra.totalPay)),
         '',
         divider,
-        'Total hours          ' + fmtHrs(r.totalHours),
-        'Holiday hours        ' + fmtHrs(r.holidayHours),
-        'Non-holiday hours    ' + fmtHrs(r.nonHoliday),
-        'Threshold            ' + fmtHrs(HOURS_THRESHOLD),
-        'Hours over threshold ' + fmtHrs(r.overHours),
-        'Hourly rate          ' + fmt(round2(r.rate)),
-        'Holiday pay (×2)    ' + fmt(round2(r.holidayPay)),
-        'Overtime pay (×1.5) ' + fmt(round2(r.overtimePay)),
-        divider,
-        'Total Extra          ' + fmt(round2(r.totalPay))
-      ].join('\n');
+        'Grand Total    ' + fmt(round2(snap.allowance.total + snap.extra.totalPay))
+      ];
+      if (snap.issues && snap.issues.length) {
+        lines.push('');
+        lines.push('Cross-check warnings:');
+        snap.issues.forEach(function(issue) {
+          lines.push('  • ' + describeIssue(issue).replace(/<[^>]+>/g, '').replace(/&mdash;/g, '—'));
+        });
+      }
+      const text = lines.join('\n');
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(showEhCopied).catch(function() { ehFallbackCopy(text); });
+        navigator.clipboard.writeText(text).then(showCopied).catch(function() { fallbackCopy(text); });
       } else {
-        ehFallbackCopy(text);
+        fallbackCopy(text);
       }
     }
 
-    // ─── Reset Extra Hours ───
-    function resetExtraHours() {
-      showConfirm('Clear all Extra Hours data (calendar, salary, holiday overrides)?', function() {
-        extraHoursState = {
-          basicSalary: 0,
-          customHolidays: {},
-          days: {},
-          viewPeriod: currentPayPeriod()
-        };
+    // ─── Reset ───
+    function resetAll() {
+      showConfirm('Clear ALL data: counts, distance, basic salary, calendar, and holiday overrides?', function() {
+        BASIC_FIELD_IDS.forEach(function(id) { basicFields[id].value = ''; basicFields[id].classList.remove('error', 'field-input--warn'); });
+        ADV_FIELD_IDS.forEach(function(id)   { advFields[id].value   = ''; advFields[id].classList.remove('error', 'field-input--warn'); });
+        setDistance('SHORT', true);
+        extraHoursState = { basicSalary: 0, customHolidays: {}, days: {}, viewPeriod: currentPayPeriod() };
         basicSalaryInput.value = '';
         safeRemove(STORAGE_KEY_EXTRA);
+        safeRemove(STORAGE_KEY_BASIC);
+        safeRemove(STORAGE_KEY_ADV);
         renderCalendar();
-        renderExtraHoursResults();
-      });
+        renderLive();
+      }, 'Clear All');
     }
 
-    // ─── Wire inputs and nav ───
+    // ─── Navigation ───
+    function getCurrentActivePage() {
+      for (let i = 0; i < pages.length; i++) if (pages[i].classList.contains('active')) return pages[i];
+      return pageCalc;
+    }
+    function goBack() { showPage(prevPage || pageCalc, 'back'); }
+    function goBackFromInfo() { showPage(infoReturnPage || pageCalc, 'back'); }
+    function showPage(el, direction) {
+      if (el === pageAbout || el === pageDisclaimer) infoReturnPage = getCurrentActivePage();
+      pages.forEach(function(p) { p.classList.remove('active', 'page--enter-from-right', 'page--enter-from-left'); });
+      if (!reducedMotion()) {
+        if (direction === 'back') el.classList.add('page--enter-from-left');
+        else if (direction === 'forward') el.classList.add('page--enter-from-right');
+      }
+      el.classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    // ─── Input handlers ───
+    function attachInputHandlers(inputs) {
+      inputs.forEach(function(el, i) {
+        el.addEventListener('input', function() {
+          const n = parseFloat(el.value);
+          el.classList.remove('error');
+          if (!isNaN(n)) {
+            if (n > 99) el.value = 99;
+            if (n < 0)  el.value = 0;
+          }
+        });
+        el.addEventListener('keydown', function(e) {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          const next = inputs[i + 1];
+          if (next) next.focus(); else el.blur();
+        });
+      });
+    }
+    const basicInputs = BASIC_FIELD_IDS.map(function(id) { return basicFields[id]; });
+    const advInputs   = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
+    attachInputHandlers(basicInputs);
+    attachInputHandlers(advInputs);
+    basicInputs.forEach(function(el) { el.addEventListener('input', function() { saveBasicFields(); renderLive(); }); });
+    advInputs.forEach(function(el)   { el.addEventListener('input', function() { saveAdvFields();   renderLive(); }); });
+
+    modeBasicBtn.addEventListener('click', function() { setMode('BASIC', true); });
+    modeAdvancedBtn.addEventListener('click', function() { setMode('ADVANCED', true); });
+    distShortBtn.addEventListener('click', function() { setDistance('SHORT', true); });
+    distLongBtn.addEventListener('click',  function() { setDistance('LONG', true);  });
+
     basicSalaryInput.addEventListener('input', function() {
       const n = parseFloat(basicSalaryInput.value);
       extraHoursState.basicSalary = isNaN(n) ? 0 : Math.max(0, n);
       saveExtraHoursState();
-      renderExtraHoursResults();
+      renderLive();
     });
 
     calPrevBtn.addEventListener('click', function() {
       extraHoursState.viewPeriod = shiftPayPeriod(extraHoursState.viewPeriod, -1);
       saveExtraHoursState();
       renderCalendar();
-      renderExtraHoursResults();
+      renderLive();
     });
     calNextBtn.addEventListener('click', function() {
       extraHoursState.viewPeriod = shiftPayPeriod(extraHoursState.viewPeriod, 1);
       saveExtraHoursState();
       renderCalendar();
-      renderExtraHoursResults();
+      renderLive();
     });
 
-    // Close day modal on Escape
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && dayModal.classList.contains('open')) closeDayModal();
+      if (e.key !== 'Escape') return;
+      if (alertModal.classList.contains('open')) closeAlert();
+      else if (hintModal.classList.contains('open')) closeHint();
+      else if (dayModal.classList.contains('open')) closeDayModal();
+    });
+
+    window.addEventListener('resize', function() {
+      requestAnimationFrame(function() {
+        positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
+        positionSegmentedThumb(distSegmented, distThumb, distance === 'SHORT' ? distShortBtn : distLongBtn, false);
+      });
     });
 
     // ─── Init ───
+    loadBasicFields();
+    loadAdvFields();
     loadExtraHoursState();
     if (extraHoursState.basicSalary > 0) basicSalaryInput.value = extraHoursState.basicSalary;
+    mode = loadMode();
+    setMode(mode, false);
+    setDistance(distance, false);
     renderCalendar();
-    renderExtraHoursResults();
+    renderLive();
+    requestAnimationFrame(function() {
+      positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
+      positionSegmentedThumb(distSegmented, distThumb, distance === 'SHORT' ? distShortBtn : distLongBtn, false);
+    });
 
     // ─── Service worker registration ───
     if ('serviceWorker' in navigator) {
