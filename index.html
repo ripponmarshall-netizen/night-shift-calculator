@@ -202,6 +202,26 @@
     }
     .theme-btn:hover { transform: translateY(-1px); color: var(--accent); }
     .theme-btn:active { transform: scale(0.96); }
+    .theme-btn--auto::after {
+      content: 'A';
+      position: absolute;
+      bottom: -2px;
+      right: -2px;
+      width: 16px;
+      height: 16px;
+      border-radius: var(--radius-full);
+      background: var(--accent);
+      color: var(--text-inverse);
+      font-family: var(--font-display);
+      font-size: 0.6rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--bg);
+      letter-spacing: 0;
+      pointer-events: none;
+    }
 
     .page-header {
       text-align: center;
@@ -1185,11 +1205,15 @@
       </div>
 
       <div class="section">
-        <p class="section-header">Allowance</p>
+        <p class="section-header">Base Pay</p>
         <div class="field-list">
           <div class="field">
             <label class="field-label" for="basic-salary">Monthly Basic Allowance ($)</label>
             <input class="field-input" id="basic-salary" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="comp-allowance">Compulsory Assignment Allowance ($)</label>
+            <input class="field-input" id="comp-allowance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
           </div>
         </div>
       </div>
@@ -1229,6 +1253,9 @@
           <div class="result-row"><span class="result-label">Meal</span><span class="result-value tween" id="live-meal">$0.00</span></div>
           <div class="result-row"><span class="result-label">Taxi</span><span class="result-value tween" id="live-taxi">$0.00</span></div>
           <div class="result-row"><span class="result-label">Distance</span><span class="distance-tag" id="live-distance">Short</span></div>
+          <p class="live-section-label">Base Pay</p>
+          <div class="result-row"><span class="result-label">Monthly Basic</span><span class="result-value tween" id="live-basic">$0.00</span></div>
+          <div class="result-row"><span class="result-label">Compulsory Allowance</span><span class="result-value tween" id="live-comp">$0.00</span></div>
           <p class="live-section-label">Extra Hours</p>
           <div class="result-row"><span class="result-label">Total hours</span><span class="result-value tween" id="live-total-hrs">0.00</span></div>
           <div class="result-row"><span class="result-label">Holiday hours</span><span class="result-value tween" id="live-hol-hrs">0.00</span></div>
@@ -1271,27 +1298,27 @@
       <div class="section">
         <p class="section-header">Allowance</p>
         <div class="field-list">
-          <div class="result-row" id="row-sp1">
+          <div class="result-row visible" id="row-sp1">
             <span class="result-label">SP1</span>
             <span class="result-value" id="r-sp1">&#8212;</span>
           </div>
-          <div class="result-row" id="row-sp2">
+          <div class="result-row visible" id="row-sp2">
             <span class="result-label">SP2</span>
             <span class="result-value" id="r-sp2">&#8212;</span>
           </div>
-          <div class="result-row" id="row-meal">
+          <div class="result-row visible" id="row-meal">
             <span class="result-label">Meal</span>
             <span class="result-value" id="r-meal">&#8212;</span>
           </div>
-          <div class="result-row" id="row-taxi">
+          <div class="result-row visible" id="row-taxi">
             <span class="result-label">Taxi</span>
             <span class="result-value" id="r-taxi">&#8212;</span>
           </div>
-          <div class="result-row" id="row-dist">
+          <div class="result-row visible" id="row-dist">
             <span class="result-label">Distance</span>
             <span class="distance-tag" id="r-distance">&#8212;</span>
           </div>
-          <div class="result-row" id="row-allowance-subtotal">
+          <div class="result-row visible" id="row-allowance-subtotal">
             <span class="result-label">Allowance subtotal</span>
             <span class="result-value" id="r-allowance-total">&#8212;</span>
           </div>
@@ -1299,16 +1326,25 @@
       </div>
 
       <div class="section">
+        <p class="section-header">Base Pay</p>
+        <div class="field-list">
+          <div class="result-row visible" id="row-basic"><span class="result-label">Monthly Basic</span><span class="result-value" id="r-basic">&#8212;</span></div>
+          <div class="result-row visible" id="row-comp"><span class="result-label">Compulsory Allowance</span><span class="result-value" id="r-comp">&#8212;</span></div>
+          <div class="result-row visible" id="row-base-subtotal"><span class="result-label">Base Pay subtotal</span><span class="result-value" id="r-base-total">&#8212;</span></div>
+        </div>
+      </div>
+
+      <div class="section">
         <p class="section-header">Extra Hours</p>
         <div class="field-list">
-          <div class="result-row" id="row-eh-total"><span class="result-label">Total hours</span><span class="result-value" id="r-eh-total">&#8212;</span></div>
-          <div class="result-row" id="row-eh-hol"><span class="result-label">Holiday hours</span><span class="result-value" id="r-eh-hol">&#8212;</span></div>
-          <div class="result-row" id="row-eh-nh"><span class="result-label">Non-holiday hours</span><span class="result-value" id="r-eh-nh">&#8212;</span></div>
-          <div class="result-row" id="row-eh-over"><span class="result-label">Hours over 173.33</span><span class="result-value" id="r-eh-over">&#8212;</span></div>
-          <div class="result-row" id="row-eh-rate"><span class="result-label">Hourly rate</span><span class="result-value" id="r-eh-rate">&#8212;</span></div>
-          <div class="result-row" id="row-eh-hol-pay"><span class="result-label">Holiday pay (&#215;2)</span><span class="result-value" id="r-eh-hol-pay">&#8212;</span></div>
-          <div class="result-row" id="row-eh-ot-pay"><span class="result-label">Overtime pay (&#215;1.5)</span><span class="result-value" id="r-eh-ot-pay">&#8212;</span></div>
-          <div class="result-row" id="row-eh-subtotal"><span class="result-label">Extra Hours subtotal</span><span class="result-value" id="r-eh-total-pay">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-total"><span class="result-label">Total hours</span><span class="result-value" id="r-eh-total">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-hol"><span class="result-label">Holiday hours</span><span class="result-value" id="r-eh-hol">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-nh"><span class="result-label">Non-holiday hours</span><span class="result-value" id="r-eh-nh">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-over"><span class="result-label">Hours over 173.33</span><span class="result-value" id="r-eh-over">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-rate"><span class="result-label">Hourly rate</span><span class="result-value" id="r-eh-rate">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-hol-pay"><span class="result-label">Holiday pay (&#215;2)</span><span class="result-value" id="r-eh-hol-pay">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-ot-pay"><span class="result-label">Overtime pay (&#215;1.5)</span><span class="result-value" id="r-eh-ot-pay">&#8212;</span></div>
+          <div class="result-row visible" id="row-eh-subtotal"><span class="result-label">Extra Hours subtotal</span><span class="result-value" id="r-eh-total-pay">&#8212;</span></div>
         </div>
       </div>
 
@@ -1362,6 +1398,7 @@
             <li>SP2 &#8212; your 10PM shift allowance</li>
             <li>Meal &#8212; meal allowance based on total 3PM and 10PM shifts</li>
             <li>Taxi &#8212; transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+            <li>Base Pay &#8212; your Monthly Basic Allowance plus the Compulsory Assignment Allowance, both included in the grand total</li>
             <li>Extra Hours &#8212; overtime pay (&#215;1.5) for non-holiday hours above 173.33, plus holiday pay (&#215;2) for any hours worked on a Jamaica public holiday</li>
             <li>Cross-check &#8212; flags when the entered shift counts don't match the calendar entries for the active pay period</li>
           </ul>
@@ -1477,7 +1514,7 @@
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128176;</span>
-        <p class="modal-text"><strong>Basic allowance</strong> &#8212; Enter your monthly basic. Hourly rate = monthly &#247; 173.33.</p>
+        <p class="modal-text"><strong>Base Pay</strong> &#8212; Enter your Monthly Basic Allowance and Compulsory Assignment Allowance. Both are added to the grand total. The hourly rate (monthly &#247; 173.33) drives overtime pay.</p>
       </div>
 
       <p class="modal-section-title">Snapshot</p>
@@ -1559,58 +1596,49 @@
   </div>
 
   <script>
-    // ─── Theme ───
+    // ─── Theme (tri-state: Auto / Light / Dark) ───
     const themeBtn = document.getElementById('theme-btn');
     const themeMetaTag = document.querySelector('meta[name="theme-color"]');
     const root     = document.documentElement;
+    let themeMode = 'auto';
 
-    function isDark() {
-      return root.classList.contains('dark') ||
-        (!root.classList.contains('light') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    function effectiveDark() {
+      if (themeMode === 'dark') return true;
+      if (themeMode === 'light') return false;
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
     }
 
-    function updateThemeColor() {
-      if (themeMetaTag) themeMetaTag.content = isDark() ? '#171614' : '#01696f';
-    }
-
-    function applyTheme(dark) {
-      root.classList.toggle('dark', dark);
-      root.classList.toggle('light', !dark);
-      themeBtn.innerHTML = '<span aria-hidden="true">' + (dark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
-      themeBtn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
-      updateThemeColor();
+    function applyThemeMode(m) {
+      themeMode = m;
+      root.classList.toggle('dark',  m === 'dark');
+      root.classList.toggle('light', m === 'light');
+      const dark = effectiveDark();
+      // Auto: half-moon glyph; Light: sun; Dark: crescent moon
+      const icon = m === 'auto' ? '◐' : (dark ? '\uD83C\uDF19' : '\u2600\uFE0F');
+      themeBtn.innerHTML = '<span aria-hidden="true">' + icon + '</span>';
+      const nextLabel = m === 'auto' ? 'Light' : (m === 'light' ? 'Dark' : 'Auto');
+      themeBtn.setAttribute('aria-label', 'Theme: ' + m.charAt(0).toUpperCase() + m.slice(1) + '. Tap to switch to ' + nextLabel + '.');
+      themeBtn.classList.toggle('theme-btn--auto', m === 'auto');
+      if (themeMetaTag) themeMetaTag.content = dark ? '#171614' : '#01696f';
     }
 
     function toggleTheme() {
-      const dark = !isDark();
-      applyTheme(dark);
-      try { localStorage.setItem('theme', dark ? 'dark' : 'light'); } catch (e) {}
+      const next = themeMode === 'auto' ? 'light' : (themeMode === 'light' ? 'dark' : 'auto');
+      applyThemeMode(next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
     }
 
-    // Apply saved preference or fall back to device setting
     (function initTheme() {
       let saved = null;
       try { saved = localStorage.getItem('theme'); } catch (e) {}
-      if (saved) {
-        applyTheme(saved === 'dark');
-      } else {
-        const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        themeBtn.innerHTML = '<span aria-hidden="true">' + (systemDark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
-        themeBtn.setAttribute('aria-label', systemDark ? 'Switch to light mode' : 'Switch to dark mode');
-        updateThemeColor();
+      const m = (saved === 'light' || saved === 'dark' || saved === 'auto') ? saved : 'auto';
+      applyThemeMode(m);
+      if (window.matchMedia) {
+        const mql = window.matchMedia('(prefers-color-scheme: dark)');
+        const onChange = function() { if (themeMode === 'auto') applyThemeMode('auto'); };
+        if (mql.addEventListener) mql.addEventListener('change', onChange);
+        else if (mql.addListener) mql.addListener(onChange);
       }
-
-      // Listen for system preference changes (auto mode)
-      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function() {
-        let pref = null;
-        try { pref = localStorage.getItem('theme'); } catch (e) {}
-        if (!pref) {
-          const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          themeBtn.innerHTML = '<span aria-hidden="true">' + (systemDark ? '\u2600\uFE0F' : '\uD83C\uDF19') + '</span>';
-          themeBtn.setAttribute('aria-label', systemDark ? 'Switch to light mode' : 'Switch to dark mode');
-          updateThemeColor();
-        }
-      });
     })();
 
     // ─── Constants ───
@@ -1665,6 +1693,7 @@
     const calPrevBtn     = document.getElementById('cal-prev');
     const calNextBtn     = document.getElementById('cal-next');
     const basicSalaryInput = document.getElementById('basic-salary');
+    const compAllowanceInput = document.getElementById('comp-allowance');
     const crosscheckEl   = document.getElementById('crosscheck');
     const crosscheckList = document.getElementById('crosscheck-list');
 
@@ -1686,6 +1715,8 @@
       meal:   document.getElementById('live-meal'),
       taxi:   document.getElementById('live-taxi'),
       dist:   document.getElementById('live-distance'),
+      basic:  document.getElementById('live-basic'),
+      comp:   document.getElementById('live-comp'),
       totalHrs: document.getElementById('live-total-hrs'),
       holHrs: document.getElementById('live-hol-hrs'),
       nhHrs:  document.getElementById('live-nh-hrs'),
@@ -1705,6 +1736,9 @@
       taxi:      document.getElementById('r-taxi'),
       distance:  document.getElementById('r-distance'),
       allowanceTotal: document.getElementById('r-allowance-total'),
+      basic:     document.getElementById('r-basic'),
+      comp:      document.getElementById('r-comp'),
+      baseTotal: document.getElementById('r-base-total'),
       ehTotal:   document.getElementById('r-eh-total'),
       ehHol:     document.getElementById('r-eh-hol'),
       ehNh:      document.getElementById('r-eh-nh'),
@@ -1930,6 +1964,7 @@
     // ─── Extra Hours state ───
     let extraHoursState = {
       basicSalary: 0,
+      compAllowance: 0,
       customHolidays: {},
       days: {},
       viewPeriod: currentPayPeriod()
@@ -1941,6 +1976,7 @@
       let data; try { data = JSON.parse(raw); } catch (e) { return; }
       if (!data || typeof data !== 'object') return;
       if (typeof data.basicSalary === 'number') extraHoursState.basicSalary = data.basicSalary;
+      if (typeof data.compAllowance === 'number') extraHoursState.compAllowance = data.compAllowance;
       if (data.customHolidays && typeof data.customHolidays === 'object') extraHoursState.customHolidays = data.customHolidays;
       if (data.days && typeof data.days === 'object') {
         const days = {};
@@ -2292,11 +2328,15 @@
     function renderLive() {
       const a = computeAllowance(mode);
       const e = computeExtraHours();
+      const basic = extraHoursState.basicSalary || 0;
+      const comp  = extraHoursState.compAllowance || 0;
       tweenMoney(liveEls.sp1,  a.rSP1);
       tweenMoney(liveEls.sp2,  a.rSP2);
       tweenMoney(liveEls.meal, a.rMeal);
       tweenMoney(liveEls.taxi, a.rTaxi);
       liveEls.dist.textContent = a.distLabel;
+      tweenMoney(liveEls.basic, basic);
+      tweenMoney(liveEls.comp,  comp);
       tweenHours(liveEls.totalHrs, e.totalHours);
       tweenHours(liveEls.holHrs,   e.holidayHours);
       tweenHours(liveEls.nhHrs,    e.nonHoliday);
@@ -2304,7 +2344,7 @@
       tweenMoney(liveEls.rate,    e.rate);
       tweenMoney(liveEls.holPay,  e.holidayPay);
       tweenMoney(liveEls.otPay,   e.overtimePay);
-      tweenMoney(liveEls.grand,   round2(a.total + e.totalPay));
+      tweenMoney(liveEls.grand,   round2(a.total + basic + comp + e.totalPay));
       const issues = crossCheck();
       renderCrossCheck(issues);
     }
@@ -2509,7 +2549,8 @@
       const allowance = computeAllowance(mode);
       const extra     = computeExtraHours();
       const issues    = crossCheck();
-      lastSnapshot = { mode: mode, allowance: allowance, extra: extra, issues: issues, period: extraHoursState.viewPeriod, capturedAt: new Date() };
+      const basePay   = { basic: extraHoursState.basicSalary || 0, comp: extraHoursState.compAllowance || 0 };
+      lastSnapshot = { mode: mode, allowance: allowance, basePay: basePay, extra: extra, issues: issues, period: extraHoursState.viewPeriod, capturedAt: new Date() };
       renderResultsPage(lastSnapshot);
       prevPage = pageCalc;
       flashAndNavigate(calcBtn, pageRes, 'forward');
@@ -2524,6 +2565,11 @@
       resEls.taxi.textContent = fmt(snap.allowance.rTaxi);
       resEls.distance.textContent = snap.allowance.distLabel;
       resEls.allowanceTotal.textContent = fmt(snap.allowance.total);
+      const baseBasic = (snap.basePay && snap.basePay.basic) || 0;
+      const baseComp  = (snap.basePay && snap.basePay.comp)  || 0;
+      resEls.basic.textContent     = fmt(baseBasic);
+      resEls.comp.textContent      = fmt(baseComp);
+      resEls.baseTotal.textContent = fmt(round2(baseBasic + baseComp));
       resEls.ehTotal.textContent  = fmtHrs(snap.extra.totalHours);
       resEls.ehHol.textContent    = fmtHrs(snap.extra.holidayHours);
       resEls.ehNh.textContent     = fmtHrs(snap.extra.nonHoliday);
@@ -2532,7 +2578,7 @@
       resEls.ehHolPay.textContent = fmt(round2(snap.extra.holidayPay));
       resEls.ehOtPay.textContent  = fmt(round2(snap.extra.overtimePay));
       resEls.ehTotalPay.textContent = fmt(round2(snap.extra.totalPay));
-      resEls.grand.textContent = fmt(round2(snap.allowance.total + snap.extra.totalPay));
+      resEls.grand.textContent = fmt(round2(snap.allowance.total + baseBasic + baseComp + snap.extra.totalPay));
       if (totalRow) totalRow.style.opacity = '1';
       if (snap.issues && snap.issues.length) {
         resEls.crosscheck.classList.add('visible');
@@ -2580,6 +2626,10 @@
       if (!snap) return;
       const date = snap.capturedAt.toLocaleDateString('en-JM', { day: 'numeric', month: 'long', year: 'numeric' });
       const divider = '─'.repeat(34);
+      const baseBasic = (snap.basePay && snap.basePay.basic) || 0;
+      const baseComp  = (snap.basePay && snap.basePay.comp)  || 0;
+      const baseTotal = round2(baseBasic + baseComp);
+      const grandTotal = round2(snap.allowance.total + baseBasic + baseComp + snap.extra.totalPay);
       const lines = [
         'Night Shift — ' + date,
         'Pay period: ' + payPeriodLabel(snap.period),
@@ -2594,6 +2644,12 @@
         'Distance       ' + snap.allowance.distLabel,
         'Subtotal       ' + fmt(snap.allowance.total),
         '',
+        'Base Pay',
+        divider,
+        'Monthly Basic  ' + fmt(baseBasic),
+        'Compulsory     ' + fmt(baseComp),
+        'Subtotal       ' + fmt(baseTotal),
+        '',
         'Extra Hours',
         divider,
         'Total hours    ' + fmtHrs(snap.extra.totalHours),
@@ -2606,7 +2662,7 @@
         'Subtotal       ' + fmt(round2(snap.extra.totalPay)),
         '',
         divider,
-        'Grand Total    ' + fmt(round2(snap.allowance.total + snap.extra.totalPay))
+        'Grand Total    ' + fmt(grandTotal)
       ];
       if (snap.issues && snap.issues.length) {
         lines.push('');
@@ -2625,12 +2681,13 @@
 
     // ─── Reset ───
     function resetAll() {
-      showConfirm('Clear ALL data: counts, distance, basic salary, calendar, and holiday overrides?', function() {
+      showConfirm('Clear ALL data: counts, distance, base pay, calendar, and holiday overrides?', function() {
         BASIC_FIELD_IDS.forEach(function(id) { basicFields[id].value = ''; basicFields[id].classList.remove('error', 'field-input--warn'); });
         ADV_FIELD_IDS.forEach(function(id)   { advFields[id].value   = ''; advFields[id].classList.remove('error', 'field-input--warn'); });
         setDistance('SHORT', true);
-        extraHoursState = { basicSalary: 0, customHolidays: {}, days: {}, viewPeriod: currentPayPeriod() };
+        extraHoursState = { basicSalary: 0, compAllowance: 0, customHolidays: {}, days: {}, viewPeriod: currentPayPeriod() };
         basicSalaryInput.value = '';
+        compAllowanceInput.value = '';
         safeRemove(STORAGE_KEY_EXTRA);
         safeRemove(STORAGE_KEY_BASIC);
         safeRemove(STORAGE_KEY_ADV);
@@ -2695,6 +2752,13 @@
       renderLive();
     });
 
+    compAllowanceInput.addEventListener('input', function() {
+      const n = parseFloat(compAllowanceInput.value);
+      extraHoursState.compAllowance = isNaN(n) ? 0 : Math.max(0, n);
+      saveExtraHoursState();
+      renderLive();
+    });
+
     calPrevBtn.addEventListener('click', function() {
       extraHoursState.viewPeriod = shiftPayPeriod(extraHoursState.viewPeriod, -1);
       saveExtraHoursState();
@@ -2727,6 +2791,7 @@
     loadAdvFields();
     loadExtraHoursState();
     if (extraHoursState.basicSalary > 0) basicSalaryInput.value = extraHoursState.basicSalary;
+    if (extraHoursState.compAllowance > 0) compAllowanceInput.value = extraHoursState.compAllowance;
     mode = loadMode();
     setMode(mode, false);
     setDistance(distance, false);
