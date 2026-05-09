@@ -2540,11 +2540,11 @@
       if (!validateInputs(ids, map)) return;
       if (mode === 'BASIC') {
         const i = gatherBasic();
-        if (i.doubleDays > i.all3) { showAlert('Cancellations cannot exceed 3PM shifts.'); return; }
+        if (i.doubleDays > i.all3 || i.doubleDays > i.all10) { showAlert('Cancellations cannot exceed the smaller of 3PM and 10PM shifts.'); return; }
       } else {
         const i = gatherAdvanced();
-        if (i.sdd > i.s3) { showAlert('Short distance cancellations cannot exceed short distance 3PM shifts.'); return; }
-        if (i.ldd > i.l3) { showAlert('Long distance cancellations cannot exceed long distance 3PM shifts.'); return; }
+        if (i.sdd > i.s3 || i.sdd > i.s10) { showAlert('Short distance cancellations cannot exceed the smaller of short 3PM and short 10PM shifts.'); return; }
+        if (i.ldd > i.l3 || i.ldd > i.l10) { showAlert('Long distance cancellations cannot exceed the smaller of long 3PM and long 10PM shifts.'); return; }
       }
       const allowance = computeAllowance(mode);
       const extra     = computeExtraHours();
