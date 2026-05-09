@@ -232,6 +232,12 @@
       justify-items: center;
     }
 
+    .brand-lockup {
+      display: grid;
+      justify-items: center;
+      gap: var(--space-2);
+      max-width: 30rem;
+    }
     .brand-logo {
       width: clamp(4.5rem, 20vw, 6.25rem);
       height: auto;
@@ -269,6 +275,7 @@
       font-size: var(--text-sm);
       color: var(--text-sub);
       max-width: 34ch;
+      text-wrap: balance;
     }
 
     .hint-wrap {
@@ -1114,10 +1121,12 @@
     <!-- CALCULATOR PAGE (unified) -->
     <div class="page active" id="calculator-page">
       <div class="page-header">
-        <img class="brand-logo" src="logo.svg" alt="Night Shift Calculator logo" />
-        <div class="eyebrow">Workflow tool</div>
-        <h1 class="page-title page-title--input">Calculator</h1>
-        <p class="page-subtitle">Night Shift Calculator</p>
+        <div class="brand-lockup">
+          <img class="brand-logo" src="logo.svg" alt="Night Shift Calculator logo" />
+          <div class="eyebrow">Workflow tool</div>
+          <h1 class="page-title page-title--input">Night Shift Calculator</h1>
+          <p class="page-subtitle">Quickly calculate short and long night-shift compensation from one clean workflow.</p>
+        </div>
         <div class="hint-wrap">
           <span class="hint-label">How to Use</span>
           <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
