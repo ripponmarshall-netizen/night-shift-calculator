@@ -1,15 +1,16 @@
 'use strict';
 
 // Update this version string on each deploy to bust the cache
-const CACHE = 'ns-calculator-v5';
+const CACHE = 'ns-calculator-v6';
 const FONT_CACHE = 'ns-fonts-v1';
 
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png'
+  './logo.svg',
+  './icon-192.svg',
+  './icon-512.svg'
 ];
 
 // Install — cache all assets, then take control immediately

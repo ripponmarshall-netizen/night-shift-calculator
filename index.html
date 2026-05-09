@@ -8,6 +8,7 @@
   <meta name="apple-mobile-web-app-title" content="NS Calculator" />
   <meta name="theme-color" content="#01696f" />
   <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -229,6 +230,16 @@
       display: grid;
       gap: var(--space-3);
       justify-items: center;
+    }
+
+    .brand-logo {
+      width: clamp(4.5rem, 20vw, 6.25rem);
+      height: auto;
+      border-radius: 1.4rem;
+      box-shadow: var(--shadow-md);
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      padding: 0.35rem;
     }
     .eyebrow {
       display: inline-flex;
@@ -1103,6 +1114,7 @@
     <!-- CALCULATOR PAGE (unified) -->
     <div class="page active" id="calculator-page">
       <div class="page-header">
+        <img class="brand-logo" src="logo.svg" alt="Night Shift Calculator logo" />
         <div class="eyebrow">Workflow tool</div>
         <h1 class="page-title page-title--input">Calculator</h1>
         <p class="page-subtitle">Night Shift Calculator</p>
