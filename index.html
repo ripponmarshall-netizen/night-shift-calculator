@@ -2718,11 +2718,13 @@
     function attachInputHandlers(inputs) {
       inputs.forEach(function(el, i) {
         el.addEventListener('input', function() {
-          const n = parseFloat(el.value);
+          const raw = el.value;
+          const n = parseFloat(raw);
           el.classList.remove('error');
           if (!isNaN(n)) {
-            if (n > 99) el.value = 99;
-            if (n < 0)  el.value = 0;
+            const bounded = Math.min(99, Math.max(0, n));
+            const normalized = Math.floor(bounded);
+            if (String(normalized) !== raw) el.value = normalized;
           }
         });
         el.addEventListener('keydown', function(e) {
