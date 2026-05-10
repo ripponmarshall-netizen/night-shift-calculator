@@ -197,10 +197,10 @@
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="submit-btn" id="calc-btn" onclick="submitCombined()">Calculate Snapshot</button>
-        <button type="button" class="reset-btn" onclick="resetAll()">Clear All</button>
-        <button type="button" class="reset-btn" onclick="exportData()">Export Data</button>
-        <label class="reset-btn" for="import-data" style="display:inline-block;text-align:center;">Import Data</label>
+        <button type="button" class="btn btn--primary submit-btn" id="calc-btn" onclick="submitCombined()">Calculate Snapshot</button>
+        <button type="button" class="btn btn--destructive" onclick="resetAll()">Clear All</button>
+        <button type="button" class="btn btn--tertiary" onclick="exportData()">Export Data</button>
+        <label class="btn btn--tertiary btn-label" for="import-data">Import Data</label>
         <input id="import-data" type="file" accept="application/json" style="display:none" />
       </div>
 
