@@ -52,3 +52,21 @@ This app was developed with assistance from Claude, an AI assistant made by Anth
 
 ### Affiliation
 This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.
+
+## Basic Checks
+
+Run the local sanity checks before deploying:
+
+```bash
+./check.sh
+```
+
+This validates `manifest.json` formatting and ensures core app files exist and are non-empty.
+
+
+## Release Checklist
+
+1. Update rates and effective date in `app.js`.
+2. Run `./check.sh`.
+3. Bump service worker cache version in `sw.js`.
+4. Verify install/offline behavior and copy-results output manually.

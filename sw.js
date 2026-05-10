@@ -1,7 +1,7 @@
 'use strict';
 
 // Update this version string on each deploy to bust the cache
-const CACHE = 'ns-calculator-v6';
+const CACHE = 'ns-calculator-v7';
 const FONT_CACHE = 'ns-fonts-v1';
 
 const ASSETS = [
@@ -10,7 +10,11 @@ const ASSETS = [
   './manifest.json',
   './logo.svg',
   './icon-192.svg',
-  './icon-512.svg'
+  './icon-512.svg',
+  './icon-192.png',
+  './icon-512.png',
+  './styles.css',
+  './app.js'
 ];
 
 // Install — cache all assets, then take control immediately
@@ -53,6 +57,20 @@ self.addEventListener('fetch', e => {
           return cached || networkFetch;
         })
       )
+    );
+    return;
+  }
+
+  // App shell document: network-first (faster update rollouts)
+  if (url.pathname.endsWith('/index.html') || url.pathname === '/' || url.pathname.endsWith('/')) {
+    e.respondWith(
+      fetch(e.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put('./index.html', copy));
+          return response;
+        })
+        .catch(() => caches.match(e.request).then(cached => cached || caches.match('./index.html')))
     );
     return;
   }
