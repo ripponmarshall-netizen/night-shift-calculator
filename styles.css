@@ -403,6 +403,11 @@
       display: grid;
       gap: var(--space-3);
       padding-top: var(--space-2);
+      justify-items: center;
+    }
+    .btn-wrap > .submit-btn,
+    .btn-wrap > .reset-btn {
+      width: min(100%, 24rem);
     }
     .btn-divider {
       display: flex;
