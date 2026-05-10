@@ -2,7 +2,7 @@
   "name": "WCO JFB Night Shift Calculator",
   "short_name": "NS Calculator",
   "description": "WCO JFB Night Shift allowance calculator",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f7f6f2",
