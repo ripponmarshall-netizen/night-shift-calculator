@@ -424,8 +424,7 @@
       padding-top: var(--space-2);
       justify-items: center;
     }
-    .btn-wrap > .submit-btn,
-    .btn-wrap > .reset-btn {
+    .btn-wrap > .btn {
       width: min(100%, 24rem);
     }
     .btn-divider {
@@ -448,7 +447,7 @@
       letter-spacing: 0.08em;
     }
 
-    .submit-btn, .back-btn, .advanced-btn, .reset-btn, .copy-btn, .modal-close {
+    .btn, .back-btn, .advanced-btn, .copy-btn, .modal-close {
       width: 100%;
       min-height: 56px;
       padding: 0.95rem 1rem;
@@ -460,35 +459,64 @@
       transition: transform var(--transition), opacity var(--transition), background var(--transition), border-color var(--transition), color var(--transition), box-shadow var(--transition);
       -webkit-tap-highlight-color: transparent;
     }
-    .submit-btn {
-      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
-      color: var(--text-inverse);
-      box-shadow: 0 18px 30px rgba(1, 105, 111, 0.24);
-    }
-    .submit-btn:hover { transform: translateY(-1px); }
-    .submit-btn:active { opacity: 0.9; transform: scale(0.985); }
-    .submit-btn.success { background: var(--green); box-shadow: 0 18px 30px rgba(67, 122, 34, 0.24); }
-
-    .advanced-btn, .back-btn, .reset-btn, .copy-btn {
-      background: var(--surface-2);
-      border-color: var(--border);
-      color: var(--text);
-      display: flex;
+    .btn {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: var(--space-2);
+      text-align: center;
+      text-decoration: none;
+      line-height: 1.2;
       box-shadow: var(--shadow-sm);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
     }
-    .advanced-btn:hover, .back-btn:hover, .reset-btn:hover, .copy-btn:hover {
+    .btn--primary {
+      background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+      color: var(--text-inverse);
+      box-shadow: 0 18px 30px rgba(1, 105, 111, 0.24);
+    }
+    .btn--primary:hover { transform: translateY(-1px); }
+    .btn--primary:active { opacity: 0.9; transform: scale(0.985); }
+    .submit-btn.success { background: var(--green); box-shadow: 0 18px 30px rgba(67, 122, 34, 0.24); }
+
+    .btn--secondary, .advanced-btn, .back-btn, .copy-btn {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text);
+    }
+    .btn--secondary:hover, .advanced-btn:hover, .back-btn:hover, .copy-btn:hover {
       transform: translateY(-1px);
       border-color: var(--border-strong);
     }
+    .btn--tertiary {
+      background: transparent;
+      color: var(--text-sub);
+      border-color: var(--border);
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .btn--tertiary:hover {
+      transform: translateY(-1px);
+      color: var(--text);
+      border-color: var(--border-strong);
+      background: var(--surface);
+    }
+    .btn--destructive {
+      background: var(--surface-2);
+      color: var(--red);
+      border-color: rgba(161, 53, 68, 0.26);
+    }
+    .btn--destructive:hover {
+      transform: translateY(-1px);
+      border-color: rgba(161, 53, 68, 0.45);
+      background: var(--red-soft);
+    }
     .advanced-btn { color: var(--accent); }
-    .reset-btn { color: var(--red); border-color: rgba(161, 53, 68, 0.22); }
     .copy-btn.copied { color: var(--green); border-color: rgba(67, 122, 34, 0.28); }
-    .advanced-btn:active, .back-btn:active, .reset-btn:active, .copy-btn:active { transform: scale(0.985); }
+    .btn:active, .advanced-btn:active, .back-btn:active, .copy-btn:active { transform: scale(0.985); }
+    .btn-label { cursor: pointer; }
 
     .result-value, .distance-tag {
       font-family: var(--font-display);
@@ -1102,7 +1130,7 @@
     .toggle-btn:active { transform: scale(0.96); }
 
     /* ─── Submit button refinements ─── */
-    .submit-btn, .back-btn, .advanced-btn, .reset-btn, .copy-btn, .modal-close {
+    .btn, .back-btn, .advanced-btn, .copy-btn, .modal-close {
       transition: transform var(--motion-fast) var(--ease-spring), opacity var(--motion-fast) var(--ease-soft), background var(--motion-snap) var(--ease-soft), border-color var(--motion-snap) var(--ease-soft), color var(--motion-snap) var(--ease-soft), box-shadow var(--motion-snap) var(--ease-soft);
     }
 
