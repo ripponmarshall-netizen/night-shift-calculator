@@ -26,13 +26,13 @@
     <div class="page active" id="calculator-page">
       <div class="page-header">
         <div class="brand-lockup">
-          <div class="eyebrow">Workflow tool</div>
+          <div class="eyebrow">Pay calculator</div>
           <h1 class="page-title page-title--input">Night Shift Calculator</h1>
           <p class="eyebrow" id="rates-effective">Rates effective: —</p>
         </div>
         <div class="hint-wrap">
-          <span class="hint-label">How to Use</span>
-          <button type="button" class="hint-btn" onclick="openHint()" aria-label="How to Use">?</button>
+          <span class="hint-label">Help</span>
+          <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
         </div>
       </div>
 
@@ -45,9 +45,9 @@
       </div>
 
       <!-- BASIC mode block -->
-      <div class="calc-mode-block active" id="mode-block-basic">
+      <div class="ui-card ui-card--inputs calc-mode-block active" id="mode-block-basic">
         <div class="section">
-          <p class="section-header">Shifts</p>
+          <p class="section-header">Shift Counts</p>
           <div class="field-list">
             <div class="field">
               <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
@@ -78,7 +78,7 @@
       </div>
 
       <!-- ADVANCED mode block -->
-      <div class="calc-mode-block" id="mode-block-advanced">
+      <div class="ui-card ui-card--inputs calc-mode-block" id="mode-block-advanced">
         <div class="section">
           <p class="section-header section-header--short">Short Distance Shifts</p>
           <div class="field-list field-list--short">
@@ -129,7 +129,7 @@
       </div>
 
       <div class="section">
-        <p class="section-header">Base Pay</p>
+        <p class="section-header">Base Pay Inputs</p>
         <div class="field-list">
           <div class="field">
             <label class="field-label" for="basic-salary">Monthly Basic Allowance ($)</label>
@@ -142,8 +142,8 @@
         </div>
       </div>
 
-      <div class="section">
-        <p class="section-header">Schedule</p>
+      <div class="ui-card ui-card--calendar section">
+        <p class="section-header">Calendar</p>
         <div class="cal">
           <div class="cal-header">
             <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period">&#8249;</button>
@@ -168,8 +168,8 @@
         <ul class="crosscheck-list" id="crosscheck-list"></ul>
       </div>
 
-      <div class="section">
-        <p class="section-header">Live Breakdown</p>
+      <div class="ui-card ui-card--results section">
+        <p class="section-header">Live Summary</p>
         <div class="live-results">
           <p class="live-section-label">Allowance</p>
           <div class="result-row"><span class="result-label">SP1</span><span class="result-value tween" id="live-sp1">$0.00</span></div>
@@ -177,7 +177,7 @@
           <div class="result-row"><span class="result-label">Meal</span><span class="result-value tween" id="live-meal">$0.00</span></div>
           <div class="result-row"><span class="result-label">Taxi</span><span class="result-value tween" id="live-taxi">$0.00</span></div>
           <div class="result-row"><span class="result-label">Distance</span><span class="distance-tag" id="live-distance">Short</span></div>
-          <p class="live-section-label">Base Pay</p>
+          <p class="live-section-label">Base Pay Inputs</p>
           <div class="result-row"><span class="result-label">Monthly Basic</span><span class="result-value tween" id="live-basic">$0.00</span></div>
           <div class="result-row"><span class="result-label">Compulsory Allowance</span><span class="result-value tween" id="live-comp">$0.00</span></div>
           <p class="live-section-label">Extra Hours</p>
@@ -191,16 +191,16 @@
         </div>
       </div>
 
-      <div class="total-row" style="opacity:1;">
-        <span class="total-label">Total</span>
+      <div class="ui-card ui-card--total total-row" style="opacity:1;">
+        <span class="total-label">Estimated Total Pay</span>
         <span class="total-value tween" id="live-grand-total">$0.00</span>
       </div>
 
       <div class="btn-wrap">
-        <button type="button" class="btn btn--primary submit-btn" id="calc-btn" onclick="submitCombined()">Calculate Snapshot</button>
-        <button type="button" class="btn btn--destructive" onclick="resetAll()">Clear All</button>
-        <button type="button" class="btn btn--tertiary" onclick="exportData()">Export Data</button>
-        <label class="btn btn--tertiary btn-label" for="import-data">Import Data</label>
+        <button type="button" class="btn btn--primary submit-btn" id="calc-btn" onclick="submitCombined()">Save Snapshot</button>
+        <button type="button" class="btn btn--destructive" onclick="resetAll()">Reset</button>
+        <button type="button" class="btn btn--tertiary" onclick="exportData()">Export</button>
+        <label class="btn btn--tertiary btn-label" for="import-data">Import</label>
         <input id="import-data" type="file" accept="application/json" style="display:none" />
       </div>
 
@@ -253,7 +253,7 @@
       </div>
 
       <div class="section">
-        <p class="section-header">Base Pay</p>
+        <p class="section-header">Base Pay Inputs</p>
         <div class="field-list">
           <div class="result-row visible" id="row-basic"><span class="result-label">Monthly Basic</span><span class="result-value" id="r-basic">&#8212;</span></div>
           <div class="result-row visible" id="row-comp"><span class="result-label">Compulsory Allowance</span><span class="result-value" id="r-comp">&#8212;</span></div>
@@ -336,7 +336,7 @@
         </div>
         <div class="info-section">
           <p class="info-heading">How to get started</p>
-          <p class="info-text">Open the app and pick Basic or Advanced. Enter your shift counts (3PM, 10PM, 7AM, and any 10PM cancellations), select your distance, and add your monthly basic allowance. Tap days on the calendar to log the same shifts &#8212; the cross-check tells you if anything's missing. Results update live; tap Calculate Snapshot to capture a clean copy for sharing. Add the app to your home screen for quick access between shifts.</p>
+          <p class="info-text">Open the app and pick Basic or Advanced. Enter your shift counts (3PM, 10PM, 7AM, and any 10PM cancellations), select your distance, and add your monthly basic allowance. Tap days on the calendar to log the same shifts &#8212; the cross-check tells you if anything's missing. Results update live; tap Save Snapshot to capture a clean copy for sharing. Add the app to your home screen for quick access between shifts.</p>
         </div>
         <div class="info-divider"></div>
         <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
@@ -363,7 +363,7 @@
       <div class="info-body">
         <div class="info-section">
           <p class="info-heading">Data &amp; Privacy</p>
-          <p class="info-text">This app does not transmit any data and performs all calculations locally on your device. To make the tool more convenient, your inputs (shift counts, distance, basic allowance, and the Extra Hours calendar) are stored in your browser's local storage so they persist across sessions. This data never leaves your device. Use the Clear All button on any page to remove it, or clear your browser data to wipe everything.</p>
+          <p class="info-text">This app does not transmit any data and performs all calculations locally on your device. To make the tool more convenient, your inputs (shift counts, distance, basic allowance, and the Extra Hours calendar) are stored in your browser's local storage so they persist across sessions. This data never leaves your device. Use the Reset button on any page to remove it, or clear your browser data to wipe everything.</p>
         </div>
         <div class="info-section">
           <p class="info-heading">Accuracy</p>
@@ -391,10 +391,10 @@
 
   </div>
 
-  <!-- How to Use modal -->
+  <!-- Help modal -->
   <div class="modal-overlay" id="hint-modal" onclick="closeHintOnOverlay(event)">
     <div class="modal">
-      <p class="modal-title">How to Use</p>
+      <p class="modal-title">Help</p>
 
       <p class="modal-section-title modal-section-title--first">Mode</p>
       <div class="modal-item">
@@ -441,13 +441,13 @@
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128176;</span>
-        <p class="modal-text"><strong>Base Pay</strong> &#8212; Enter your Monthly Basic Allowance and Compulsory Assignment Allowance. Both are added to the grand total. The hourly rate (monthly &#247; 173.33) drives overtime pay.</p>
+        <p class="modal-text"><strong>Base Pay Inputs</strong> &#8212; Enter your Monthly Basic Allowance and Compulsory Assignment Allowance. Both are added to the grand total. The hourly rate (monthly &#247; 173.33) drives overtime pay.</p>
       </div>
 
       <p class="modal-section-title">Snapshot</p>
       <div class="modal-item">
         <span class="modal-icon">&#128190;</span>
-        <p class="modal-text"><strong>Calculate Snapshot</strong> &#8212; Captures the live values into the Results page so you can copy or share them. Live values keep updating as you edit.</p>
+        <p class="modal-text"><strong>Save Snapshot</strong> &#8212; Captures the live values into the Results page so you can copy or share them. Live values keep updating as you edit.</p>
       </div>
 
       <p class="modal-section-title">Install</p>
