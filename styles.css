@@ -1107,6 +1107,37 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+      .page.active,
+      .page--enter-from-right.active,
+      .page--enter-from-left.active,
+      .shake,
+      .tween--pulse,
+      .calc-mode-block,
+      .crosscheck,
+      .day-modal-distance,
+      .modal-overlay.open .modal { animation: none !important; }
+      .theme-btn:hover,
+      .theme-btn:active,
+      .crosscheck-issue:active,
+      .field-input:focus,
+      .field--triple .mini-input:focus,
+      .toggle-btn:active { transform: none !important; }
+      .segmented-thumb { transition: none !important; }
+      .segmented-option,
+      .theme-btn,
+      .submit-btn, .back-btn, .advanced-btn, .reset-btn, .copy-btn, .modal-close,
+      .field-input, .field--triple .mini-input, .toggle-btn { transition: color 0.01ms linear, background-color 0.01ms linear, border-color 0.01ms linear, box-shadow 0.01ms linear, opacity 0.01ms linear !important; }
+      .field-input.error,
+      .field--triple .mini-input.error {
+        border-width: 2px;
+        background: var(--red-soft);
+      }
+      .field-input:focus-visible,
+      .field--triple .mini-input:focus-visible {
+        outline: 3px solid var(--accent);
+        outline-offset: 2px;
+      }
     }
   

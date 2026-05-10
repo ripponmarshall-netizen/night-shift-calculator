@@ -238,9 +238,14 @@
         const bad = el.value.trim() !== '' && (isNaN(n) || n < 0 || n > 99);
         el.classList.toggle('error', bad);
         if (bad) {
-          el.classList.add('shake');
-          setTimeout(function() { el.classList.remove('shake'); }, 300);
+          if (!reducedMotion()) {
+            el.classList.add('shake');
+            setTimeout(function() { el.classList.remove('shake'); }, 300);
+          }
+          el.setAttribute('aria-invalid', 'true');
           valid = false;
+        } else {
+          el.removeAttribute('aria-invalid');
         }
       });
       return valid;
@@ -1004,6 +1009,11 @@
 
     function flashAndNavigate(btn, target, direction) {
       btn.classList.add('success');
+      if (reducedMotion()) {
+        btn.classList.remove('success');
+        showPage(target, direction);
+        return;
+      }
       setTimeout(function() {
         btn.classList.remove('success');
         showPage(target, direction);
