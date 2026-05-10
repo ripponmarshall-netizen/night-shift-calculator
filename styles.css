@@ -1084,9 +1084,18 @@
 
     @media (max-width: 520px) {
       .app { padding-inline: 0.9rem; }
+      .page-header { padding-top: clamp(4.75rem, 18vw, 5.75rem); }
+      .page-title--input { font-size: clamp(2.05rem, 10.5vw, 2.55rem); }
       .field, .result-row { padding-inline: 1rem; align-items: flex-start; }
       .field { flex-wrap: wrap; }
+      .field-label { width: 100%; }
       .field-input { width: 100%; }
+      .field--triple { grid-template-columns: 1fr; }
+      .day-modal-row { flex-wrap: wrap; }
+      .day-modal-distance { flex-wrap: wrap; }
+      .day-modal-distance .segmented-control { width: 100%; min-width: 0; }
+      .cal-legend { gap: var(--space-2); }
+      .cal-legend-item { flex: 1 1 calc(50% - var(--space-2)); }
       .toggle-group { width: 100%; }
       .toggle-btn { flex: 1; min-width: 0; }
       .theme-btn { right: 14px; }
