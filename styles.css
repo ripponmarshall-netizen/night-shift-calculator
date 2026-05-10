@@ -1,4 +1,8 @@
     :root {
+      --theme-btn-size: 44px;
+      --theme-btn-edge: 18px;
+      --theme-btn-top: calc(18px + env(safe-area-inset-top, 0px));
+      --theme-btn-clearance: calc(var(--theme-btn-size) + (var(--theme-btn-edge) * 2));
       --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
       --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
       --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
@@ -166,10 +170,12 @@
 
     .theme-btn {
       position: fixed;
-      top: calc(18px + env(safe-area-inset-top, 0px));
-      right: 18px;
-      width: 44px;
-      height: 44px;
+      top: var(--theme-btn-top);
+      right: var(--theme-btn-edge);
+      width: max(44px, var(--theme-btn-size));
+      height: max(44px, var(--theme-btn-size));
+      min-width: 44px;
+      min-height: 44px;
       border-radius: var(--radius-full);
       background: var(--surface-2);
       border: 1px solid var(--border);
@@ -220,6 +226,19 @@
       justify-items: center;
       gap: var(--space-2);
       max-width: 30rem;
+    }
+    /* Layout test matrix for .theme-btn clearance:
+       - 430px: title remains centered, right inset reserves theme button lane.
+       - 390px: no overlap at 200% text zoom with wrapped title lines.
+       - 380px: touch target remains >=44x44 and title/eyebrow stay clear. */
+    @media (max-width: 430px) {
+      .page-header {
+        padding-top: max(clamp(3.75rem, 10vw, 5.5rem), calc(var(--theme-btn-top) + var(--theme-btn-size) + var(--space-3)));
+      }
+
+      .brand-lockup {
+        padding-inline-end: var(--theme-btn-clearance);
+      }
     }
     .brand-logo {
       width: clamp(4.5rem, 20vw, 6.25rem);
