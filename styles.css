@@ -5,8 +5,18 @@
 
 :root {
   /* Typography */
-  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+  --font-ui: 'Manrope', -apple-system, BlinkMacSystemFont, 'SF Pro Text',
              'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+
+  /* Type scale (minimal semantic tiers) */
+  --type-title-size: clamp(28px, 6vw, 32px);
+  --type-title-weight: 600;
+  --type-section-size: 11px;
+  --type-section-weight: 650;
+  --type-label-size: 15px;
+  --type-label-weight: 400;
+  --type-value-size: 16px;
+  --type-value-weight: 650;
 
   /* Spacing */
   --space-1: 0.25rem;
@@ -220,8 +230,8 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .page-title {
-  font-size: clamp(28px, 6vw, 32px);
-  font-weight: 600;
+  font-size: var(--type-title-size);
+  font-weight: var(--type-title-weight);
   line-height: 1.15;
   letter-spacing: -0.022em;
   color: var(--text);
@@ -276,8 +286,8 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .section-header {
-  font-size: 11px;
-  font-weight: 650;
+  font-size: var(--type-section-size);
+  font-weight: var(--type-section-weight);
   letter-spacing: 0.085em;
   text-transform: uppercase;
   color: var(--text-subtle);
@@ -291,6 +301,34 @@ h1, h2, h3, h4, p { margin: 0; }
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+/* Shared minimal component contract */
+.surface-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.row-divider > * + * {
+  border-top: 1px solid var(--hairline);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.status-warning {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent);
 }
 
 /* Hairline divider between rows */
@@ -447,9 +485,9 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .field-label {
-  font-size: 15px;
+  font-size: var(--type-label-size);
   color: var(--text);
-  font-weight: 400;
+  font-weight: var(--type-label-weight);
   letter-spacing: -0.005em;
   flex: 1;
   min-width: 0;
@@ -590,14 +628,15 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .result-label {
-  font-size: 15px;
+  font-size: var(--type-label-size);
   color: var(--text-muted);
+  font-weight: var(--type-label-weight);
   letter-spacing: -0.005em;
 }
 
 .result-value {
-  font-size: 16px;
-  font-weight: 650;
+  font-size: var(--type-value-size);
+  font-weight: var(--type-value-weight);
   color: var(--text);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -626,6 +665,21 @@ h1, h2, h3, h4, p { margin: 0; }
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Monospaced/tabular financial readability */
+#live-grand-total,
+#live-sp1, #live-sp2, #live-meal, #live-taxi,
+#live-basic, #live-comp,
+#live-total-hrs, #live-hol-hrs, #live-nh-hrs, #live-over-hrs,
+#live-rate, #live-hol-pay, #live-ot-pay,
+#r-sp1, #r-sp2, #r-meal, #r-taxi, #r-allowance-total,
+#r-basic, #r-comp, #r-base-total,
+#r-eh-total, #r-eh-hol, #r-eh-nh, #r-eh-over,
+#r-eh-rate, #r-eh-hol-pay, #r-eh-ot-pay, #r-eh-total-pay,
+#r-total {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 /* Hidden result rows */
