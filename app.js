@@ -414,6 +414,12 @@
     }
     function saveMode() { safeSet(STORAGE_KEY_MODE, mode); }
 
+    function syncTabState(btnA, btnB, activeA) {
+      if (!btnA || !btnB) return;
+      btnA.setAttribute('tabindex', activeA ? '0' : '-1');
+      btnB.setAttribute('tabindex', activeA ? '-1' : '0');
+    }
+
     // ─── Segmented control thumb positioning ───
     function positionSegmentedThumb(container, thumb, target, animate) {
       if (!container || !thumb || !target) return;
@@ -438,6 +444,7 @@
       mode = m;
       modeBasicBtn.setAttribute('aria-selected', m === 'BASIC' ? 'true' : 'false');
       modeAdvancedBtn.setAttribute('aria-selected', m === 'ADVANCED' ? 'true' : 'false');
+      syncTabState(modeBasicBtn, modeAdvancedBtn, m === 'BASIC');
       modeBlockBasic.classList.toggle('active', m === 'BASIC');
       modeBlockAdvanced.classList.toggle('active', m === 'ADVANCED');
       positionSegmentedThumb(modeSegmented, modeThumb, m === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, animate);
@@ -451,6 +458,7 @@
       distance = v;
       distShortBtn.setAttribute('aria-selected', v === 'SHORT' ? 'true' : 'false');
       distLongBtn.setAttribute('aria-selected', v === 'LONG' ? 'true' : 'false');
+      syncTabState(distShortBtn, distLongBtn, v === 'SHORT');
       positionSegmentedThumb(distSegmented, distThumb, v === 'SHORT' ? distShortBtn : distLongBtn, animate !== false);
       saveBasicFields();
       renderLive();
@@ -1148,6 +1156,17 @@
     modeAdvancedBtn.addEventListener('click', function() { setMode('ADVANCED', true); });
     distShortBtn.addEventListener('click', function() { setDistance('SHORT', true); });
     distLongBtn.addEventListener('click',  function() { setDistance('LONG', true);  });
+
+    function onSegmentedNav(e, leftValue, rightValue, setter) {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      setter(e.key === 'ArrowLeft' ? leftValue : rightValue, true);
+    }
+
+    modeBasicBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'BASIC', 'ADVANCED', setMode); });
+    modeAdvancedBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'BASIC', 'ADVANCED', setMode); });
+    distShortBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'SHORT', 'LONG', setDistance); });
+    distLongBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'SHORT', 'LONG', setDistance); });
 
     basicSalaryInput.addEventListener('input', function() {
       const n = parseFloat(basicSalaryInput.value);
