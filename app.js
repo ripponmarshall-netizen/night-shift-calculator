@@ -1,6 +1,6 @@
     // ─── Constants ───
-    const BASIC_FIELD_IDS = ['total-3pm', 'total-10pm', 'total-7am', 'double-days'];
-    const ADV_FIELD_IDS   = ['adv-3pm-s', 'adv-10pm-s', 'adv-7am-s', 'adv-dd-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-7am-l', 'adv-dd-l'];
+    const BASIC_FIELD_IDS = ['total-3pm', 'total-10pm', 'total-7am'];
+    const ADV_FIELD_IDS   = ['adv-3pm-s', 'adv-10pm-s', 'adv-7am-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-7am-l'];
     const RATES = { effectiveDate: '2026-05-10', SP1_RATE: 66.6, SP2_RATE: 200, MEAL_RATE: 950, TAXI_SHORT: 950, TAXI_LONG: 2000 };
     const SP1_RATE = RATES.SP1_RATE;
     const SP2_RATE = RATES.SP2_RATE;
@@ -469,8 +469,7 @@
       return {
         all3:        valById('total-3pm', basicFields),
         all10:       valById('total-10pm', basicFields),
-        all7:        valById('total-7am', basicFields),
-        doubleDays:  valById('double-days', basicFields)
+        all7:        valById('total-7am', basicFields)
       };
     }
     function gatherAdvanced() {
@@ -478,30 +477,66 @@
         s3:  valById('adv-3pm-s', advFields),
         s10: valById('adv-10pm-s', advFields),
         s7:  valById('adv-7am-s', advFields),
-        sdd: valById('adv-dd-s',  advFields),
         l3:  valById('adv-3pm-l', advFields),
         l10: valById('adv-10pm-l', advFields),
-        l7:  valById('adv-7am-l', advFields),
-        ldd: valById('adv-dd-l',  advFields)
+        l7:  valById('adv-7am-l', advFields)
       };
     }
+
+    function gatherCalendarAllowanceCounts() {
+      const period = extraHoursState.viewPeriod;
+      const start = payPeriodStart(period.year, period.month);
+      const end   = payPeriodEnd(period.year, period.month);
+      const counts = {
+        total3: 0, total10: 0, total7: 0,
+        short3: 0, short10: 0, short7: 0,
+        long3: 0, long10: 0, long7: 0,
+        inferredDoubleDaysTotal: 0,
+        inferredDoubleDaysShort: 0,
+        inferredDoubleDaysLong: 0
+      };
+      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+        const ymd = toYMD(d);
+        const entry = extraHoursState.days[ymd];
+        if (!entry || !entry.shifts) continue;
+        const has3 = ('3PM' in entry.shifts);
+        const has10 = ('10PM' in entry.shifts);
+        if (has3) counts.total3 += 1;
+        if (has10) counts.total10 += 1;
+        if ('7AM' in entry.shifts) counts.total7 += 1;
+        if (entry.shifts['3PM'] === 'SHORT') counts.short3 += 1;
+        if (entry.shifts['10PM'] === 'SHORT') counts.short10 += 1;
+        if (entry.shifts['7AM'] === 'SHORT') counts.short7 += 1;
+        if (entry.shifts['3PM'] === 'LONG') counts.long3 += 1;
+        if (entry.shifts['10PM'] === 'LONG') counts.long10 += 1;
+        if (entry.shifts['7AM'] === 'LONG') counts.long7 += 1;
+        if (has3 && has10) {
+          counts.inferredDoubleDaysTotal += 1;
+          const d3 = entry.shifts['3PM'];
+          const d10 = entry.shifts['10PM'];
+          if (d3 === 'SHORT' && d10 === 'SHORT') counts.inferredDoubleDaysShort += 1;
+          if (d3 === 'LONG' && d10 === 'LONG') counts.inferredDoubleDaysLong += 1;
+        }
+      }
+      return counts;
+    }
+
     function computeAllowance(modeArg) {
+      const c = gatherCalendarAllowanceCounts();
       if (modeArg === 'BASIC') {
-        const i = gatherBasic();
-        const rSP1  = round2(i.all3  * SP1_RATE);
-        const rSP2  = round2(i.all10 * SP2_RATE);
-        const rMeal = round2((i.all3 + i.all10) * MEAL_RATE);
-        const rTaxi = round2(Math.max(0, i.all3 + i.all10 - i.doubleDays * 2) * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
+        const rSP1  = round2(c.total3 * SP1_RATE);
+        const rSP2  = round2(c.total10 * SP2_RATE);
+        const rMeal = round2((c.total3 + c.total10) * MEAL_RATE);
+        const taxiUnits = Math.max(0, c.total3 + c.total10 - c.inferredDoubleDaysTotal * 2);
+        const rTaxi = round2(taxiUnits * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
         return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: distance === 'SHORT' ? 'Short' : 'Long' };
       }
-      const i = gatherAdvanced();
-      const rSP1  = round2((i.s3  + i.l3)  * SP1_RATE);
-      const rSP2  = round2((i.s10 + i.l10) * SP2_RATE);
-      const rMeal = round2((i.s3 + i.l3 + i.s10 + i.l10) * MEAL_RATE);
-      const rTaxi = round2(
-        Math.max(0, i.s3 + i.s10 - i.sdd * 2) * TAXI_SHORT +
-        Math.max(0, i.l3 + i.l10 - i.ldd * 2) * TAXI_LONG
-      );
+      const rSP1  = round2((c.short3 + c.long3) * SP1_RATE);
+      const rSP2  = round2((c.short10 + c.long10) * SP2_RATE);
+      const rMeal = round2((c.short3 + c.long3 + c.short10 + c.long10) * MEAL_RATE);
+      const shortTaxiUnits = Math.max(0, c.short3 + c.short10 - c.inferredDoubleDaysShort * 2);
+      const longTaxiUnits = Math.max(0, c.long3 + c.long10 - c.inferredDoubleDaysLong * 2);
+      const rTaxi = round2(shortTaxiUnits * TAXI_SHORT + longTaxiUnits * TAXI_LONG);
       return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short + Long' };
     }
 
@@ -934,14 +969,6 @@
       const ids = mode === 'BASIC' ? BASIC_FIELD_IDS : ADV_FIELD_IDS;
       const map = mode === 'BASIC' ? basicFields : advFields;
       if (!validateInputs(ids, map)) return;
-      if (mode === 'BASIC') {
-        const i = gatherBasic();
-        if (i.doubleDays > i.all3 || i.doubleDays > i.all10) { showAlert('Cancellations cannot exceed the smaller of 3PM and 10PM shifts.'); return; }
-      } else {
-        const i = gatherAdvanced();
-        if (i.sdd > i.s3 || i.sdd > i.s10) { showAlert('Short distance cancellations cannot exceed the smaller of short 3PM and short 10PM shifts.'); return; }
-        if (i.ldd > i.l3 || i.ldd > i.l10) { showAlert('Long distance cancellations cannot exceed the smaller of long 3PM and long 10PM shifts.'); return; }
-      }
       const allowance = computeAllowance(mode);
       const extra     = computeExtraHours();
       const issues    = crossCheck();
