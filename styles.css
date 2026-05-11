@@ -1189,15 +1189,32 @@
       .field { flex-wrap: wrap; }
       .field-label { width: 100%; }
       .field-input { width: 100%; }
-      .field--triple { grid-template-columns: 1fr; }
+      .field--triple { gap: var(--space-1); }
+      .field--triple .mini-input { padding: 0.65rem 0.3rem; font-size: 0.95rem; }
+      .field--triple .mini-label { font-size: 0.66rem; letter-spacing: 0.04em; }
+      .total-row { padding: 1rem 1rem; }
+      .cal { padding: var(--space-3); }
       .day-modal-row { flex-wrap: wrap; }
       .day-modal-distance { flex-wrap: wrap; }
       .day-modal-distance .segmented-control { width: 100%; min-width: 0; }
-      .cal-legend { gap: var(--space-2); }
+      .cal-legend { gap: var(--space-1) var(--space-3); }
       .cal-legend-item { flex: 1 1 calc(50% - var(--space-2)); }
       .toggle-group { width: 100%; }
       .toggle-btn { flex: 1; min-width: 0; }
       .theme-btn { right: 14px; }
+    }
+
+    @media (max-width: 430px) {
+      .app { padding-inline: 0.85rem; }
+      .page-title--input { font-size: clamp(1.95rem, 9.5vw, 2.4rem); }
+      .page-title--results { font-size: clamp(1.7rem, 8vw, 2.1rem); }
+      .field, .result-row { padding: 0.9rem 1rem; min-height: 64px; gap: var(--space-3); }
+      .total-row { padding: 0.95rem 1rem; border-radius: var(--radius-lg); }
+      .total-row .result-label { font-size: var(--text-sm); }
+      .total-row .result-value { font-size: clamp(1.2rem, 5.5vw, 1.45rem); }
+      .modal { padding: var(--space-5); }
+      .btn, .back-btn, .advanced-btn, .copy-btn, .modal-close { min-height: 52px; padding: 0.85rem 1rem; }
+      .segmented-option { padding: 0.55rem 0.6rem; }
     }
 
     @media (prefers-reduced-motion: reduce) {
