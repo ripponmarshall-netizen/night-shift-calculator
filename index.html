@@ -6,20 +6,20 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="NS Calculator" />
-  <meta name="theme-color" content="#01696f" />
+  <meta name="theme-color" content="#FBFBFA" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0B0B0C" media="(prefers-color-scheme: dark)" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; connect-src 'self';" />
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="logo.svg" />
   <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <title>Night Shift Calculator</title>
   <link rel="stylesheet" href="styles.css" />
 
 </head>
 <body>
-  <button type="button" class="theme-btn" id="theme-btn" onclick="toggleTheme()" aria-label="Toggle dark mode"><span aria-hidden="true">&#127769;</span></button>
   <div class="app">
 
     <!-- CALCULATOR PAGE (unified) -->
@@ -31,7 +31,6 @@
           <p class="eyebrow" id="rates-effective">Rates effective: —</p>
         </div>
         <div class="hint-wrap">
-          <span class="hint-label">Help</span>
           <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
         </div>
       </div>
