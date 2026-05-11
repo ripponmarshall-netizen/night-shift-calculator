@@ -505,6 +505,26 @@
       return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short + Long' };
     }
 
+    function hasShift(ymd, code) {
+      const entry = extraHoursState.days[ymd];
+      return !!(entry && entry.shifts && (code in entry.shifts));
+    }
+
+    function isExtraShift(ymd, code) {
+      const d = fromYMD(ymd);
+      if (code === '7AM') {
+        const prevDay = toYMD(addDays(d, -1));
+        return hasShift(prevDay, '10PM');
+      }
+      if (code === '3PM') {
+        return hasShift(ymd, '7AM');
+      }
+      if (code === '10PM') {
+        return hasShift(ymd, '3PM');
+      }
+      return false;
+    }
+
     // ─── Calculation: extra hours ───
     function computeExtraHours() {
       const period = extraHoursState.viewPeriod;
@@ -521,16 +541,17 @@
         const codes = Object.keys(entry.shifts);
         for (let i = 0; i < codes.length; i++) {
           const code = codes[i];
+          const extraShift = isExtraShift(dStr, code);
           if (code === '7AM') {
             totalHours += 8;
-            if (isHoliday(dStr)) holidayHours += 8;
+            if (extraShift && isHoliday(dStr)) holidayHours += 8;
           } else if (code === '3PM') {
             totalHours += 7;
-            if (isHoliday(dStr)) holidayHours += 7;
+            if (extraShift && isHoliday(dStr)) holidayHours += 7;
           } else if (code === '10PM') {
             if (d >= start && d <= end) {
               totalHours += 2;
-              if (isHoliday(dStr)) holidayHours += 2;
+              if (extraShift && isHoliday(dStr)) holidayHours += 2;
             }
           }
         }
@@ -545,7 +566,7 @@
         const nextStr = toYMD(next);
         if (next >= start && next <= end) {
           totalHours += 7;
-          if (isHoliday(nextStr)) holidayHours += 7;
+          if (isExtraShift(dStr, '10PM') && isHoliday(nextStr)) holidayHours += 7;
         }
       }
       const nonHoliday = totalHours - holidayHours;
