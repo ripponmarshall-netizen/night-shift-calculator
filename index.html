@@ -61,10 +61,6 @@
               <input class="field-input" id="total-7am" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
             </div>
             <div class="field">
-              <label class="field-label" for="double-days">10PM Cancellations (after a 3PM Shift)</label>
-              <input class="field-input" id="double-days" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
               <label class="field-label">Distance</label>
               <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
                 <span class="segmented-thumb" id="distance-thumb"></span>
@@ -95,10 +91,6 @@
                 <input class="mini-input" id="adv-7am-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Short 7AM" />
               </div>
             </div>
-            <div class="field">
-              <label class="field-label" for="adv-dd-s">10PM Cancellations (after a 3PM Shift)</label>
-              <input class="field-input" id="adv-dd-s" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
           </div>
         </div>
 
@@ -118,10 +110,6 @@
                 <span class="mini-label">7AM</span>
                 <input class="mini-input" id="adv-7am-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Long 7AM" />
               </div>
-            </div>
-            <div class="field">
-              <label class="field-label" for="adv-dd-l">10PM Cancellations (after a 3PM Shift)</label>
-              <input class="field-input" id="adv-dd-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
             </div>
           </div>
         </div>
@@ -323,7 +311,7 @@
             <li>SP1 &#8212; your 3PM shift allowance</li>
             <li>SP2 &#8212; your 10PM shift allowance</li>
             <li>Meal &#8212; meal allowance based on total 3PM and 10PM shifts</li>
-            <li>Taxi &#8212; transport allowance adjusted for distance, shift count, and 10PM cancellations</li>
+            <li>Taxi &#8212; transport allowance adjusted for distance, shift count, and inferred same-day 3PM + 10PM pairings from the calendar (auto-deduct 2 per pairing)</li>
             <li>Base Pay &#8212; your Monthly Basic Allowance plus the Compulsory Assignment Allowance, both included in the grand total</li>
             <li>Extra Hours &#8212; overtime pay (&#215;1.5) for non-holiday hours above 173.33, plus holiday pay (&#215;2) for any hours worked on a Jamaica public holiday</li>
             <li>Cross-check &#8212; flags when the entered shift counts don't match the calendar entries for the active pay period</li>
@@ -335,7 +323,7 @@
         </div>
         <div class="info-section">
           <p class="info-heading">How to get started</p>
-          <p class="info-text">Open the app and pick Basic or Advanced. Enter your shift counts (3PM, 10PM, 7AM, and any 10PM cancellations), select your distance, and add your monthly basic allowance. Tap days on the calendar to log the same shifts &#8212; the cross-check tells you if anything's missing. Results update live; tap Save Snapshot to capture a clean copy for sharing. Add the app to your home screen for quick access between shifts.</p>
+          <p class="info-text">Open the app and pick Basic or Advanced. Enter your shift counts (3PM, 10PM, 7AM), select your distance, and add your monthly basic allowance. The calendar is the default source for Meal and Taxi calculations. Tap days on the calendar to log shifts; entered counts are used as a cross-check and discrepancies are highlighted. Results update live; tap Save Snapshot to capture a clean copy for sharing. Add the app to your home screen for quick access between shifts.</p>
         </div>
         <div class="info-divider"></div>
         <p class="info-byline">Created by L/Cpl. R. Marshall<br>Workflow Coaching and Optimisation</p>
@@ -408,7 +396,7 @@
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128197;</span>
-        <p class="modal-text"><strong>10PM Cancellations</strong> &#8212; Days where your 10PM leave was cancelled after a 3PM shift. Deducts 2 from the taxi count per day.</p>
+        <p class="modal-text"><strong>Auto taxi deduction</strong> &#8212; If a 3PM and 10PM are both logged on the same calendar day, the app auto-deducts 2 taxi units for that day. No separate cancellation input is needed.</p>
       </div>
       <div class="modal-item">
         <span class="modal-icon">&#128205;</span>
@@ -418,7 +406,7 @@
       <p class="modal-section-title">Cross-check</p>
       <div class="modal-item">
         <span class="modal-icon">&#9888;&#65039;</span>
-        <p class="modal-text"><strong>Counts vs Calendar</strong> &#8212; The counts you enter must match the shifts on the calendar for the active pay period. Mismatches show an amber banner with the discrepancies; tap an issue to highlight the affected calendar days. The Calculate button still works &#8212; the warning is informational.</p>
+        <p class="modal-text"><strong>Counts vs Calendar</strong> &#8212; The calendar is the default source for allowance calculations, and your entered counts must still match the shifts on the calendar for the active pay period. Mismatches show an amber banner with the discrepancies; tap an issue to highlight the affected calendar days. The Calculate button still works &#8212; the warning is informational.</p>
       </div>
 
       <p class="modal-section-title">Calendar</p>
