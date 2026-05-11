@@ -450,6 +450,7 @@
       positionSegmentedThumb(modeSegmented, modeThumb, m === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, animate);
       saveMode();
       if (dayModalDate) syncDayModalToggles();
+      syncAllowanceInputsFromCalendar();
       renderLive();
     }
 
@@ -519,6 +520,26 @@
         }
       }
       return counts;
+    }
+
+
+
+    function syncAllowanceInputsFromCalendar() {
+      const c = gatherCalendarAllowanceCounts();
+      if (mode === 'BASIC') {
+        basicFields['total-3pm'].value = String(c.total3);
+        basicFields['total-10pm'].value = String(c.total10);
+        basicFields['total-7am'].value = String(c.total7);
+        saveBasicFields();
+      } else {
+        advFields['adv-3pm-s'].value = String(c.short3);
+        advFields['adv-10pm-s'].value = String(c.short10);
+        advFields['adv-7am-s'].value = String(c.short7);
+        advFields['adv-3pm-l'].value = String(c.long3);
+        advFields['adv-10pm-l'].value = String(c.long10);
+        advFields['adv-7am-l'].value = String(c.long7);
+        saveAdvFields();
+      }
     }
 
     function computeAllowance(modeArg) {
@@ -960,6 +981,7 @@
     function afterStateChange() {
       saveExtraHoursState();
       syncDayModalToggles();
+      syncAllowanceInputsFromCalendar();
       renderCalendar();
       renderLive();
     }
@@ -1270,6 +1292,7 @@
     setMode(mode, false);
     setDistance(distance, false);
     renderCalendar();
+    syncAllowanceInputsFromCalendar();
     renderLive();
     requestAnimationFrame(function() {
       positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
