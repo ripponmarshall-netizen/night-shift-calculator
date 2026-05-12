@@ -363,7 +363,7 @@
           } else if (typeof entry.shifts === 'object') {
             shifts = entry.shifts;
           }
-          if (Object.keys(shifts).length) days[ymd] = { shifts: shifts };
+          if (Object.keys(shifts).length) days[ymd] = { shifts: shifts, autoFilled: entry.autoFilled === true };
         });
         extraHoursState.days = days;
       }
@@ -954,6 +954,14 @@
       dayToggleEls.holiday.classList.toggle('active', hol);
       dayToggleEls.holiday.textContent = hol ? 'On' : 'Off';
     }
+
+    function hasAutoFilledDays() {
+      return Object.keys(extraHoursState.days).some(function(ymd) {
+        const entry = extraHoursState.days[ymd];
+        return entry && entry.autoFilled === true;
+      });
+    }
+
     function fillShiftRotation(startYmd, startCode) {
       const pp = extraHoursState.viewPeriod;
       const periodEnd = payPeriodEnd(pp.year, pp.month);
@@ -967,6 +975,7 @@
         const entry = extraHoursState.days[ymd] || { shifts: {} };
         entry.shifts = {};
         entry.shifts[nextCode] = mode === 'ADVANCED' ? 'SHORT' : null;
+        entry.autoFilled = true;
         extraHoursState.days[ymd] = entry;
         code = nextCode;
       }
@@ -982,9 +991,18 @@
         } else {
           entry.shifts[code] = mode === 'ADVANCED' ? 'SHORT' : null;
         }
-        if (Object.keys(entry.shifts).length) extraHoursState.days[dayModalDate] = entry;
+        if (Object.keys(entry.shifts).length) {
+          if (entry.autoFilled) delete entry.autoFilled;
+          extraHoursState.days[dayModalDate] = entry;
+        }
         else delete extraHoursState.days[dayModalDate];
-        if (turnedOn && autoFillRotation) fillShiftRotation(dayModalDate, code);
+        if (turnedOn && autoFillRotation) {
+          if (hasAutoFilledDays()) {
+            showAlert('Autofill already exists on this calendar. Clear autofilled days first before starting a new autofill sequence.');
+          } else {
+            fillShiftRotation(dayModalDate, code);
+          }
+        }
         afterStateChange();
       });
       const wrap = dayDistEls[code];
@@ -994,6 +1012,7 @@
           const entry = extraHoursState.days[dayModalDate];
           if (!entry || !(code in entry.shifts)) return;
           entry.shifts[code] = opt.getAttribute('data-dist');
+          if (entry.autoFilled) delete entry.autoFilled;
           afterStateChange();
         });
       });
