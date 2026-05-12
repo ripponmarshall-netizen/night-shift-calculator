@@ -956,9 +956,10 @@
     }
     function fillShiftRotation(startYmd, startCode) {
       const pp = extraHoursState.viewPeriod;
+      const periodEnd = payPeriodEnd(pp.year, pp.month);
       const start = fromYMD(startYmd);
       let code = startCode;
-      for (let d = addDays(start, 1); d <= pp.end; d = addDays(d, 1)) {
+      for (let d = addDays(start, 1); d <= periodEnd; d = addDays(d, 1)) {
         code = nextShiftCode(code);
         const ymd = toYMD(d);
         const entry = extraHoursState.days[ymd] || { shifts: {} };
