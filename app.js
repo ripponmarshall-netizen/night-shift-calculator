@@ -957,15 +957,18 @@
     function fillShiftRotation(startYmd, startCode) {
       const pp = extraHoursState.viewPeriod;
       const periodEnd = payPeriodEnd(pp.year, pp.month);
-      const start = fromYMD(startYmd);
+      let d = fromYMD(startYmd);
       let code = startCode;
-      for (let d = addDays(start, 1); d <= periodEnd; d = addDays(d, 1)) {
-        code = nextShiftCode(code);
+      while (true) {
+        const nextCode = nextShiftCode(code);
+        d = addDays(d, code === '10PM' && nextCode === '7AM' ? 2 : 1);
+        if (d > periodEnd) break;
         const ymd = toYMD(d);
         const entry = extraHoursState.days[ymd] || { shifts: {} };
         entry.shifts = {};
-        entry.shifts[code] = mode === 'ADVANCED' ? 'SHORT' : null;
+        entry.shifts[nextCode] = mode === 'ADVANCED' ? 'SHORT' : null;
         extraHoursState.days[ymd] = entry;
+        code = nextCode;
       }
     }
 
