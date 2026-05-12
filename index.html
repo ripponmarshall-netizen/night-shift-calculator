@@ -43,35 +43,6 @@
         </div>
       </div>
 
-      <!-- BASIC mode block -->
-      <div class="ui-card ui-card--inputs calc-mode-block active" id="mode-block-basic">
-        <div class="section">
-          <p class="section-header">Shift Counts</p>
-          <div class="field-list">
-            <div class="field">
-              <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
-              <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
-              <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="total-7am">Total 7AM Shifts</label>
-              <input class="field-input" id="total-7am" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
-              <label class="field-label">Distance</label>
-              <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
-                <span class="segmented-thumb" id="distance-thumb"></span>
-                <button type="button" class="segmented-option" id="dist-short" role="tab" aria-selected="true" data-dist="SHORT">Short</button>
-                <button type="button" class="segmented-option" id="dist-long" role="tab" aria-selected="false" data-dist="LONG">Long</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <!-- ADVANCED mode block -->
       <div class="ui-card ui-card--inputs calc-mode-block" id="mode-block-advanced">
         <div class="section">
@@ -131,6 +102,13 @@
 
       <div class="ui-card ui-card--calendar section">
         <p class="section-header">Calendar</p>
+        <div class="field field--autofill">
+          <label class="field-label field-label--checkbox" for="auto-fill-rotation">
+            <input id="auto-fill-rotation" type="checkbox" />
+            <span>Auto-fill following shift days</span>
+          </label>
+          <p class="field-help">Sequence: 7AM → 3PM → 10PM → 7AM</p>
+        </div>
         <div class="cal">
           <div class="cal-header">
             <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period">&#8249;</button>
@@ -143,6 +121,35 @@
             <span class="cal-legend-item"><span class="cal-dot cal-dot--3PM"></span>3PM (7h)</span>
             <span class="cal-legend-item"><span class="cal-dot cal-dot--10PM"></span>10PM (9h)</span>
             <span class="cal-legend-item"><span class="cal-dot cal-dot--holiday"></span>Holiday</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- BASIC mode block -->
+      <div class="ui-card ui-card--inputs calc-mode-block active" id="mode-block-basic">
+        <div class="section">
+          <p class="section-header">Shift Counts</p>
+          <div class="field-list">
+            <div class="field">
+              <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
+              <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
+              <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="total-7am">Total 7AM Shifts</label>
+              <input class="field-input" id="total-7am" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label">Distance</label>
+              <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
+                <span class="segmented-thumb" id="distance-thumb"></span>
+                <button type="button" class="segmented-option" id="dist-short" role="tab" aria-selected="true" data-dist="SHORT">Short</button>
+                <button type="button" class="segmented-option" id="dist-long" role="tab" aria-selected="false" data-dist="LONG">Long</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

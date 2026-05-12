@@ -16,6 +16,7 @@
     const STORAGE_KEY_BASIC = 'nsCalc.basicFields.v2';
     const STORAGE_KEY_ADV   = 'nsCalc.advFields.v2';
     const STORAGE_KEY_MODE  = 'nsCalc.mode.v1';
+    const STORAGE_KEY_AUTOFILL = 'nsCalc.autoFillRotation.v1';
     const MOTION = { fast: 140, snap: 220, stage: 380 };
 
     function reducedMotion() {
@@ -31,6 +32,7 @@
     let lastSnapshot = null;
     let lastIssues = [];
     let dayModalDate = null;
+    let autoFillRotation = false;
 
     // ─── Cached DOM references ───
     const basicFields = Object.fromEntries(BASIC_FIELD_IDS.map(id => [id, document.getElementById(id)]));
@@ -54,6 +56,7 @@
     const compAllowanceInput = document.getElementById('comp-allowance');
     const crosscheckEl   = document.getElementById('crosscheck');
     const crosscheckList = document.getElementById('crosscheck-list');
+    const autoFillRotationInput = document.getElementById('auto-fill-rotation');
 
     const ratesEffectiveEl = document.getElementById('rates-effective');
     if (ratesEffectiveEl) ratesEffectiveEl.textContent = 'Rates effective: ' + RATES.effectiveDate;
@@ -144,6 +147,10 @@
     function fromYMD(s) { const p = s.split('-'); return new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)); }
     function addDays(d, n) { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate()); r.setDate(r.getDate()+n); return r; }
     function sameYMD(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+    function nextShiftCode(code) {
+      const idx = SHIFT_ORDER.indexOf(code);
+      return SHIFT_ORDER[(idx + 1) % SHIFT_ORDER.length];
+    }
 
     // ─── Migration: v1 storage → v2 ───
     function migrateStorage() {
@@ -368,6 +375,17 @@
     function saveExtraHoursState() {
       clearTimeout(_ehSaveTimer);
       _ehSaveTimer = setTimeout(function() { safeSet(STORAGE_KEY_EXTRA, JSON.stringify(extraHoursState)); }, 250);
+    }
+    function syncAutoFillSetting() {
+      if (!autoFillRotationInput) return;
+      autoFillRotationInput.checked = autoFillRotation;
+    }
+    function loadAutoFillSetting() {
+      autoFillRotation = safeGet(STORAGE_KEY_AUTOFILL) === '1';
+      syncAutoFillSetting();
+    }
+    function saveAutoFillSetting() {
+      safeSet(STORAGE_KEY_AUTOFILL, autoFillRotation ? '1' : '0');
     }
 
     // ─── Persistence: Basic / Advanced fields & Mode ───
@@ -936,11 +954,25 @@
       dayToggleEls.holiday.classList.toggle('active', hol);
       dayToggleEls.holiday.textContent = hol ? 'On' : 'Off';
     }
+    function fillShiftRotation(startYmd, startCode) {
+      const pp = extraHoursState.viewPeriod;
+      const start = fromYMD(startYmd);
+      let code = startCode;
+      for (let d = addDays(start, 1); d <= pp.end; d = addDays(d, 1)) {
+        code = nextShiftCode(code);
+        const ymd = toYMD(d);
+        const entry = extraHoursState.days[ymd] || { shifts: {} };
+        entry.shifts = {};
+        entry.shifts[code] = mode === 'ADVANCED' ? 'SHORT' : null;
+        extraHoursState.days[ymd] = entry;
+      }
+    }
 
     SHIFT_ORDER.forEach(function(code) {
       dayToggleEls[code].addEventListener('click', function() {
         if (!dayModalDate) return;
         const entry = extraHoursState.days[dayModalDate] || { shifts: {} };
+        const turnedOn = !(code in entry.shifts);
         if (code in entry.shifts) {
           delete entry.shifts[code];
         } else {
@@ -948,6 +980,7 @@
         }
         if (Object.keys(entry.shifts).length) extraHoursState.days[dayModalDate] = entry;
         else delete extraHoursState.days[dayModalDate];
+        if (turnedOn && autoFillRotation) fillShiftRotation(dayModalDate, code);
         afterStateChange();
       });
       const wrap = dayDistEls[code];
@@ -1274,6 +1307,12 @@
 
     const importInput = document.getElementById('import-data');
     if (importInput) importInput.addEventListener('change', function(e){ if (e.target.files && e.target.files[0]) importDataFromFile(e.target.files[0]); });
+    if (autoFillRotationInput) {
+      autoFillRotationInput.addEventListener('change', function() {
+        autoFillRotation = !!autoFillRotationInput.checked;
+        saveAutoFillSetting();
+      });
+    }
 
     window.addEventListener('resize', function() {
       requestAnimationFrame(function() {
@@ -1286,6 +1325,7 @@
     loadBasicFields();
     loadAdvFields();
     loadExtraHoursState();
+    loadAutoFillSetting();
     if (extraHoursState.basicSalary > 0) basicSalaryInput.value = extraHoursState.basicSalary;
     if (extraHoursState.compAllowance > 0) compAllowanceInput.value = extraHoursState.compAllowance;
     mode = loadMode();
