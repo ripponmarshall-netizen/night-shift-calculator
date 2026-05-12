@@ -43,6 +43,45 @@
         </div>
       </div>
 
+      <div class="ui-card ui-card--calendar section">
+        <p class="section-header">Calendar</p>
+        <div class="field field--autofill">
+          <label class="field-label field-label--checkbox" for="auto-fill-rotation">
+            <input id="auto-fill-rotation" type="checkbox" />
+            <span>Auto-fill following shift days</span>
+          </label>
+          <p class="field-help">Sequence: 7AM → 3PM → 10PM → 7AM</p>
+        </div>
+        <div class="cal">
+          <div class="cal-header">
+            <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period">&#8249;</button>
+            <span class="cal-title" id="cal-title">&#8212;</span>
+            <button type="button" class="cal-nav" id="cal-next" aria-label="Next pay period">&#8250;</button>
+          </div>
+          <div id="cal-body"></div>
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-dot cal-dot--7AM"></span>7AM (8h)</span>
+            <span class="cal-legend-item"><span class="cal-dot cal-dot--3PM"></span>3PM (7h)</span>
+            <span class="cal-legend-item"><span class="cal-dot cal-dot--10PM"></span>10PM (9h)</span>
+            <span class="cal-legend-item"><span class="cal-dot cal-dot--holiday"></span>Holiday</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <p class="section-header">Base Pay Inputs</p>
+        <div class="field-list">
+          <div class="field">
+            <label class="field-label" for="basic-salary">Monthly Basic Allowance ($)</label>
+            <input class="field-input" id="basic-salary" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+          </div>
+          <div class="field">
+            <label class="field-label" for="comp-allowance">Compulsory Assignment Allowance ($)</label>
+            <input class="field-input" id="comp-allowance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
+          </div>
+        </div>
+      </div>
+
       <!-- ADVANCED mode block -->
       <div class="ui-card ui-card--inputs calc-mode-block" id="mode-block-advanced">
         <div class="section">
@@ -82,45 +121,6 @@
                 <input class="mini-input" id="adv-7am-l" type="number" inputmode="numeric" min="0" max="99" placeholder="0" aria-label="Long 7AM" />
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <p class="section-header">Base Pay Inputs</p>
-        <div class="field-list">
-          <div class="field">
-            <label class="field-label" for="basic-salary">Monthly Basic Allowance ($)</label>
-            <input class="field-input" id="basic-salary" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
-          </div>
-          <div class="field">
-            <label class="field-label" for="comp-allowance">Compulsory Assignment Allowance ($)</label>
-            <input class="field-input" id="comp-allowance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0" />
-          </div>
-        </div>
-      </div>
-
-      <div class="ui-card ui-card--calendar section">
-        <p class="section-header">Calendar</p>
-        <div class="field field--autofill">
-          <label class="field-label field-label--checkbox" for="auto-fill-rotation">
-            <input id="auto-fill-rotation" type="checkbox" />
-            <span>Auto-fill following shift days</span>
-          </label>
-          <p class="field-help">Sequence: 7AM → 3PM → 10PM → 7AM</p>
-        </div>
-        <div class="cal">
-          <div class="cal-header">
-            <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period">&#8249;</button>
-            <span class="cal-title" id="cal-title">&#8212;</span>
-            <button type="button" class="cal-nav" id="cal-next" aria-label="Next pay period">&#8250;</button>
-          </div>
-          <div id="cal-body"></div>
-          <div class="cal-legend">
-            <span class="cal-legend-item"><span class="cal-dot cal-dot--7AM"></span>7AM (8h)</span>
-            <span class="cal-legend-item"><span class="cal-dot cal-dot--3PM"></span>3PM (7h)</span>
-            <span class="cal-legend-item"><span class="cal-dot cal-dot--10PM"></span>10PM (9h)</span>
-            <span class="cal-legend-item"><span class="cal-dot cal-dot--holiday"></span>Holiday</span>
           </div>
         </div>
       </div>
