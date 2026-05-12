@@ -160,9 +160,10 @@ button {
 input { font-family: inherit; }
 .field-label--checkbox { display:flex; align-items:center; gap:8px; }
 .field-label--checkbox input { width:16px; height:16px; }
-.field-help { margin-top:6px; font-size:12px; color:var(--text-muted); }
+.field-help { margin-top:8px; font-size:12px; line-height:1.35; color:var(--text-muted); }
 .field--autofill {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
+  padding-right: 4px;
 }
 .field--autofill .field-label--checkbox {
   margin: 0;
@@ -1349,4 +1350,9 @@ h1, h2, h3, h4, p { margin: 0; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+.cal {
+  padding-top: 2px;
 }

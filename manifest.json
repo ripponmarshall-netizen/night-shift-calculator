@@ -1,7 +1,7 @@
 {
   "name": "WCO JFB Night Shift Calculator",
   "short_name": "NS Calculator",
-  "description": "WCO JFB Night Shift allowance calculator",
+  "description": "Night shift pay calculator with allowance, calendar, overtime, and snapshot tools",
   "start_url": "./",
   "display": "standalone",
   "orientation": "portrait",
