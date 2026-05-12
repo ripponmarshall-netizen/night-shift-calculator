@@ -21,14 +21,54 @@ This app is for JFB members who need to calculate their night shift allowances. 
 
 ---
 
-## How to Get Started
+## How to Use the App
 
-1. Open the app
-2. Enter your shift numbers for the period
-3. Select your distance
-4. Tap **Calculate**
+1. **Open the calculator and confirm rates**  
+   At the top of the screen, check the **Rates effective** date so you know which allowance rates are being applied.
 
-> Add it to your home screen for quick access between shifts.
+2. **Choose your calculation mode**
+   - **Basic mode**: Enter total counts for 3PM, 10PM, and 7AM shifts, then select **Short** or **Long** distance for the whole period.
+   - **Advanced mode**: Enter shift counts separately for **Short** and **Long** distance across 3PM, 10PM, and 7AM.
+
+3. **Set your calendar days (recommended for accuracy)**
+   - Use the pay-period calendar (16th to 15th) to mark what you worked each day.
+   - Tap a day to assign one or more shift types (7AM / 3PM / 10PM).
+   - Mark holiday work where needed (built-in holidays are already recognized, and custom holiday overrides are supported).
+   - Optionally enable **Auto-fill next shift days** to follow the 7AM → 3PM → 10PM rotation pattern.
+   - Use the previous/next arrows to move across pay periods.
+
+4. **Enter base pay inputs**
+   - Fill in **Monthly Basic Allowance**.
+   - Fill in **Compulsory Assignment Allowance**.
+
+5. **Review the Live Summary before saving**
+   The app recalculates instantly and shows:
+   - Allowances: SP1, SP2, Meal, Taxi, and distance tag
+   - Base pay totals
+   - Extra-hours breakdown: total/holiday/non-holiday hours, overtime-over-threshold hours, hourly rate, holiday pay (×2), overtime pay (×1.5)
+   - **Estimated Total Pay**
+
+6. **Fix any mismatch warnings**
+   If entered shift counts and calendar selections do not match, a cross-check warning appears. Reconcile counts before finalising your snapshot.
+
+7. **Save a snapshot of results**
+   Tap **Save Snapshot** to generate the Results page with:
+   - Allowance subtotal
+   - Base pay subtotal
+   - Extra-hours subtotal
+   - Final estimated total
+   - Pay-period label and any cross-check notes
+
+8. **Use utility actions when needed**
+   - **Reset**: Clears current inputs and state.
+   - **Export**: Downloads your current calculator data as JSON.
+   - **Import**: Restores previously exported JSON data.
+
+9. **Use built-in help and reference pages**
+   - Tap **?** for quick help.
+   - Use **About** and **Disclaimers** links at the bottom for context, data/privacy notes, and usage caveats.
+
+> Tip: Install the app to your home screen for faster access and better offline use between shifts.
 
 ---
 
