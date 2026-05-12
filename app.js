@@ -1189,7 +1189,13 @@
           if (d.adv) safeSet(STORAGE_KEY_ADV, d.adv);
           if (d.mode) safeSet(STORAGE_KEY_MODE, d.mode);
           if (d.extra) safeSet(STORAGE_KEY_EXTRA, d.extra);
-          loadMode(); loadBasicFields(); loadAdvFields(); loadExtraHoursState();
+          mode = loadMode();
+          loadBasicFields();
+          loadAdvFields();
+          loadExtraHoursState();
+          loadAutoFillSetting();
+          setMode(mode, false);
+          setDistance(distance, false);
           renderCalendar(); renderLive();
           showAlert('Import complete.');
         } catch (e) { showAlert('Import failed: invalid backup file.'); }
@@ -1208,6 +1214,12 @@
         safeRemove(STORAGE_KEY_EXTRA);
         safeRemove(STORAGE_KEY_BASIC);
         safeRemove(STORAGE_KEY_ADV);
+        safeRemove(STORAGE_KEY_MODE);
+        safeRemove(STORAGE_KEY_AUTOFILL);
+        mode = 'BASIC';
+        autoFillRotation = false;
+        syncAutoFillSetting();
+        setMode(mode, false);
         renderCalendar();
         renderLive();
       }, 'Clear All');
@@ -1296,7 +1308,13 @@
       renderLive();
     });
     calNextBtn.addEventListener('click', function() {
-      extraHoursState.viewPeriod = shiftPayPeriod(extraHoursState.viewPeriod, 1);
+      const nextPeriod = shiftPayPeriod(extraHoursState.viewPeriod, 1);
+      const current = currentPayPeriod();
+      if (nextPeriod.year > current.year || (nextPeriod.year === current.year && nextPeriod.month > current.month)) {
+        showAlert('You can only view up to the current pay period.');
+        return;
+      }
+      extraHoursState.viewPeriod = nextPeriod;
       saveExtraHoursState();
       renderCalendar();
       renderLive();
