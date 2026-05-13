@@ -568,6 +568,18 @@
       }
     }
 
+
+
+    function setShiftInputsReadOnly() {
+      const all = BASIC_FIELD_IDS.concat(ADV_FIELD_IDS).map(function(id){ return document.getElementById(id); });
+      all.forEach(function(el) {
+        if (!el) return;
+        el.readOnly = true;
+        el.setAttribute('aria-readonly', 'true');
+        el.setAttribute('title', 'Derived from calendar. Update the calendar to change counts.');
+      });
+    }
+
     function computeAllowance(modeArg) {
       const c = gatherCalendarAllowanceCounts();
       if (modeArg === 'BASIC') {
@@ -665,65 +677,8 @@
 
     // ─── Cross-check ───
     function crossCheck() {
-      const period = extraHoursState.viewPeriod;
-      const start = payPeriodStart(period.year, period.month);
-      const end   = payPeriodEnd(period.year, period.month);
-      const buckets = {
-        '7AM':  { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } },
-        '3PM':  { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } },
-        '10PM': { SHORT: 0, LONG: 0, ANY: 0, dates: { SHORT: [], LONG: [], ANY: [] } }
-      };
-      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
-        const ymd = toYMD(d);
-        const entry = extraHoursState.days[ymd];
-        if (!entry || !entry.shifts) continue;
-        Object.keys(entry.shifts).forEach(function(code) {
-          if (!buckets[code]) return;
-          buckets[code].ANY += 1;
-          buckets[code].dates.ANY.push(ymd);
-          const dist = entry.shifts[code];
-          if (dist === 'SHORT' || dist === 'LONG') {
-            buckets[code][dist] += 1;
-            buckets[code].dates[dist].push(ymd);
-          }
-        });
-      }
-      const issues = [];
-      if (mode === 'BASIC') {
-        const map = { '7AM': 'total-7am', '3PM': 'total-3pm', '10PM': 'total-10pm' };
-        SHIFT_ORDER.forEach(function(code) {
-          const entered = valById(map[code], basicFields);
-          const cal = buckets[code].ANY;
-          if (entered !== cal) {
-            issues.push({ code: code, scope: 'TOTAL', entered: entered, calendar: cal, fieldId: map[code], dates: buckets[code].dates.ANY });
-          }
-        });
-      } else {
-        const map = {
-          '7AM':  { SHORT: 'adv-7am-s', LONG: 'adv-7am-l' },
-          '3PM':  { SHORT: 'adv-3pm-s', LONG: 'adv-3pm-l' },
-          '10PM': { SHORT: 'adv-10pm-s', LONG: 'adv-10pm-l' }
-        };
-        SHIFT_ORDER.forEach(function(code) {
-          const enteredS = valById(map[code].SHORT, advFields);
-          const enteredL = valById(map[code].LONG,  advFields);
-          if (enteredS !== buckets[code].SHORT) {
-            issues.push({ code: code, scope: 'SHORT', entered: enteredS, calendar: buckets[code].SHORT, fieldId: map[code].SHORT, dates: buckets[code].dates.SHORT });
-          }
-          if (enteredL !== buckets[code].LONG) {
-            issues.push({ code: code, scope: 'LONG', entered: enteredL, calendar: buckets[code].LONG, fieldId: map[code].LONG, dates: buckets[code].dates.LONG });
-          }
-          const unassigned = buckets[code].ANY - buckets[code].SHORT - buckets[code].LONG;
-          if (unassigned > 0) {
-            const unDates = buckets[code].dates.ANY.filter(function(ymd) {
-              const entry = extraHoursState.days[ymd];
-              return entry && entry.shifts && entry.shifts[code] !== 'SHORT' && entry.shifts[code] !== 'LONG';
-            });
-            issues.push({ code: code, scope: 'UNASSIGNED', count: unassigned, dates: unDates });
-          }
-        });
-      }
-      return issues;
+      // Calendar is the single source of truth; count inputs are read-only mirrors.
+      return [];
     }
 
     function describeIssue(issue) {
@@ -1301,10 +1256,11 @@
     }
     const basicInputs = BASIC_FIELD_IDS.map(function(id) { return basicFields[id]; });
     const advInputs   = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
+    setShiftInputsReadOnly();
     attachInputHandlers(basicInputs);
     attachInputHandlers(advInputs);
-    basicInputs.forEach(function(el) { el.addEventListener('input', function() { saveBasicFields(); renderLive(); }); });
-    advInputs.forEach(function(el)   { el.addEventListener('input', function() { saveAdvFields();   renderLive(); }); });
+    basicInputs.forEach(function(el) { el.addEventListener('input', function() { renderLive(); }); });
+    advInputs.forEach(function(el)   { el.addEventListener('input', function() { renderLive(); }); });
 
     modeBasicBtn.addEventListener('click', function() { setMode('BASIC', true); });
     modeAdvancedBtn.addEventListener('click', function() { setMode('ADVANCED', true); });

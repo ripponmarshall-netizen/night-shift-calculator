@@ -82,7 +82,7 @@ Workflow Coaching and Optimisation
 ## Disclaimers & Disclosures
 
 ### Data & Privacy
-This app does not collect, store, or transmit any data. All calculations are performed locally on your device and nothing you enter is saved between sessions or sent to any server. No personal information, shift data, or financial figures are recorded at any point.
+This app does not collect or transmit data to any server. All calculations are performed locally on your device. Your inputs are stored locally in your browser (localStorage) so your state can persist between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device at any point. You can clear local data at any time using **Reset**, or move it using **Export/Import**.
 
 ### Accuracy
 This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.
