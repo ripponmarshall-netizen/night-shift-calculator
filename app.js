@@ -1,5 +1,5 @@
     // ─── Constants ───
-    const BASIC_FIELD_IDS = ['total-3pm', 'total-10pm', 'total-7am'];
+    const BASIC_FIELD_IDS = [];
     const ADV_FIELD_IDS   = ['adv-3pm-s', 'adv-10pm-s', 'adv-7am-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-7am-l'];
     const RATES = { effectiveDate: '2026-05-10', SP1_RATE: 66.6, SP2_RATE: 200, MEAL_RATE: 950, TAXI_SHORT: 950, TAXI_LONG: 2000 };
     const SP1_RATE = RATES.SP1_RATE;
@@ -34,7 +34,7 @@
     let autoFillRotation = false;
 
     // ─── Cached DOM references ───
-    const basicFields = Object.fromEntries(BASIC_FIELD_IDS.map(id => [id, document.getElementById(id)]));
+    const basicFields = {};
     const advFields   = Object.fromEntries(ADV_FIELD_IDS.map(id => [id, document.getElementById(id)]));
     const pageCalc       = document.getElementById('calculator-page');
     const pageRes        = document.getElementById('results-page');
@@ -401,9 +401,7 @@
     function saveBasicFields() {
       clearTimeout(_basicSaveTimer);
       _basicSaveTimer = setTimeout(function() {
-        const data = { distance: distance };
-        BASIC_FIELD_IDS.forEach(function(id) { data[id] = basicFields[id].value; });
-        safeSet(STORAGE_KEY_BASIC, JSON.stringify(data));
+        safeSet(STORAGE_KEY_BASIC, JSON.stringify({ distance: distance }));
       }, 250);
     }
     function loadBasicFields() {
@@ -411,9 +409,6 @@
       if (!raw) return;
       let data; try { data = JSON.parse(raw); } catch (e) { return; }
       if (!data || typeof data !== 'object') return;
-      BASIC_FIELD_IDS.forEach(function(id) {
-        if (typeof data[id] === 'string') basicFields[id].value = data[id];
-      });
       if (data.distance === 'SHORT' || data.distance === 'LONG') distance = data.distance;
     }
     let _advSaveTimer = null;
@@ -492,13 +487,6 @@
     }
 
     // ─── Calculation: allowance ───
-    function gatherBasic() {
-      return {
-        all3:        valById('total-3pm', basicFields),
-        all10:       valById('total-10pm', basicFields),
-        all7:        valById('total-7am', basicFields)
-      };
-    }
     function gatherAdvanced() {
       return {
         s3:  valById('adv-3pm-s', advFields),
@@ -553,9 +541,12 @@
     function syncAllowanceInputsFromCalendar() {
       const c = gatherCalendarAllowanceCounts();
       if (mode === 'BASIC') {
-        basicFields['total-3pm'].value = String(c.total3);
-        basicFields['total-10pm'].value = String(c.total10);
-        basicFields['total-7am'].value = String(c.total7);
+        const basicCount3 = document.getElementById('basic-count-3pm');
+        const basicCount10 = document.getElementById('basic-count-10pm');
+        const basicCount7 = document.getElementById('basic-count-7am');
+        if (basicCount3) basicCount3.textContent = String(c.total3);
+        if (basicCount10) basicCount10.textContent = String(c.total10);
+        if (basicCount7) basicCount7.textContent = String(c.total7);
         saveBasicFields();
       } else {
         advFields['adv-3pm-s'].value = String(c.short3);
@@ -1013,9 +1004,7 @@
 
     // ─── Snapshot / Calculate ───
     function submitCombined() {
-      const ids = mode === 'BASIC' ? BASIC_FIELD_IDS : ADV_FIELD_IDS;
-      const map = mode === 'BASIC' ? basicFields : advFields;
-      if (!validateInputs(ids, map)) return;
+      if (mode === 'ADVANCED' && !validateInputs(ADV_FIELD_IDS, advFields)) return;
       const allowance = computeAllowance(mode);
       const extra     = computeExtraHours();
       const issues    = crossCheck();
@@ -1195,7 +1184,6 @@
 
     function resetAll() {
       showConfirm('Clear ALL data: counts, distance, base pay, calendar, and holiday overrides?', function() {
-        BASIC_FIELD_IDS.forEach(function(id) { basicFields[id].value = ''; basicFields[id].classList.remove('error', 'field-input--warn'); });
         ADV_FIELD_IDS.forEach(function(id)   { advFields[id].value   = ''; advFields[id].classList.remove('error', 'field-input--warn'); });
         setDistance('SHORT', true);
         extraHoursState = { basicSalary: 0, compAllowance: 0, customHolidays: {}, days: {}, viewPeriod: currentPayPeriod() };
@@ -1254,12 +1242,9 @@
         });
       });
     }
-    const basicInputs = BASIC_FIELD_IDS.map(function(id) { return basicFields[id]; });
-    const advInputs   = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
+    const advInputs = ADV_FIELD_IDS.map(function(id) { return advFields[id]; });
     setShiftInputsReadOnly();
-    attachInputHandlers(basicInputs);
     attachInputHandlers(advInputs);
-    basicInputs.forEach(function(el) { el.addEventListener('input', function() { renderLive(); }); });
     advInputs.forEach(function(el)   { el.addEventListener('input', function() { renderLive(); }); });
 
     modeBasicBtn.addEventListener('click', function() { setMode('BASIC', true); });

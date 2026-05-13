@@ -27,8 +27,8 @@ This app is for JFB members who need to calculate their night shift allowances. 
    At the top of the screen, check the **Rates effective** date so you know which allowance rates are being applied.
 
 2. **Choose your calculation mode**
-   - **Basic mode**: Enter total counts for 3PM, 10PM, and 7AM shifts, then select **Short** or **Long** distance for the whole period.
-   - **Advanced mode**: Enter shift counts separately for **Short** and **Long** distance across 3PM, 10PM, and 7AM.
+   - **Basic mode**: Shift counts are auto-derived from the calendar. Select **Short** or **Long** distance for the whole period.
+   - **Advanced mode**: Shift counts are still calendar-derived, while distance is split per shift (Short/Long) from day selections.
 
 3. **Set your calendar days (recommended for accuracy)**
    - Use the pay-period calendar (16th to 15th) to mark what you worked each day.
@@ -49,7 +49,7 @@ This app is for JFB members who need to calculate their night shift allowances. 
    - **Estimated Total Pay**
 
 6. **Fix any mismatch warnings**
-   If entered shift counts and calendar selections do not match, a cross-check warning appears. Reconcile counts before finalising your snapshot.
+   If any shift in Advanced mode is missing a Short/Long distance assignment, a cross-check warning appears. Complete the assignment before finalising your snapshot.
 
 7. **Save a snapshot of results**
    Tap **Save Snapshot** to generate the Results page with:
