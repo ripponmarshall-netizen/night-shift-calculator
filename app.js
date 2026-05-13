@@ -101,13 +101,15 @@
     };
     const liveNetEl = document.getElementById('live-net-total');
 
-    function computeEstimatedNetPay(grossMonthly) {
+    function computeEstimatedNetPay(grossMonthly, nonTaxableMonthly) {
       const gross = Math.max(0, grossMonthly);
+      const nonTaxable = Math.max(0, nonTaxableMonthly || 0);
+      const taxableGross = Math.max(0, gross - nonTaxable);
       const nisMonthlyCap = NIS_ANNUAL_CAP / 12;
-      const nisMonthly = Math.min(gross, nisMonthlyCap) * NIS_RATE;
-      const nhtMonthly = gross * NHT_RATE;
-      const eduTaxMonthly = gross * EDU_TAX_RATE;
-      const chargeableIncome = Math.max(0, gross - PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly);
+      const nisMonthly = Math.min(taxableGross, nisMonthlyCap) * NIS_RATE;
+      const nhtMonthly = taxableGross * NHT_RATE;
+      const eduTaxMonthly = taxableGross * EDU_TAX_RATE;
+      const chargeableIncome = Math.max(0, taxableGross - PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly);
       const lowerBand = Math.min(chargeableIncome, PAYE_BAND_LIMIT_MONTHLY);
       const upperBand = Math.max(0, chargeableIncome - PAYE_BAND_LIMIT_MONTHLY);
       const payeMonthly = (lowerBand * PAYE_RATE_LOWER) + (upperBand * PAYE_RATE_UPPER);
@@ -798,7 +800,7 @@
       tweenMoney(liveEls.holPay,  e.holidayPay);
       tweenMoney(liveEls.otPay,   e.overtimePay);
       const grossPay = round2(a.total + basic + comp + e.totalPay);
-      const netBreakdown = computeEstimatedNetPay(grossPay);
+      const netBreakdown = computeEstimatedNetPay(grossPay, a.rMeal + a.rTaxi);
       tweenMoney(liveEls.grand, grossPay);
       if (showNetPayInput && showNetPayInput.checked && liveNetEl) {
         liveNetEl.hidden = false;
