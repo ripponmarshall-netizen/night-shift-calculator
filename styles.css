@@ -406,6 +406,17 @@ h1, h2, h3, h4, p { margin: 0; }
   font-variant-numeric: tabular-nums;
 }
 
+.total-toggle-label {
+  margin-top: 10px;
+}
+
+.total-subvalue {
+  margin-top: 8px;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 /* Sub-section labels inside results list */
 .live-section-label {
   padding: 14px 16px 8px;

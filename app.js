@@ -12,6 +12,14 @@
     const HOURS_THRESHOLD = 173.33;
     const HOLIDAY_MULT    = 2;
     const OVERTIME_MULT   = 1.5;
+    const PAYE_THRESHOLD_MONTHLY = 1902360 / 12;
+    const PAYE_BAND_LIMIT_MONTHLY = 6000000 / 12;
+    const PAYE_RATE_LOWER = 0.25;
+    const PAYE_RATE_UPPER = 0.30;
+    const NIS_RATE = 0.03;
+    const NIS_ANNUAL_CAP = 5000000;
+    const NHT_RATE = 0.02;
+    const EDU_TAX_RATE = 0.0225;
     const STORAGE_KEY_EXTRA = 'extraHours.v2';
     const STORAGE_KEY_BASIC = 'nsCalc.basicFields.v2';
     const STORAGE_KEY_ADV   = 'nsCalc.advFields.v2';
@@ -56,6 +64,7 @@
     const crosscheckEl   = document.getElementById('crosscheck');
     const crosscheckList = document.getElementById('crosscheck-list');
     const autoFillRotationInput = document.getElementById('auto-fill-rotation');
+    const showNetPayInput = document.getElementById('show-net-pay');
 
     const ratesEffectiveEl = document.getElementById('rates-effective');
     if (ratesEffectiveEl) ratesEffectiveEl.textContent = 'Rates effective: ' + RATES.effectiveDate;
@@ -90,6 +99,27 @@
       otPay:  document.getElementById('live-ot-pay'),
       grand:  document.getElementById('live-grand-total')
     };
+    const liveNetEl = document.getElementById('live-net-total');
+
+    function computeEstimatedNetPay(grossMonthly) {
+      const gross = Math.max(0, grossMonthly);
+      const nisMonthlyCap = NIS_ANNUAL_CAP / 12;
+      const nisMonthly = Math.min(gross, nisMonthlyCap) * NIS_RATE;
+      const nhtMonthly = gross * NHT_RATE;
+      const eduTaxMonthly = gross * EDU_TAX_RATE;
+      const chargeableIncome = Math.max(0, gross - PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly);
+      const lowerBand = Math.min(chargeableIncome, PAYE_BAND_LIMIT_MONTHLY);
+      const upperBand = Math.max(0, chargeableIncome - PAYE_BAND_LIMIT_MONTHLY);
+      const payeMonthly = (lowerBand * PAYE_RATE_LOWER) + (upperBand * PAYE_RATE_UPPER);
+      const netMonthly = gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly;
+      return {
+        netMonthly: round2(netMonthly),
+        payeMonthly: round2(payeMonthly),
+        nisMonthly: round2(nisMonthly),
+        nhtMonthly: round2(nhtMonthly),
+        eduTaxMonthly: round2(eduTaxMonthly)
+      };
+    }
 
     const resEls = {
       eyebrow:   document.getElementById('res-eyebrow'),
@@ -767,7 +797,15 @@
       tweenMoney(liveEls.rate,    e.rate);
       tweenMoney(liveEls.holPay,  e.holidayPay);
       tweenMoney(liveEls.otPay,   e.overtimePay);
-      tweenMoney(liveEls.grand,   round2(a.total + basic + comp + e.totalPay));
+      const grossPay = round2(a.total + basic + comp + e.totalPay);
+      const netBreakdown = computeEstimatedNetPay(grossPay);
+      tweenMoney(liveEls.grand, grossPay);
+      if (showNetPayInput && showNetPayInput.checked && liveNetEl) {
+        liveNetEl.hidden = false;
+        tweenValue(liveNetEl, netBreakdown.netMonthly, function(v) { return 'Estimated net pay: ' + fmt(v); });
+      } else if (liveNetEl) {
+        liveNetEl.hidden = true;
+      }
       const issues = crossCheck();
       renderCrossCheck(issues);
     }
@@ -1309,6 +1347,11 @@
       autoFillRotationInput.addEventListener('change', function() {
         autoFillRotation = !!autoFillRotationInput.checked;
         saveAutoFillSetting();
+      });
+    }
+    if (showNetPayInput) {
+      showNetPayInput.addEventListener('change', function() {
+        renderLive();
       });
     }
 
