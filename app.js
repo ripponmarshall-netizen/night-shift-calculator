@@ -491,10 +491,31 @@
       }
     }
 
+    // Backfill per-shift distance for any calendar entries that were created
+    // in BASIC mode (where shifts are stored as null) so the ADVANCED counts
+    // and totals don't silently collapse to zero on mode switch.
+    function backfillAdvancedDistances() {
+      const fallback = distance === 'LONG' ? 'LONG' : 'SHORT';
+      let changed = false;
+      Object.keys(extraHoursState.days).forEach(function(ymd) {
+        const entry = extraHoursState.days[ymd];
+        if (!entry || !entry.shifts) return;
+        Object.keys(entry.shifts).forEach(function(code) {
+          const v = entry.shifts[code];
+          if (v !== 'SHORT' && v !== 'LONG') {
+            entry.shifts[code] = fallback;
+            changed = true;
+          }
+        });
+      });
+      if (changed) saveExtraHoursState();
+    }
+
     // ─── Mode toggle ───
     function setMode(m, animate) {
       if (m !== 'BASIC' && m !== 'ADVANCED') return;
       mode = m;
+      if (m === 'ADVANCED') backfillAdvancedDistances();
       modeBasicBtn.setAttribute('aria-checked', m === 'BASIC' ? 'true' : 'false');
       modeAdvancedBtn.setAttribute('aria-checked', m === 'ADVANCED' ? 'true' : 'false');
       syncTabState(modeBasicBtn, modeAdvancedBtn, m === 'BASIC');
@@ -888,7 +909,13 @@
       cell.appendChild(dots);
       cell.addEventListener('click', function() {
         if (!inPeriod) {
-          extraHoursState.viewPeriod = currentPayPeriod(date);
+          const target = currentPayPeriod(date);
+          const cur = currentPayPeriod();
+          if (target.year > cur.year || (target.year === cur.year && target.month > cur.month)) {
+            showAlert('You can only view up to the current pay period.');
+            return;
+          }
+          extraHoursState.viewPeriod = target;
           renderCalendar();
         }
         openDayModal(ymd);
@@ -1392,7 +1419,7 @@
 
     document.addEventListener('keydown', function(e){
       if (e.key !== 'Tab') return;
-      const openModal = document.querySelector('.modal.open');
+      const openModal = document.querySelector('.modal-overlay.open');
       if (!openModal) return;
       const focusables = openModal.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])');
       if (!focusables.length) return;
