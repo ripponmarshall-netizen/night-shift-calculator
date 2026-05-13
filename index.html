@@ -128,20 +128,11 @@
       <!-- BASIC mode block -->
       <div class="ui-card ui-card--inputs calc-mode-block active" id="mode-block-basic">
         <div class="section">
-          <p class="section-header">Shift Counts</p>
+          <p class="section-header">Shift Counts (From Calendar)</p>
           <div class="field-list">
-            <div class="field">
-              <label class="field-label" for="total-3pm">Total 3PM Shifts</label>
-              <input class="field-input" id="total-3pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="total-10pm">Total 10PM Shifts</label>
-              <input class="field-input" id="total-10pm" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
-            <div class="field">
-              <label class="field-label" for="total-7am">Total 7AM Shifts</label>
-              <input class="field-input" id="total-7am" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
-            </div>
+            <div class="result-row"><span class="result-label">3PM shifts</span><span class="result-value" id="basic-count-3pm">0</span></div>
+            <div class="result-row"><span class="result-label">10PM shifts</span><span class="result-value" id="basic-count-10pm">0</span></div>
+            <div class="result-row"><span class="result-label">7AM shifts</span><span class="result-value" id="basic-count-7am">0</span></div>
             <div class="field">
               <label class="field-label">Distance</label>
               <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
@@ -157,7 +148,7 @@
       <div class="crosscheck" id="crosscheck" aria-live="polite">
         <div class="crosscheck-header">
           <span class="crosscheck-header-icon" aria-hidden="true">!</span>
-          <span>Counts and calendar don't match</span>
+          <span>Review calendar distance assignment</span>
         </div>
         <ul class="crosscheck-list" id="crosscheck-list"></ul>
       </div>
