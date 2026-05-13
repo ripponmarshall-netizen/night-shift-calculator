@@ -31,15 +31,15 @@
           <p class="eyebrow" id="rates-effective">Rates effective: —</p>
         </div>
         <div class="hint-wrap">
-          <button type="button" class="hint-btn" onclick="openHint()" aria-label="Help">?</button>
+          <button type="button" class="hint-btn" onclick="openHint()" aria-label="Open help and instructions">?</button>
         </div>
       </div>
 
       <div class="section mode-toggle-wrap">
-        <div class="segmented-control" id="mode-segmented" role="tablist" aria-label="Calculation mode">
+        <div class="segmented-control" id="mode-segmented" role="radiogroup" aria-label="Calculation mode">
           <span class="segmented-thumb" id="mode-thumb"></span>
-          <button type="button" class="segmented-option" id="mode-basic" role="tab" aria-selected="true" data-mode="BASIC">Basic</button>
-          <button type="button" class="segmented-option" id="mode-advanced" role="tab" aria-selected="false" data-mode="ADVANCED">Advanced</button>
+          <button type="button" class="segmented-option" id="mode-basic" role="radio" aria-checked="true" data-mode="BASIC">Basic</button>
+          <button type="button" class="segmented-option" id="mode-advanced" role="radio" aria-checked="false" data-mode="ADVANCED">Advanced</button>
         </div>
       </div>
 
@@ -54,9 +54,9 @@
         </div>
         <div class="cal">
           <div class="cal-header">
-            <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period">&#8249;</button>
+            <button type="button" class="cal-nav" id="cal-prev" aria-label="Previous pay period"><span aria-hidden="true">&#8249;</span></button>
             <span class="cal-title" id="cal-title">&#8212;</span>
-            <button type="button" class="cal-nav" id="cal-next" aria-label="Next pay period">&#8250;</button>
+            <button type="button" class="cal-nav" id="cal-next" aria-label="Next pay period"><span aria-hidden="true">&#8250;</span></button>
           </div>
           <div id="cal-body"></div>
           <div class="cal-legend">
@@ -461,7 +461,7 @@
       <div class="day-modal-list">
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--7AM"></span>7AM shift (8h)</span>
-          <button type="button" class="day-toggle" id="day-toggle-7AM" data-shift="7AM">Off</button>
+          <button type="button" class="day-toggle" id="day-toggle-7AM" data-shift="7AM" aria-pressed="false">Off</button>
         </div>
         <div class="day-modal-distance" id="day-dist-7AM" hidden>
           <span>Distance</span>
@@ -473,7 +473,7 @@
         </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--3PM"></span>3PM shift (7h)</span>
-          <button type="button" class="day-toggle" id="day-toggle-3PM" data-shift="3PM">Off</button>
+          <button type="button" class="day-toggle" id="day-toggle-3PM" data-shift="3PM" aria-pressed="false">Off</button>
         </div>
         <div class="day-modal-distance" id="day-dist-3PM" hidden>
           <span>Distance</span>
@@ -485,7 +485,7 @@
         </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--10PM"></span>10PM shift (9h)</span>
-          <button type="button" class="day-toggle" id="day-toggle-10PM" data-shift="10PM">Off</button>
+          <button type="button" class="day-toggle" id="day-toggle-10PM" data-shift="10PM" aria-pressed="false">Off</button>
         </div>
         <div class="day-modal-distance" id="day-dist-10PM" hidden>
           <span>Distance</span>
@@ -497,7 +497,7 @@
         </div>
         <div class="day-modal-row">
           <span class="day-modal-row-label"><span class="cal-dot cal-dot--holiday"></span><span id="day-holiday-label">Public holiday</span></span>
-          <button type="button" class="day-toggle day-toggle--holiday" id="day-toggle-holiday">Off</button>
+          <button type="button" class="day-toggle day-toggle--holiday" id="day-toggle-holiday" aria-pressed="false">Off</button>
         </div>
       </div>
       <div class="day-modal-actions">

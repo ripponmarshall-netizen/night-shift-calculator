@@ -73,7 +73,7 @@
   --lavender-bg: #E8E2F6;  --lavender-fg: #5A4A8C;
   --mint-bg: #DCEFE2;      --mint-fg: #2F6B45;
   --sky-bg: #DCEAF7;       --sky-fg: #2B5B8F;
-  --rose-bg: #F7DDE0;      --rose-fg: #8A3946;
+  --rose-bg: #F7DDE0;      --rose-fg: #8A3946;      --rose-on: #FFFFFF;
   --sand-bg: #FBEFD0;      --sand-fg: #7A5A1A;
 
   --danger: #C2455A;
@@ -111,7 +111,7 @@
     --lavender-bg: rgba(180, 168, 232, 0.16);--lavender-fg: #C8BCEF;
     --mint-bg: rgba(120, 200, 160, 0.18);    --mint-fg: #94D8B1;
     --sky-bg: rgba(135, 180, 232, 0.18);     --sky-fg: #ABCAEF;
-    --rose-bg: rgba(240, 150, 170, 0.18);    --rose-fg: #ECA6B0;
+    --rose-bg: rgba(240, 150, 170, 0.18);    --rose-fg: #ECA6B0;    --rose-on: #2A1014;
     --sand-bg: rgba(235, 200, 140, 0.16);    --sand-fg: #E2C57E;
 
     --danger: #E58998;
@@ -275,12 +275,12 @@ h1, h2, h3, h4, p { margin: 0; }
   letter-spacing: 0.02em;
 }
 .hint-btn {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-full);
   background: var(--surface-2);
   color: var(--text-muted);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -829,14 +829,14 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .cal-nav {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
   transition: background var(--motion-fast) var(--ease-ios), color var(--motion-fast) var(--ease-ios), border-color var(--motion-fast) var(--ease-ios);
 }
@@ -875,6 +875,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .cal-day {
   position: relative;
   aspect-ratio: 1 / 1;
+  min-height: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1194,7 +1195,7 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .day-toggle--holiday.active {
   background: var(--rose-fg);
-  color: #fff;
+  color: var(--rose-on);
   border-color: var(--rose-fg);
 }
 

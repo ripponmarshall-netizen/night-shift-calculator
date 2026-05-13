@@ -30,7 +30,6 @@
     let infoReturnPage = null;
     let confirmCallback = null;
     let lastSnapshot = null;
-    let lastIssues = [];
     let dayModalDate = null;
     let autoFillRotation = false;
 
@@ -144,7 +143,15 @@
 
     function pad2(n) { return n < 10 ? '0' + n : '' + n; }
     function toYMD(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
-    function fromYMD(s) { const p = s.split('-'); return new Date(parseInt(p[0],10), parseInt(p[1],10)-1, parseInt(p[2],10)); }
+    function fromYMD(s) {
+      if (typeof s !== 'string') return null;
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+      if (!m) return null;
+      const y = +m[1], mo = +m[2] - 1, da = +m[3];
+      const d = new Date(y, mo, da);
+      if (d.getFullYear() !== y || d.getMonth() !== mo || d.getDate() !== da) return null;
+      return d;
+    }
     function addDays(d, n) { const r = new Date(d.getFullYear(), d.getMonth(), d.getDate()); r.setDate(r.getDate()+n); return r; }
     function sameYMD(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
     function nextShiftCode(code) {
@@ -355,6 +362,7 @@
       if (data.days && typeof data.days === 'object') {
         const days = {};
         Object.keys(data.days).forEach(function(ymd) {
+          if (!fromYMD(ymd)) return;
           const entry = data.days[ymd];
           if (!entry || !entry.shifts) return;
           let shifts = {};
@@ -460,8 +468,8 @@
     function setMode(m, animate) {
       if (m !== 'BASIC' && m !== 'ADVANCED') return;
       mode = m;
-      modeBasicBtn.setAttribute('aria-selected', m === 'BASIC' ? 'true' : 'false');
-      modeAdvancedBtn.setAttribute('aria-selected', m === 'ADVANCED' ? 'true' : 'false');
+      modeBasicBtn.setAttribute('aria-checked', m === 'BASIC' ? 'true' : 'false');
+      modeAdvancedBtn.setAttribute('aria-checked', m === 'ADVANCED' ? 'true' : 'false');
       syncTabState(modeBasicBtn, modeAdvancedBtn, m === 'BASIC');
       modeBlockBasic.classList.toggle('active', m === 'BASIC');
       modeBlockAdvanced.classList.toggle('active', m === 'ADVANCED');
@@ -733,7 +741,6 @@
     }
 
     function renderCrossCheck(issues) {
-      lastIssues = issues;
       const allInputs = BASIC_FIELD_IDS.concat(ADV_FIELD_IDS);
       allInputs.forEach(function(id) {
         const el = document.getElementById(id);
@@ -935,6 +942,7 @@
         const el = dayToggleEls[code];
         el.classList.toggle('active', on);
         el.textContent = on ? 'On' : 'Off';
+        el.setAttribute('aria-pressed', String(on));
         const distWrap = dayDistEls[code];
         if (on && mode === 'ADVANCED') {
           distWrap.hidden = false;
@@ -953,6 +961,7 @@
       const hol = isHoliday(dayModalDate);
       dayToggleEls.holiday.classList.toggle('active', hol);
       dayToggleEls.holiday.textContent = hol ? 'On' : 'Off';
+      dayToggleEls.holiday.setAttribute('aria-pressed', String(hol));
     }
 
     function hasAutoFilledDays() {
@@ -966,14 +975,19 @@
       const pp = extraHoursState.viewPeriod;
       const periodEnd = payPeriodEnd(pp.year, pp.month);
       let d = fromYMD(startYmd);
+      if (!d) return;
       let code = startCode;
       while (true) {
         const nextCode = nextShiftCode(code);
         d = addDays(d, code === '10PM' && nextCode === '7AM' ? 2 : 1);
         if (d > periodEnd) break;
         const ymd = toYMD(d);
-        const entry = extraHoursState.days[ymd] || { shifts: {} };
-        entry.shifts = {};
+        const existing = extraHoursState.days[ymd];
+        if (existing && existing.shifts && Object.keys(existing.shifts).length) {
+          code = nextCode;
+          continue;
+        }
+        const entry = { shifts: {} };
         entry.shifts[nextCode] = mode === 'ADVANCED' ? 'SHORT' : null;
         entry.autoFilled = true;
         extraHoursState.days[ymd] = entry;
@@ -1189,7 +1203,7 @@
 
     function exportData() {
       const payload = {
-        basic: safeGet(STORAGE_KEY_BASIC), adv: safeGet(STORAGE_KEY_ADV), mode: safeGet(STORAGE_KEY_MODE), extra: safeGet(STORAGE_KEY_EXTRA), exportedAt: new Date().toISOString()
+        basic: safeGet(STORAGE_KEY_BASIC), adv: safeGet(STORAGE_KEY_ADV), mode: safeGet(STORAGE_KEY_MODE), extra: safeGet(STORAGE_KEY_EXTRA), autofill: safeGet(STORAGE_KEY_AUTOFILL), exportedAt: new Date().toISOString()
       };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
@@ -1208,11 +1222,13 @@
           if (d.adv) safeSet(STORAGE_KEY_ADV, d.adv);
           if (d.mode) safeSet(STORAGE_KEY_MODE, d.mode);
           if (d.extra) safeSet(STORAGE_KEY_EXTRA, d.extra);
+          if (typeof d.autofill === 'string') safeSet(STORAGE_KEY_AUTOFILL, d.autofill);
           mode = loadMode();
           loadBasicFields();
           loadAdvFields();
           loadExtraHoursState();
           loadAutoFillSetting();
+          syncAutoFillSetting();
           setMode(mode, false);
           setDistance(distance, false);
           renderCalendar(); renderLive();
