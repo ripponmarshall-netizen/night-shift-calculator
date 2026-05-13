@@ -177,8 +177,13 @@
       </div>
 
       <div class="ui-card ui-card--total total-row" style="opacity:1;">
-        <span class="total-label">Estimated Total Pay</span>
+        <span class="total-label">Estimated Gross Pay</span>
         <span class="total-value tween" id="live-grand-total">$0.00</span>
+        <label class="field-label field-label--checkbox total-toggle-label" for="show-net-pay">
+          <input id="show-net-pay" type="checkbox" />
+          <span>Show estimated net pay</span>
+        </label>
+        <span class="total-subvalue tween" id="live-net-total" hidden>$0.00</span>
       </div>
 
       <div class="btn-wrap">
