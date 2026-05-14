@@ -1240,6 +1240,8 @@
           loadExtraHoursState();
           loadAutoFillSetting();
           syncAutoFillSetting();
+          basicSalaryInput.value = extraHoursState.basicSalary > 0 ? extraHoursState.basicSalary : '';
+          compAllowanceInput.value = extraHoursState.compAllowance > 0 ? extraHoursState.compAllowance : '';
           setMode(mode, false);
           setDistance(distance, false);
           renderCalendar(); renderLive();
