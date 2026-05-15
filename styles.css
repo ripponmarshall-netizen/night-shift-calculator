@@ -1368,3 +1368,82 @@ h1, h2, h3, h4, p { margin: 0; }
 .cal {
   padding-top: 2px;
 }
+
+/* =========================================================================
+   Premium polish pass
+   ========================================================================= */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20% -25% auto;
+  height: 420px;
+  background:
+    radial-gradient(45% 60% at 10% 10%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 72%),
+    radial-gradient(55% 70% at 88% 14%, color-mix(in srgb, var(--lavender-fg) 24%, transparent), transparent 74%);
+  opacity: 0.36;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.app {
+  backdrop-filter: saturate(1.04);
+}
+
+.ui-card {
+  background: color-mix(in srgb, var(--surface) 90%, var(--accent-soft) 10%);
+  border-color: color-mix(in srgb, var(--border) 75%, var(--accent-soft) 25%);
+  box-shadow: 0 8px 24px -20px color-mix(in srgb, var(--accent) 40%, transparent), var(--shadow-card);
+}
+
+.page-title--input {
+  background: linear-gradient(110deg, var(--text) 0%, color-mix(in srgb, var(--text) 76%, var(--accent) 24%) 66%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.cal-day {
+  transition: transform var(--motion-fast) var(--ease-ios), box-shadow var(--motion-fast) var(--ease-ios), border-color var(--motion-fast) var(--ease-ios);
+}
+.cal-day:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px -10px rgba(0, 0, 0, 0.5);
+}
+
+.result-row {
+  border-radius: 12px;
+  padding: 8px 10px;
+  transition: background-color var(--motion-fast) var(--ease-ios);
+}
+.result-row:hover {
+  background: color-mix(in srgb, var(--accent-soft) 38%, transparent);
+}
+
+.total-row {
+  position: sticky;
+  bottom: max(10px, calc(var(--safe-bottom) + 10px));
+  z-index: 8;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  box-shadow: 0 18px 40px -26px color-mix(in srgb, var(--accent) 55%, transparent);
+  backdrop-filter: blur(14px) saturate(1.06);
+}
+
+.btn {
+  transition: transform var(--motion-fast) var(--ease-ios), box-shadow var(--motion-fast) var(--ease-ios), background-color var(--motion-fast) var(--ease-ios);
+}
+.btn:hover {
+  transform: translateY(-1px);
+}
+.btn--primary {
+  box-shadow: 0 12px 24px -18px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+@media (max-width: 639px) {
+  .app {
+    padding-inline: 16px;
+  }
+  .total-row {
+    margin-inline: -2px;
+  }
+}
