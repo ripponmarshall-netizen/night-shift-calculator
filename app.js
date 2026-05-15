@@ -722,7 +722,39 @@
     // ─── Cross-check ───
     function crossCheck() {
       // Calendar is the single source of truth; count inputs are read-only mirrors.
-      return [];
+      // In ADVANCED mode, detect legacy/imported entries that are missing distance tags.
+      if (mode !== 'ADVANCED') return [];
+      const issues = [];
+      const period = extraHoursState.viewPeriod;
+      const start = payPeriodStart(period.year, period.month);
+      const end = payPeriodEnd(period.year, period.month);
+      const missingByCode = { '7AM': [], '3PM': [], '10PM': [] };
+
+      for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
+        const ymd = toYMD(d);
+        const entry = extraHoursState.days[ymd];
+        if (!entry || !entry.shifts) continue;
+        SHIFT_ORDER.forEach(function(code) {
+          if (!(code in entry.shifts)) return;
+          const dist = entry.shifts[code];
+          if (dist !== 'SHORT' && dist !== 'LONG') {
+            missingByCode[code].push(ymd);
+          }
+        });
+      }
+
+      SHIFT_ORDER.forEach(function(code) {
+        const dates = missingByCode[code];
+        if (!dates.length) return;
+        issues.push({
+          code: code,
+          scope: 'UNASSIGNED',
+          count: dates.length,
+          dates: dates
+        });
+      });
+
+      return issues;
     }
 
     function describeIssue(issue) {
