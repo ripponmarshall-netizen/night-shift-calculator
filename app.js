@@ -25,6 +25,7 @@
     const STORAGE_KEY_ADV   = 'nsCalc.advFields.v2';
     const STORAGE_KEY_MODE  = 'nsCalc.mode.v1';
     const STORAGE_KEY_AUTOFILL = 'nsCalc.autoFillRotation.v1';
+    const STORAGE_KEY_LAST_SNAPSHOT = 'nsCalc.lastSnapshotAt.v1';
     const MOTION = { fast: 140, snap: 220, stage: 380 };
 
     function reducedMotion() {
@@ -65,6 +66,7 @@
     const crosscheckList = document.getElementById('crosscheck-list');
     const autoFillRotationInput = document.getElementById('auto-fill-rotation');
     const showNetPayInput = document.getElementById('show-net-pay');
+    const snapshotMetaEl = document.getElementById('snapshot-meta');
 
     const ratesEffectiveEl = document.getElementById('rates-effective');
     if (ratesEffectiveEl) ratesEffectiveEl.textContent = 'Rates effective: ' + RATES.effectiveDate;
@@ -1101,6 +1103,31 @@
       renderLive();
     }
 
+
+    function formatSnapshotMeta(d) {
+      const date = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return 'Last snapshot: ' + date + ' at ' + time;
+    }
+
+    function refreshSnapshotMeta() {
+      if (!snapshotMetaEl) return;
+      const raw = safeGet(STORAGE_KEY_LAST_SNAPSHOT);
+      if (!raw) {
+        snapshotMetaEl.textContent = 'No snapshot saved yet.';
+        snapshotMetaEl.classList.remove('is-fresh');
+        return;
+      }
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) {
+        snapshotMetaEl.textContent = 'No snapshot saved yet.';
+        snapshotMetaEl.classList.remove('is-fresh');
+        return;
+      }
+      snapshotMetaEl.textContent = formatSnapshotMeta(d);
+      snapshotMetaEl.classList.remove('is-fresh');
+    }
+
     // ─── Snapshot / Calculate ───
     function submitCombined() {
       if (mode === 'ADVANCED' && !validateInputs(ADV_FIELD_IDS, advFields)) return;
@@ -1109,6 +1136,12 @@
       const issues    = crossCheck();
       const basePay   = { basic: extraHoursState.basicSalary || 0, comp: extraHoursState.compAllowance || 0 };
       lastSnapshot = { mode: mode, allowance: allowance, basePay: basePay, extra: extra, issues: issues, period: extraHoursState.viewPeriod, capturedAt: new Date() };
+      safeSet(STORAGE_KEY_LAST_SNAPSHOT, lastSnapshot.capturedAt.toISOString());
+      if (snapshotMetaEl) {
+        snapshotMetaEl.textContent = formatSnapshotMeta(lastSnapshot.capturedAt);
+        snapshotMetaEl.classList.add('is-fresh');
+        setTimeout(function(){ snapshotMetaEl.classList.remove('is-fresh'); }, 2200);
+      }
       renderResultsPage(lastSnapshot);
       prevPage = pageCalc;
       flashAndNavigate(calcBtn, pageRes, 'forward');
@@ -1295,6 +1328,7 @@
         safeRemove(STORAGE_KEY_ADV);
         safeRemove(STORAGE_KEY_MODE);
         safeRemove(STORAGE_KEY_AUTOFILL);
+        safeRemove(STORAGE_KEY_LAST_SNAPSHOT);
         mode = 'BASIC';
         autoFillRotation = false;
         syncAutoFillSetting();
@@ -1438,6 +1472,7 @@
     renderCalendar();
     syncAllowanceInputsFromCalendar();
     renderLive();
+    refreshSnapshotMeta();
     requestAnimationFrame(function() {
       positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
       positionSegmentedThumb(distSegmented, distThumb, distance === 'SHORT' ? distShortBtn : distLongBtn, false);

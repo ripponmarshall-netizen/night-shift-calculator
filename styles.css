@@ -725,6 +725,18 @@ h1, h2, h3, h4, p { margin: 0; }
     grid-template-columns: 1fr 1fr;
   }
   .btn-wrap > .submit-btn { grid-column: 1 / -1; }
+
+.snapshot-meta {
+  grid-column: 1 / -1;
+  margin: 2px 2px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.snapshot-meta.is-fresh {
+  color: var(--mint-fg);
+}
 }
 
 .btn {
@@ -773,6 +785,18 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 
 .submit-btn { grid-column: 1 / -1; }
+
+.snapshot-meta {
+  grid-column: 1 / -1;
+  margin: 2px 2px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.snapshot-meta.is-fresh {
+  color: var(--mint-fg);
+}
 .submit-btn.success {
   background: var(--mint-fg);
   color: #fff;
