@@ -85,6 +85,7 @@
       sp2:    document.getElementById('live-sp2'),
       meal:   document.getElementById('live-meal'),
       taxi:   document.getElementById('live-taxi'),
+  distance: document.getElementById('live-distance'),
       basic:  document.getElementById('live-basic'),
       comp:   document.getElementById('live-comp'),
       totalHrs: document.getElementById('live-total-hrs'),
@@ -849,6 +850,7 @@ function setShiftInputsReadOnly() {
       tweenMoney(liveEls.sp2,  a.rSP2);
       tweenMoney(liveEls.meal, a.rMeal);
       tweenMoney(liveEls.taxi, a.rTaxi);
+      if (liveEls.distance) liveEls.distance.textContent = a.distLabel;
       tweenMoney(liveEls.basic, basic);
       tweenMoney(liveEls.comp,  comp);
       tweenHours(liveEls.totalHrs, e.totalHours);
