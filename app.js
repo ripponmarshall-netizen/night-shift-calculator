@@ -1,5 +1,5 @@
     // ─── Constants ───
-    const BASIC_FIELD_IDS = ['basic-sp1','basic-sp2','basic-meal','basic-taxi'];
+    const BASIC_FIELD_IDS = ['basic-3pm-count','basic-10pm-count','basic-10pm-after-3pm-count'];
     const ADV_FIELD_IDS   = ['adv-3pm-s', 'adv-10pm-s', 'adv-7am-s', 'adv-3pm-l', 'adv-10pm-l', 'adv-7am-l'];
     const RATES = { effectiveDate: '2026-05-10', SP1_RATE: 66.6, SP2_RATE: 200, MEAL_RATE: 950, TAXI_SHORT: 950, TAXI_LONG: 2000 };
     const SP1_RATE = RATES.SP1_RATE;
@@ -34,7 +34,6 @@
 
     // ─── State ───
     let mode     = 'BASIC';
-    let distance = 'SHORT';
     let prevPage = null;
     let infoReturnPage = null;
     let confirmCallback = null;
@@ -79,17 +78,12 @@
     const modeBlockBasic    = document.getElementById('mode-block-basic');
     const modeBlockAdvanced = document.getElementById('mode-block-advanced');
 
-    const distSegmented = document.getElementById('distance-segmented');
-    const distThumb     = document.getElementById('distance-thumb');
-    const distShortBtn  = document.getElementById('dist-short');
-    const distLongBtn   = document.getElementById('dist-long');
 
     const liveEls = {
       sp1:    document.getElementById('live-sp1'),
       sp2:    document.getElementById('live-sp2'),
       meal:   document.getElementById('live-meal'),
       taxi:   document.getElementById('live-taxi'),
-      dist:   document.getElementById('live-distance'),
       basic:  document.getElementById('live-basic'),
       comp:   document.getElementById('live-comp'),
       totalHrs: document.getElementById('live-total-hrs'),
@@ -435,7 +429,7 @@
     function saveBasicFields() {
       clearTimeout(_basicSaveTimer);
       _basicSaveTimer = setTimeout(function() {
-        const data = { distance: distance };
+        const data = {};
         BASIC_FIELD_IDS.forEach(function(id){ data[id] = basicFields[id] ? basicFields[id].value : ''; });
         safeSet(STORAGE_KEY_BASIC, JSON.stringify(data));
       }, 250);
@@ -445,10 +439,15 @@
       if (!raw) return;
       let data; try { data = JSON.parse(raw); } catch (e) { return; }
       if (!data || typeof data !== 'object') return;
-      if (data.distance === 'SHORT' || data.distance === 'LONG') distance = data.distance;
+      const legacySp1 = parseFloat(data['basic-sp1']) || 0;
+      const legacySp2 = parseFloat(data['basic-sp2']) || 0;
+      const legacy10After3 = Math.max(0, Math.min(legacySp1, legacySp2));
       BASIC_FIELD_IDS.forEach(function(id) {
         if (basicFields[id] && typeof data[id] === 'string') basicFields[id].value = data[id];
       });
+      if (basicFields['basic-3pm-count'] && !basicFields['basic-3pm-count'].value && 'basic-sp1' in data) basicFields['basic-3pm-count'].value = String(Math.floor(Math.max(0, legacySp1)));
+      if (basicFields['basic-10pm-count'] && !basicFields['basic-10pm-count'].value && 'basic-sp2' in data) basicFields['basic-10pm-count'].value = String(Math.floor(Math.max(0, legacySp2)));
+      if (basicFields['basic-10pm-after-3pm-count'] && !basicFields['basic-10pm-after-3pm-count'].value) basicFields['basic-10pm-after-3pm-count'].value = String(Math.floor(legacy10After3));
     }
     let _advSaveTimer = null;
     function saveAdvFields() {
@@ -498,11 +497,8 @@
       }
     }
 
-    // Backfill per-shift distance for any calendar entries that were created
-    // in BASIC mode (where shifts are stored as null) so the ADVANCED counts
-    // and totals don't silently collapse to zero on mode switch.
     function backfillAdvancedDistances() {
-      const fallback = distance === 'LONG' ? 'LONG' : 'SHORT';
+      const fallback = 'SHORT';
       let changed = false;
       Object.keys(extraHoursState.days).forEach(function(ymd) {
         const entry = extraHoursState.days[ymd];
@@ -532,17 +528,6 @@
       saveMode();
       if (dayModalDate) syncDayModalToggles();
       syncAllowanceInputsFromCalendar();
-      renderLive();
-    }
-
-    function setDistance(v, animate) {
-      if (v !== 'SHORT' && v !== 'LONG') return;
-      distance = v;
-      distShortBtn.setAttribute('aria-selected', v === 'SHORT' ? 'true' : 'false');
-      distLongBtn.setAttribute('aria-selected', v === 'LONG' ? 'true' : 'false');
-      syncTabState(distShortBtn, distLongBtn, v === 'SHORT');
-      positionSegmentedThumb(distSegmented, distThumb, v === 'SHORT' ? distShortBtn : distLongBtn, animate !== false);
-      saveBasicFields();
       renderLive();
     }
 
@@ -622,17 +607,34 @@ function setShiftInputsReadOnly() {
       });
     }
 
+    function getBasicCount(id) {
+      return Math.floor(Math.max(0, valById(id, basicFields)));
+    }
+
+    function validateBasicRelationship() {
+      const c3 = getBasicCount('basic-3pm-count');
+      const c10 = getBasicCount('basic-10pm-count');
+      const cExtra10 = getBasicCount('basic-10pm-after-3pm-count');
+      const maxAllowed = Math.min(c3, c10);
+      const valid = cExtra10 <= maxAllowed;
+      if (basicFields['basic-10pm-after-3pm-count']) {
+        basicFields['basic-10pm-after-3pm-count'].classList.toggle('error', !valid);
+      }
+      return { valid: valid, c3: c3, c10: c10, cExtra10: cExtra10 };
+    }
+
     function computeAllowance(modeArg) {
       if (modeArg === 'BASIC') {
-        const sp1Count = valById('basic-sp1', basicFields);
-        const sp2Count = valById('basic-sp2', basicFields);
-        const mealCount = valById('basic-meal', basicFields);
-        const taxiTrips = valById('basic-taxi', basicFields);
+        const rel = validateBasicRelationship();
+        const sp1Count = rel.c3;
+        const sp2Count = rel.c10;
+        const mealCount = rel.c3 + rel.c10;
+        const taxiTrips = Math.max(0, rel.c3 + rel.c10 - (rel.cExtra10 * 2));
         const rSP1  = round2(sp1Count * SP1_RATE);
         const rSP2  = round2(sp2Count * SP2_RATE);
         const rMeal = round2(mealCount * MEAL_RATE);
-        const rTaxi = round2(taxiTrips * (distance === 'SHORT' ? TAXI_SHORT : TAXI_LONG));
-        return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: distance === 'SHORT' ? 'Short' : 'Long' };
+        const rTaxi = round2(taxiTrips * TAXI_SHORT);
+        return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short' };
       }
       const c = gatherCalendarAllowanceCounts();
       const rSP1  = round2((c.short3 + c.long3) * SP1_RATE);
@@ -843,7 +845,6 @@ function setShiftInputsReadOnly() {
       tweenMoney(liveEls.sp2,  a.rSP2);
       tweenMoney(liveEls.meal, a.rMeal);
       tweenMoney(liveEls.taxi, a.rTaxi);
-      liveEls.dist.textContent = a.distLabel;
       tweenMoney(liveEls.basic, basic);
       tweenMoney(liveEls.comp,  comp);
       tweenHours(liveEls.totalHrs, e.totalHours);
@@ -1130,6 +1131,13 @@ function setShiftInputsReadOnly() {
     // ─── Snapshot / Calculate ───
     function submitCombined() {
       if (mode === 'ADVANCED' && !validateInputs(ADV_FIELD_IDS, advFields)) return;
+      if (mode === 'BASIC') {
+        const rel = validateBasicRelationship();
+        if (!rel.valid) {
+          showAlert('Extra 10PM after same-day 3PM cannot exceed either 3PM shifts or 10PM shifts.');
+          return;
+        }
+      }
       const allowance = computeAllowance(mode);
       const extra     = computeExtraHours();
       const issues    = crossCheck();
@@ -1307,7 +1315,6 @@ function setShiftInputsReadOnly() {
           basicSalaryInput.value = extraHoursState.basicSalary > 0 ? extraHoursState.basicSalary : '';
           compAllowanceInput.value = extraHoursState.compAllowance > 0 ? extraHoursState.compAllowance : '';
           setMode(mode, false);
-          setDistance(distance, false);
           renderCalendar(); renderLive();
           showAlert('Import complete.');
         } catch (e) { showAlert('Import failed: invalid backup file.'); }
@@ -1316,10 +1323,9 @@ function setShiftInputsReadOnly() {
     }
 
     function resetAll() {
-      showConfirm('Clear ALL data: counts, distance, base pay, calendar, and holiday overrides?', function() {
+      showConfirm('Clear ALL data: counts, base pay, calendar, and holiday overrides?', function() {
         BASIC_FIELD_IDS.forEach(function(id) { if (basicFields[id]) { basicFields[id].value = ''; basicFields[id].classList.remove('error', 'field-input--warn'); } });
         ADV_FIELD_IDS.forEach(function(id)   { advFields[id].value   = ''; advFields[id].classList.remove('error', 'field-input--warn'); });
-        setDistance('SHORT', true);
         extraHoursState = { basicSalary: 0, compAllowance: 0, customHolidays: {}, days: {}, viewPeriod: currentPayPeriod() };
         basicSalaryInput.value = '';
         compAllowanceInput.value = '';
@@ -1386,8 +1392,6 @@ function setShiftInputsReadOnly() {
 
     modeBasicBtn.addEventListener('click', function() { setMode('BASIC', true); });
     modeAdvancedBtn.addEventListener('click', function() { setMode('ADVANCED', true); });
-    distShortBtn.addEventListener('click', function() { setDistance('SHORT', true); });
-    distLongBtn.addEventListener('click',  function() { setDistance('LONG', true);  });
 
     function onSegmentedNav(e, leftValue, rightValue, setter) {
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
@@ -1397,8 +1401,6 @@ function setShiftInputsReadOnly() {
 
     modeBasicBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'BASIC', 'ADVANCED', setMode); });
     modeAdvancedBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'BASIC', 'ADVANCED', setMode); });
-    distShortBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'SHORT', 'LONG', setDistance); });
-    distLongBtn.addEventListener('keydown', function(e) { onSegmentedNav(e, 'SHORT', 'LONG', setDistance); });
 
     basicSalaryInput.addEventListener('input', function() {
       const n = parseFloat(basicSalaryInput.value);
@@ -1457,7 +1459,6 @@ function setShiftInputsReadOnly() {
     window.addEventListener('resize', function() {
       requestAnimationFrame(function() {
         positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
-        positionSegmentedThumb(distSegmented, distThumb, distance === 'SHORT' ? distShortBtn : distLongBtn, false);
       });
     });
 
@@ -1470,14 +1471,12 @@ function setShiftInputsReadOnly() {
     if (extraHoursState.compAllowance > 0) compAllowanceInput.value = extraHoursState.compAllowance;
     mode = loadMode();
     setMode(mode, false);
-    setDistance(distance, false);
     renderCalendar();
     syncAllowanceInputsFromCalendar();
     renderLive();
     refreshSnapshotMeta();
     requestAnimationFrame(function() {
       positionSegmentedThumb(modeSegmented, modeThumb, mode === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, false);
-      positionSegmentedThumb(distSegmented, distThumb, distance === 'SHORT' ? distShortBtn : distLongBtn, false);
     });
 
     // ─── Service worker registration ───

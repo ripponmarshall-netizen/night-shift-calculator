@@ -1,8 +1,11 @@
 const assert = require('assert');
 function round2(n){ return Math.round(n*100)/100; }
-function computeBasic(all3, all10, dd, dist){
-  const SP1=66.6, SP2=200, MEAL=950, TAXI=dist==='SHORT'?950:2000;
-  return round2(all3*SP1 + all10*SP2 + (all3+all10)*MEAL + Math.max(0, all3+all10-dd*2)*TAXI);
+function validateBasic(all3, all10, extra10After3){
+  return extra10After3 <= Math.min(all3, all10);
+}
+function computeBasic(all3, all10, extra10After3){
+  const SP1=66.6, SP2=200, MEAL=950, TAXI=950;
+  return round2(all3*SP1 + all10*SP2 + (all3+all10)*MEAL + Math.max(0, all3+all10-extra10After3*2)*TAXI);
 }
 function computeEstimatedNetPay(grossMonthly){
   const PAYE_THRESHOLD_MONTHLY = 1902360 / 12;
@@ -24,9 +27,11 @@ function computeEstimatedNetPay(grossMonthly){
   const payeMonthly = (lowerBand * PAYE_RATE_LOWER) + (upperBand * PAYE_RATE_UPPER);
   return round2(gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly);
 }
-assert.strictEqual(computeBasic(0,0,0,'SHORT'),0);
-assert.strictEqual(computeBasic(1,1,0,'SHORT'),4066.6);
-assert.strictEqual(computeBasic(2,2,2,'LONG'),4333.2);
+assert.strictEqual(computeBasic(0,0,0),0);
+assert.strictEqual(computeBasic(1,1,0),4066.6);
+assert.strictEqual(computeBasic(2,2,2),4333.2);
+assert.strictEqual(validateBasic(3,2,2), true);
+assert.strictEqual(validateBasic(3,2,3), false);
 assert.strictEqual(computeEstimatedNetPay(0),0);
 assert.strictEqual(computeEstimatedNetPay(50000),46375);
 assert.strictEqual(computeEstimatedNetPay(200000),178757.5);
