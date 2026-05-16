@@ -373,6 +373,10 @@ h1, h2, h3, h4, p { margin: 0; }
 
 .ui-card--calendar .section-header { margin-left: 0; margin-bottom: 12px; }
 
+.ui-card--calendar.hidden {
+  display: none;
+}
+
 .ui-card--results { /* live-results child handles container styling */ }
 
 /* Hero total — flat hero number, no card */
