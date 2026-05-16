@@ -72,6 +72,29 @@ This app is for JFB members who need to calculate their night shift allowances. 
 
 ---
 
+
+### Basic Mode Input Contract (tied to existing logic)
+
+To keep **Basic** simple while preserving calculation parity with **Advanced**, Basic should call the same allowance engine and only change how inputs are collected:
+
+- **SP1 shifts** = count of 3PM shifts for the selected period
+- **SP2 shifts** = count of 10PM shifts for the selected period
+- **Meal claims** = total meal units for the period
+- **Taxi trips** = total taxi units for the period
+- **Taxi distance** = one period-wide selector (Short or Long)
+
+Basic should pass those aggregate values into the existing allowance formulas already used by Advanced (`SP1_RATE`, `SP2_RATE`, `MEAL_RATE`, `TAXI_SHORT`, `TAXI_LONG`) so both modes always produce identical results when given equivalent inputs.
+
+Recommended calculation mapping:
+
+- `rSP1 = sp1Count * SP1_RATE`
+- `rSP2 = sp2Count * SP2_RATE`
+- `rMeal = mealCount * MEAL_RATE`
+- `rTaxi = taxiTripCount * (distance === Short ? TAXI_SHORT : TAXI_LONG)`
+- `allowanceTotal = rSP1 + rSP2 + rMeal + rTaxi`
+
+This keeps Basic as a quick-entry view while remaining fully tied to the existing logic.
+
 ## Created By
 
 **L/Cpl. R. Marshall**

@@ -128,13 +128,14 @@
       <!-- BASIC mode block -->
       <div class="ui-card ui-card--inputs calc-mode-block active" id="mode-block-basic">
         <div class="section">
-          <p class="section-header">Shift Counts (From Calendar)</p>
+          <p class="section-header">Quick Counts</p>
           <div class="field-list">
-            <div class="result-row"><span class="result-label">3PM shifts</span><span class="result-value" id="basic-count-3pm">0</span></div>
-            <div class="result-row"><span class="result-label">10PM shifts</span><span class="result-value" id="basic-count-10pm">0</span></div>
-            <div class="result-row"><span class="result-label">7AM shifts</span><span class="result-value" id="basic-count-7am">0</span></div>
+            <div class="field"><label class="field-label" for="basic-sp1">SP1 shifts</label><input class="field-input" id="basic-sp1" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
+            <div class="field"><label class="field-label" for="basic-sp2">SP2 shifts</label><input class="field-input" id="basic-sp2" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
+            <div class="field"><label class="field-label" for="basic-meal">Meal claims</label><input class="field-input" id="basic-meal" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
+            <div class="field"><label class="field-label" for="basic-taxi">Taxi trips</label><input class="field-input" id="basic-taxi" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
             <div class="field">
-              <label class="field-label">Distance</label>
+              <label class="field-label">Taxi distance</label>
               <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
                 <span class="segmented-thumb" id="distance-thumb"></span>
                 <button type="button" class="segmented-option" id="dist-short" role="tab" aria-selected="true" data-dist="SHORT">Short</button>
