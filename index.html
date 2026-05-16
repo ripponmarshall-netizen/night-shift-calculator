@@ -130,17 +130,18 @@
         <div class="section">
           <p class="section-header">Quick Counts</p>
           <div class="field-list">
-            <div class="field"><label class="field-label" for="basic-sp1">SP1 shifts</label><input class="field-input" id="basic-sp1" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
-            <div class="field"><label class="field-label" for="basic-sp2">SP2 shifts</label><input class="field-input" id="basic-sp2" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
-            <div class="field"><label class="field-label" for="basic-meal">Meal claims</label><input class="field-input" id="basic-meal" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
-            <div class="field"><label class="field-label" for="basic-taxi">Taxi trips</label><input class="field-input" id="basic-taxi" type="number" inputmode="numeric" min="0" max="99" placeholder="0" /></div>
             <div class="field">
-              <label class="field-label">Taxi distance</label>
-              <div class="segmented-control segmented-control--inline" id="distance-segmented" role="tablist" aria-label="Distance">
-                <span class="segmented-thumb" id="distance-thumb"></span>
-                <button type="button" class="segmented-option" id="dist-short" role="tab" aria-selected="true" data-dist="SHORT">Short</button>
-                <button type="button" class="segmented-option" id="dist-long" role="tab" aria-selected="false" data-dist="LONG">Long</button>
-              </div>
+              <label class="field-label" for="basic-3pm-count">3PM shifts</label>
+              <input class="field-input" id="basic-3pm-count" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="basic-10pm-count">10PM shifts</label>
+              <input class="field-input" id="basic-10pm-count" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="field-label" for="basic-10pm-after-3pm-count">Extra 10PM after a same-day 3PM</label>
+              <input class="field-input" id="basic-10pm-after-3pm-count" type="number" inputmode="numeric" min="0" max="99" placeholder="0" />
+              <p class="field-help">Must be less than or equal to both 3PM and 10PM counts.</p>
             </div>
           </div>
         </div>
