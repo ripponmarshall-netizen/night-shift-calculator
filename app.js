@@ -64,6 +64,7 @@
     const crosscheckEl   = document.getElementById('crosscheck');
     const crosscheckList = document.getElementById('crosscheck-list');
     const autoFillRotationInput = document.getElementById('auto-fill-rotation');
+    const calendarSection = document.getElementById('calendar-section');
     const showNetPayInput = document.getElementById('show-net-pay');
     const snapshotMetaEl = document.getElementById('snapshot-meta');
 
@@ -524,6 +525,9 @@
       syncTabState(modeBasicBtn, modeAdvancedBtn, m === 'BASIC');
       modeBlockBasic.classList.toggle('active', m === 'BASIC');
       modeBlockAdvanced.classList.toggle('active', m === 'ADVANCED');
+      if (calendarSection) calendarSection.classList.toggle('hidden', m === 'BASIC');
+      crosscheckEl.classList.remove('visible');
+      crosscheckList.innerHTML = '';
       positionSegmentedThumb(modeSegmented, modeThumb, m === 'BASIC' ? modeBasicBtn : modeAdvancedBtn, animate);
       saveMode();
       if (dayModalDate) syncDayModalToggles();
