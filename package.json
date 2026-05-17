@@ -1,0 +1,14 @@
+{
+  "name": "night-shift-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node calc.test.js",
+    "lint": "eslint .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "eslint": "^9.26.0",
+    "prettier": "^3.5.3"
+  }
+}
