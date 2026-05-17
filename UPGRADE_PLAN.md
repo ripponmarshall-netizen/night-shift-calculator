@@ -82,6 +82,18 @@ This plan prioritizes low-risk upgrades that improve maintainability, correctnes
 - Rate/effective-date updates performed in one place
 - No regression in core allowance totals for baseline scenarios
 
+## Phase 1 completion status
+
+**Status:** Completed on May 17, 2026.
+
+Validated against phase-one goals:
+
+- npm workflow exists with `npm test`, `npm run lint`, and `npm run format:check`.
+- `./check.sh` remains as release gate and is included in CI.
+- GitHub Actions CI (`.github/workflows/ci.yml`) runs lint, format check, unit tests, and `./check.sh` on push/PR.
+- Rate and effective date are centralized in policy/config and surfaced in UI.
+- Baseline checks pass locally (`npm run lint`, `npm run format:check`, `npm test`, `./check.sh`).
+
 ## Note on external planning context
 
 A Perplexity shared session link was provided for planning context, but its content is not directly accessible from this environment. This plan is therefore based on repository audit and existing project documentation.
