@@ -71,7 +71,7 @@
     const snapshotMetaEl = document.getElementById('snapshot-meta');
 
     const ratesEffectiveEl = document.getElementById('rates-effective');
-    if (ratesEffectiveEl) ratesEffectiveEl.textContent = 'Rates effective: ' + RATES.effectiveDate;
+    if (ratesEffectiveEl) ratesEffectiveEl.textContent = 'Rates effective: ' + POLICY.effectiveDate;
 
 
     const modeSegmented   = document.getElementById('mode-segmented');
