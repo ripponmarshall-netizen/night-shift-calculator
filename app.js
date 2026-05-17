@@ -102,25 +102,16 @@
     const liveNetEl = document.getElementById('live-net-total');
 
     function computeEstimatedNetPay(grossMonthly, nonTaxableMonthly) {
-      const gross = Math.max(0, grossMonthly);
-      const nonTaxable = Math.max(0, nonTaxableMonthly || 0);
-      const taxableGross = Math.max(0, gross - nonTaxable);
-      const nisMonthlyCap = NIS_ANNUAL_CAP / 12;
-      const nisMonthly = Math.min(taxableGross, nisMonthlyCap) * NIS_RATE;
-      const nhtMonthly = taxableGross * NHT_RATE;
-      const eduTaxMonthly = taxableGross * EDU_TAX_RATE;
-      const chargeableIncome = Math.max(0, taxableGross - PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly);
-      const lowerBand = Math.min(chargeableIncome, PAYE_BAND_LIMIT_MONTHLY);
-      const upperBand = Math.max(0, chargeableIncome - PAYE_BAND_LIMIT_MONTHLY);
-      const payeMonthly = (lowerBand * PAYE_RATE_LOWER) + (upperBand * PAYE_RATE_UPPER);
-      const netMonthly = gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly;
-      return {
-        netMonthly: round2(netMonthly),
-        payeMonthly: round2(payeMonthly),
-        nisMonthly: round2(nisMonthly),
-        nhtMonthly: round2(nhtMonthly),
-        eduTaxMonthly: round2(eduTaxMonthly)
-      };
+      return window.NSCalcEngine.computeEstimatedNetPay(grossMonthly, nonTaxableMonthly, {
+        PAYE_THRESHOLD_MONTHLY: PAYE_THRESHOLD_MONTHLY,
+        PAYE_BAND_LIMIT_MONTHLY: PAYE_BAND_LIMIT_MONTHLY,
+        PAYE_RATE_LOWER: PAYE_RATE_LOWER,
+        PAYE_RATE_UPPER: PAYE_RATE_UPPER,
+        NIS_RATE: NIS_RATE,
+        NIS_ANNUAL_CAP: NIS_ANNUAL_CAP,
+        NHT_RATE: NHT_RATE,
+        EDU_TAX_RATE: EDU_TAX_RATE
+      });
     }
 
     const resEls = {
@@ -637,20 +628,26 @@ function setShiftInputsReadOnly() {
         const sp2Count = rel.c10;
         const mealCount = rel.c3 + rel.c10;
         const taxiTrips = Math.max(0, rel.c3 + rel.c10 - (rel.cExtra10 * 2));
-        const rSP1  = round2(sp1Count * SP1_RATE);
-        const rSP2  = round2(sp2Count * SP2_RATE);
-        const rMeal = round2(mealCount * MEAL_RATE);
-        const rTaxi = round2(taxiTrips * TAXI_SHORT);
-        return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short' };
+        const basic = window.NSCalcEngine.computeAllowanceFromCounts({
+          sp1Count: sp1Count,
+          sp2Count: sp2Count,
+          mealCount: mealCount,
+          shortTaxiUnits: taxiTrips,
+          longTaxiUnits: 0
+        }, RATES);
+        return { rSP1: basic.rSP1, rSP2: basic.rSP2, rMeal: basic.rMeal, rTaxi: basic.rTaxi, total: basic.total, distLabel: 'Short' };
       }
       const c = gatherCalendarAllowanceCounts();
-      const rSP1  = round2((c.short3 + c.long3) * SP1_RATE);
-      const rSP2  = round2((c.short10 + c.long10) * SP2_RATE);
-      const rMeal = round2((c.short3 + c.long3 + c.short10 + c.long10) * MEAL_RATE);
       const shortTaxiUnits = Math.max(0, c.short3 + c.short10 - c.inferredDoubleDaysShort * 2);
       const longTaxiUnits = Math.max(0, c.long3 + c.long10 - c.inferredDoubleDaysLong * 2);
-      const rTaxi = round2(shortTaxiUnits * TAXI_SHORT + longTaxiUnits * TAXI_LONG);
-      return { rSP1: rSP1, rSP2: rSP2, rMeal: rMeal, rTaxi: rTaxi, total: round2(rSP1 + rSP2 + rMeal + rTaxi), distLabel: 'Short + Long' };
+      const advanced = window.NSCalcEngine.computeAllowanceFromCounts({
+        sp1Count: c.short3 + c.long3,
+        sp2Count: c.short10 + c.long10,
+        mealCount: c.short3 + c.long3 + c.short10 + c.long10,
+        shortTaxiUnits: shortTaxiUnits,
+        longTaxiUnits: longTaxiUnits
+      }, RATES);
+      return { rSP1: advanced.rSP1, rSP2: advanced.rSP2, rMeal: advanced.rMeal, rTaxi: advanced.rTaxi, total: advanced.total, distLabel: 'Short + Long' };
     }
 
     function hasShift(ymd, code) {
