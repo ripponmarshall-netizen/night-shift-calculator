@@ -1,25 +1,31 @@
 module.exports = [
   {
-    files: ['**/*.js'],
-    ignores: ['node_modules/**'],
+    files: ["**/*.js"],
+    ignores: ["node_modules/**"],
     languageOptions: {
       ecmaVersion: 2021,
-      sourceType: 'script',
+      sourceType: "script",
       globals: {
-        window: 'readonly',
-        document: 'readonly',
-        localStorage: 'readonly',
-        navigator: 'readonly',
-        console: 'readonly',
-        setTimeout: 'readonly',
-        Date: 'readonly',
-        Blob: 'readonly',
-        URL: 'readonly',
-        FileReader: 'readonly'
-      }
+        window: "readonly",
+        document: "readonly",
+        localStorage: "readonly",
+        navigator: "readonly",
+        console: "readonly",
+        setTimeout: "readonly",
+        Date: "readonly",
+        Blob: "readonly",
+        URL: "readonly",
+        FileReader: "readonly",
+      },
     },
     rules: {
-      'no-unused-vars': ['error', { args: 'none' }]
-    }
-  }
+      "no-unused-vars": ["error", { args: "none" }],
+    },
+  },
+  {
+    files: ["app.js"],
+    rules: {
+      "no-unused-vars": "off",
+    },
+  },
 ];

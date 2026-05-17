@@ -1,5 +1,5 @@
 (function (window) {
-  'use strict';
+  "use strict";
 
   /**
    * Compute estimated net monthly pay using statutory deductions.
@@ -16,17 +16,29 @@
     const nisMonthly = Math.min(taxableGross, nisMonthlyCap) * tax.NIS_RATE;
     const nhtMonthly = taxableGross * tax.NHT_RATE;
     const eduTaxMonthly = taxableGross * tax.EDU_TAX_RATE;
-    const chargeableIncome = Math.max(0, taxableGross - tax.PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly);
+    const chargeableIncome = Math.max(
+      0,
+      taxableGross -
+        tax.PAYE_THRESHOLD_MONTHLY -
+        nisMonthly -
+        nhtMonthly -
+        eduTaxMonthly,
+    );
     const lowerBand = Math.min(chargeableIncome, tax.PAYE_BAND_LIMIT_MONTHLY);
-    const upperBand = Math.max(0, chargeableIncome - tax.PAYE_BAND_LIMIT_MONTHLY);
-    const payeMonthly = (lowerBand * tax.PAYE_RATE_LOWER) + (upperBand * tax.PAYE_RATE_UPPER);
-    const netMonthly = gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly;
+    const upperBand = Math.max(
+      0,
+      chargeableIncome - tax.PAYE_BAND_LIMIT_MONTHLY,
+    );
+    const payeMonthly =
+      lowerBand * tax.PAYE_RATE_LOWER + upperBand * tax.PAYE_RATE_UPPER;
+    const netMonthly =
+      gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly;
     return {
       netMonthly: round2(netMonthly),
       payeMonthly: round2(payeMonthly),
       nisMonthly: round2(nisMonthly),
       nhtMonthly: round2(nhtMonthly),
-      eduTaxMonthly: round2(eduTaxMonthly)
+      eduTaxMonthly: round2(eduTaxMonthly),
     };
   }
 
@@ -39,20 +51,25 @@
     const rSP1 = round2(counts.sp1Count * rates.SP1_RATE);
     const rSP2 = round2(counts.sp2Count * rates.SP2_RATE);
     const rMeal = round2(counts.mealCount * rates.MEAL_RATE);
-    const rTaxi = round2((counts.shortTaxiUnits * rates.TAXI_SHORT) + (counts.longTaxiUnits * rates.TAXI_LONG));
+    const rTaxi = round2(
+      counts.shortTaxiUnits * rates.TAXI_SHORT +
+        counts.longTaxiUnits * rates.TAXI_LONG,
+    );
     return {
       rSP1: rSP1,
       rSP2: rSP2,
       rMeal: rMeal,
       rTaxi: rTaxi,
-      total: round2(rSP1 + rSP2 + rMeal + rTaxi)
+      total: round2(rSP1 + rSP2 + rMeal + rTaxi),
     };
   }
 
-  function round2(n) { return Math.round(n * 100) / 100; }
+  function round2(n) {
+    return Math.round(n * 100) / 100;
+  }
 
   window.NSCalcEngine = {
     computeEstimatedNetPay: computeEstimatedNetPay,
-    computeAllowanceFromCounts: computeAllowanceFromCounts
+    computeAllowanceFromCounts: computeAllowanceFromCounts,
   };
 })(window);
