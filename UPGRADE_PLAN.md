@@ -94,6 +94,19 @@ Validated against phase-one goals:
 - Rate and effective date are centralized in policy/config and surfaced in UI.
 - Baseline checks pass locally (`npm run lint`, `npm run format:check`, `npm test`, `./check.sh`).
 
+## Phase 2 verification status (Test coverage expansion)
+
+**Status:** Not complete as of May 17, 2026.
+
+Verification against phase-two goals:
+
+- ✅ Allowance combination coverage exists in `calc.test.js` (SP1/SP2 mixed scenarios and taxi-reduction combinations).
+- ✅ Edge cases around zero counts and taxi-floor behavior are covered in `calc.test.js`.
+- ❌ Pay-period transition tests for 16th→15th boundary logic are not present.
+- ❌ Holiday/overtime calculation tests (including 173.33-hour threshold boundary cases) are not present in automated tests.
+
+Conclusion: phase two has started, but completion criteria are not yet met.
+
 ## Note on external planning context
 
 A Perplexity shared session link was provided for planning context, but its content is not directly accessible from this environment. This plan is therefore based on repository audit and existing project documentation.
