@@ -1,7 +1,22 @@
 (function () {
+  const RATE_KEYS = ['SP1_RATE', 'SP2_RATE', 'MEAL_RATE', 'TAXI_SHORT', 'TAXI_LONG'];
+  const THRESHOLD_KEYS = [
+    'HOURS_THRESHOLD',
+    'HOLIDAY_MULT',
+    'OVERTIME_MULT',
+    'PAYE_THRESHOLD_MONTHLY',
+    'PAYE_BAND_LIMIT_MONTHLY',
+    'PAYE_RATE_LOWER',
+    'PAYE_RATE_UPPER',
+    'NIS_RATE',
+    'NIS_ANNUAL_CAP',
+    'NHT_RATE',
+    'EDU_TAX_RATE',
+  ];
+
   const policy = {
+    effectiveDate: '2026-05-10',
     rates: {
-      effectiveDate: '2026-05-10',
       SP1_RATE: 66.6,
       SP2_RATE: 200,
       MEAL_RATE: 950,
@@ -33,13 +48,13 @@
     if (!config || !config.rates || !config.thresholds) {
       throw new Error('Invalid policy config structure');
     }
-    ['SP1_RATE', 'SP2_RATE', 'MEAL_RATE', 'TAXI_SHORT', 'TAXI_LONG'].forEach(function (key) {
+    RATE_KEYS.forEach(function (key) {
       assertFiniteNumber(config.rates, key);
     });
-    ['HOURS_THRESHOLD', 'HOLIDAY_MULT', 'OVERTIME_MULT', 'PAYE_THRESHOLD_MONTHLY', 'PAYE_BAND_LIMIT_MONTHLY', 'PAYE_RATE_LOWER', 'PAYE_RATE_UPPER', 'NIS_RATE', 'NIS_ANNUAL_CAP', 'NHT_RATE', 'EDU_TAX_RATE'].forEach(function (key) {
+    THRESHOLD_KEYS.forEach(function (key) {
       assertFiniteNumber(config.thresholds, key);
     });
-    if (typeof config.rates.effectiveDate !== 'string' || !config.rates.effectiveDate) {
+    if (typeof config.effectiveDate !== 'string' || !config.effectiveDate.trim()) {
       throw new Error('Invalid policy effectiveDate');
     }
   }
