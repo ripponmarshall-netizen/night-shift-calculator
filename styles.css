@@ -238,7 +238,7 @@ p {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 20px calc(132px + var(--safe-bottom));
+  padding: 32px 20px calc(220px + var(--safe-bottom));
 }
 
 @media (min-width: 640px) {
@@ -536,6 +536,39 @@ p {
   border-top: none;
 }
 
+
+.floating-summary {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(80px + var(--safe-bottom));
+  width: min(420px, calc(100vw - 28px));
+  z-index: 55;
+}
+.summary-collapse-btn {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 8px 18px -14px rgba(0,0,0,.45);
+}
+.summary-collapse-label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); }
+.summary-collapse-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.floating-summary .total-row {
+  margin: 8px 0 0;
+  position: static;
+  bottom: auto;
+}
+.field--stacked-mobile { align-items: flex-start; }
+.field--stacked-mobile .field-input { margin-top: 2px; }
+@media (max-width: 520px) {
+  .field--stacked-mobile { flex-direction: column; }
+  .field--stacked-mobile .field-input { width: 100%; text-align: left; }
+}
 /* =========================================================================
    Segmented control
    ========================================================================= */
@@ -543,7 +576,7 @@ p {
 .mode-toggle-wrap {
   position: fixed;
   left: 50%;
-  bottom: calc(16px + var(--safe-bottom));
+  bottom: calc(12px + var(--safe-bottom));
   transform: translateX(-50%);
   z-index: 60;
   width: min(420px, calc(100vw - 28px));
