@@ -110,3 +110,15 @@ Conclusion: phase two has started, but completion criteria are not yet met.
 ## Note on external planning context
 
 A Perplexity shared session link was provided for planning context, but its content is not directly accessible from this environment. This plan is therefore based on repository audit and existing project documentation.
+
+## Phase 3 verification status (Configuration-driven rates and policy data)
+
+**Status:** Completed on May 18, 2026.
+
+Verification against phase-three goals:
+
+- ✅ Rates and effective date are centralized in `rates-config.js` under a single `policy` object (`policy.rates` + `policy.effectiveDate`) and consumed via `window.NS_POLICY`.
+- ✅ Policy thresholds and multipliers are centralized in `rates-config.js` (`policy.thresholds`) and consumed from `app.js` through `THRESHOLDS`.
+- ✅ Startup validation guard exists in `rates-config.js` (`validatePolicyConfig` + `assertFiniteNumber`) and runs immediately before exposing policy globally.
+
+Conclusion: phase three completion criteria are met.
