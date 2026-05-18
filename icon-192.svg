@@ -1,36 +1,6 @@
-<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 512) rotate(90) scale(420)">
-      <stop stop-color="#FAFCFC"/>
-      <stop offset="1" stop-color="#EEF1F1"/>
-    </radialGradient>
-    <linearGradient id="teal" x1="512" y1="342" x2="682" y2="682" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#1E7780"/>
-      <stop offset="1" stop-color="#0F535B"/>
-    </linearGradient>
-    <path id="topArc" d="M 210 512 A 302 302 0 0 1 814 512"/>
-    <path id="bottomArc" d="M 814 512 A 302 302 0 0 1 210 512"/>
-  </defs>
-
-  <rect width="1024" height="1024" rx="220" fill="#EFF2F1"/>
-  <circle cx="512" cy="512" r="370" fill="url(#bg)" stroke="#1E2A2D" stroke-width="11"/>
-  <circle cx="512" cy="512" r="226" fill="#F9FBFB" stroke="#27363A" stroke-width="8"/>
-
-  <clipPath id="coreClip"><circle cx="512" cy="512" r="170"/></clipPath>
-  <g clip-path="url(#coreClip)">
-    <rect x="342" y="342" width="170" height="340" fill="#FCFEFE"/>
-    <rect x="512" y="342" width="170" height="340" fill="url(#teal)"/>
-  </g>
-  <circle cx="512" cy="512" r="170" stroke="#2A3D41" stroke-width="5"/>
-  <rect x="508" y="352" width="8" height="320" fill="#D9E2E3" opacity="0.9"/>
-
-  <circle cx="260" cy="512" r="12" fill="#29383C"/>
-  <circle cx="764" cy="512" r="12" fill="#29383C"/>
-
-  <text fill="#1D2A2F" font-family="Inter, Avenir, sans-serif" font-size="60" font-weight="700" letter-spacing="8">
-    <textPath href="#topArc" startOffset="50%" text-anchor="middle">NIGHT SHIFT</textPath>
-  </text>
-  <text fill="#1D2A2F" font-family="Inter, Avenir, sans-serif" font-size="56" font-weight="700" letter-spacing="8">
-    <textPath href="#bottomArc" startOffset="50%" text-anchor="middle">CALCULATOR</textPath>
-  </text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <rect width="192" height="192" rx="42" fill="#0b0b0c"></rect>
+  <circle cx="96" cy="96" r="60" fill="none" stroke="#f4f4f5" stroke-width="6"></circle>
+  <path d="M96 56 v40 l28 18" stroke="#f4f4f5" stroke-width="6" stroke-linecap="round" fill="none"></path>
+  <circle cx="138" cy="58" r="14" fill="oklch(72% 0.14 70)"></circle>
 </svg>

@@ -1,7 +1,7 @@
 module.exports = [
   {
     files: ["**/*.js"],
-    ignores: ["node_modules/**"],
+    ignores: ["node_modules/**", "**/*.jsx"],
     languageOptions: {
       ecmaVersion: 2021,
       sourceType: "script",
@@ -16,16 +16,14 @@ module.exports = [
         Blob: "readonly",
         URL: "readonly",
         FileReader: "readonly",
+        self: "readonly",
+        caches: "readonly",
+        fetch: "readonly",
+        Promise: "readonly",
       },
     },
     rules: {
       "no-unused-vars": ["error", { args: "none" }],
-    },
-  },
-  {
-    files: ["app.js"],
-    rules: {
-      "no-unused-vars": "off",
     },
   },
 ];
