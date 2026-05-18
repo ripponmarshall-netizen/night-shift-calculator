@@ -92,7 +92,10 @@ const crosscheckList = document.getElementById("crosscheck-list");
 const autoFillRotationInput = document.getElementById("auto-fill-rotation");
 const calendarSection = document.getElementById("calendar-section");
 const showNetPayInput = document.getElementById("show-net-pay");
+const summaryCollapseBtn = document.getElementById("summary-collapse-btn");
+const floatingPreviewEl = document.getElementById("floating-total-preview");
 const snapshotMetaEl = document.getElementById("snapshot-meta");
+let summaryExpanded = false;
 
 const ratesEffectiveEl = document.getElementById("rates-effective");
 if (ratesEffectiveEl)
@@ -123,6 +126,20 @@ const liveEls = {
   grand: document.getElementById("live-grand-total"),
 };
 const liveNetEl = document.getElementById("live-net-total");
+
+function setSummaryExpanded(expanded) {
+  summaryExpanded = !!expanded;
+  if (!totalRow || !summaryCollapseBtn) return;
+  totalRow.hidden = !summaryExpanded;
+  summaryCollapseBtn.setAttribute("aria-expanded", summaryExpanded ? "true" : "false");
+}
+
+function syncSummaryWithScroll() {
+  if (!totalRow || !summaryCollapseBtn) return;
+  const rect = totalRow.getBoundingClientRect();
+  const shouldExpand = rect.top <= window.innerHeight && rect.bottom >= 0;
+  setSummaryExpanded(shouldExpand);
+}
 
 function computeEstimatedNetPay(grossMonthly, nonTaxableMonthly) {
   return window.NSCalcEngine.computeEstimatedNetPay(
@@ -1091,6 +1108,7 @@ function renderLive() {
   const grossPay = round2(a.total + basic + comp + e.totalPay);
   const netBreakdown = computeEstimatedNetPay(grossPay, a.rMeal + a.rTaxi);
   tweenMoney(liveEls.grand, grossPay);
+  if (floatingPreviewEl) floatingPreviewEl.textContent = fmt(grossPay);
   if (showNetPayInput && showNetPayInput.checked && liveNetEl) {
     liveNetEl.hidden = false;
     tweenValue(liveNetEl, netBreakdown.netMonthly, function (v) {
@@ -1910,3 +1928,13 @@ document.addEventListener("keydown", function (e) {
     first.focus();
   }
 });
+
+
+if (summaryCollapseBtn) {
+  summaryCollapseBtn.addEventListener("click", function () {
+    setSummaryExpanded(!summaryExpanded);
+  });
+}
+window.addEventListener("scroll", syncSummaryWithScroll, { passive: true });
+window.addEventListener("resize", syncSummaryWithScroll);
+setTimeout(syncSummaryWithScroll, 0);

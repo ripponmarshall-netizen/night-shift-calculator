@@ -61,7 +61,7 @@
         </div>
 
 
-        <div class="ui-card ui-card--calendar section" id="calendar-section">
+        <div class="ui-card ui-card--calendar section hidden" id="calendar-section">
           <p class="section-header">Calendar</p>
           <div class="field field--autofill">
             <label
@@ -285,9 +285,9 @@
                   placeholder="0"
                 />
               </div>
-              <div class="field">
+              <div class="field field--stacked-mobile">
                 <label class="field-label" for="basic-10pm-after-3pm-count"
-                  >Extra 10PM after a same-day 3PM</label
+                  >Extra 10PM shifts after same-day 3PM</label
                 >
                 <input
                   class="field-input"
@@ -379,19 +379,31 @@
           </div>
         </div>
 
-        <div class="ui-card ui-card--total total-row" style="opacity: 1">
-          <span class="total-label">Estimated Gross Pay</span>
-          <span class="total-value tween" id="live-grand-total">$0.00</span>
-          <label
-            class="field-label field-label--checkbox total-toggle-label"
-            for="show-net-pay"
+        <div class="floating-summary" id="floating-summary">
+          <button
+            type="button"
+            class="summary-collapse-btn"
+            id="summary-collapse-btn"
+            aria-expanded="false"
+            aria-controls="total-row"
           >
-            <input id="show-net-pay" type="checkbox" />
-            <span>Show estimated net pay</span>
-          </label>
-          <span class="total-subvalue tween" id="live-net-total" hidden
-            >$0.00</span
-          >
+            <span class="summary-collapse-label">Estimated total</span>
+            <span class="summary-collapse-value tween" id="floating-total-preview">$0.00</span>
+          </button>
+          <div class="ui-card ui-card--total total-row" id="total-row" style="opacity: 1" hidden>
+            <span class="total-label">Estimated Gross Pay</span>
+            <span class="total-value tween" id="live-grand-total">$0.00</span>
+            <label
+              class="field-label field-label--checkbox total-toggle-label"
+              for="show-net-pay"
+            >
+              <input id="show-net-pay" type="checkbox" />
+              <span>Show estimated net pay</span>
+            </label>
+            <span class="total-subvalue tween" id="live-net-total" hidden
+              >$0.00</span
+            >
+          </div>
         </div>
 
         <div class="btn-wrap">
