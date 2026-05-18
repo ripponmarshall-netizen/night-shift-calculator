@@ -92,10 +92,9 @@ const crosscheckList = document.getElementById("crosscheck-list");
 const autoFillRotationInput = document.getElementById("auto-fill-rotation");
 const calendarSection = document.getElementById("calendar-section");
 const showNetPayInput = document.getElementById("show-net-pay");
-const summaryCollapseBtn = document.getElementById("summary-collapse-btn");
+const summaryPill = document.getElementById("summary-pill");
 const floatingPreviewEl = document.getElementById("floating-total-preview");
 const snapshotMetaEl = document.getElementById("snapshot-meta");
-let summaryExpanded = false;
 
 const ratesEffectiveEl = document.getElementById("rates-effective");
 if (ratesEffectiveEl)
@@ -126,20 +125,6 @@ const liveEls = {
   grand: document.getElementById("live-grand-total"),
 };
 const liveNetEl = document.getElementById("live-net-total");
-
-function setSummaryExpanded(expanded) {
-  summaryExpanded = !!expanded;
-  if (!totalRow || !summaryCollapseBtn) return;
-  totalRow.hidden = !summaryExpanded;
-  summaryCollapseBtn.setAttribute("aria-expanded", summaryExpanded ? "true" : "false");
-}
-
-function syncSummaryWithScroll() {
-  if (!totalRow || !summaryCollapseBtn) return;
-  const rect = totalRow.getBoundingClientRect();
-  const shouldExpand = rect.top <= window.innerHeight && rect.bottom >= 0;
-  setSummaryExpanded(shouldExpand);
-}
 
 function computeEstimatedNetPay(grossMonthly, nonTaxableMonthly) {
   return window.NSCalcEngine.computeEstimatedNetPay(
@@ -1931,11 +1916,19 @@ document.addEventListener("keydown", function (e) {
 });
 
 
-if (summaryCollapseBtn) {
-  summaryCollapseBtn.addEventListener("click", function () {
-    setSummaryExpanded(!summaryExpanded);
+if (totalRow && summaryPill && "IntersectionObserver" in window) {
+  const summaryObserver = new IntersectionObserver(
+    function (entries) {
+      summaryPill.hidden = entries[0].isIntersecting;
+    },
+    { rootMargin: "0px 0px -80px 0px", threshold: 0 },
+  );
+  summaryObserver.observe(totalRow);
+}
+if (summaryPill) {
+  summaryPill.addEventListener("click", function () {
+    if (totalRow) {
+      totalRow.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
 }
-window.addEventListener("scroll", syncSummaryWithScroll, { passive: true });
-window.addEventListener("resize", syncSummaryWithScroll);
-setTimeout(syncSummaryWithScroll, 0);
