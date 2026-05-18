@@ -122,3 +122,15 @@ Verification against phase-three goals:
 - ✅ Startup validation guard exists in `rates-config.js` (`validatePolicyConfig` + `assertFiniteNumber`) and runs immediately before exposing policy globally.
 
 Conclusion: phase three completion criteria are met.
+
+## Phase 4 verification status (App structure and maintainability refactor)
+
+**Status:** Completed on May 18, 2026.
+
+Verification against phase-four goals:
+
+- ✅ App responsibilities are split into focused modules: calculation logic in `calculation-engine.js`, UI helpers in `ui-utils.js`, persistence helpers in `storage-utils.js`, and calendar/date helpers in `calendar-utils.js`, with `app.js` consuming these modules.
+- ✅ Pure utility functions remain side-effect free and are exported through `window` namespaces for reuse and testing (`window.NSUIUtils`, `window.NSStorage`, `window.NSCalendarUtils`).
+- ✅ Lightweight JSDoc comments were added for key public helper functions in the new modules.
+
+Conclusion: phase four completion criteria are met.
