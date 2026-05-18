@@ -2,7 +2,7 @@
 
 Calculating night shifts means keeping track of multiple allowances across different shift types, distances, and schedules — and doing that mental arithmetic at the end of a long period is tedious and error-prone.
 
-The **WCO JFB Night Shift Calculator** is a simple tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you enter your shift numbers and the app does the rest — giving you a clear breakdown and total in seconds.
+The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for the Portland Division and any other JFB personnel to calculate their night shift allowances quickly and accurately. Instead of manually tallying up your SP1, SP2, Meal, and Taxi allowance, you log your shifts on the calendar and the app does the rest — giving you a clear breakdown, a live running total, snapshot history, and reconciliation against your pay slip.
 
 ---
 
@@ -10,89 +10,75 @@ The **WCO JFB Night Shift Calculator** is a simple tool built by L/Cpl. R. Marsh
 
 - **SP1** — your 3PM shift allowance
 - **SP2** — your 10PM shift allowance
-- **Meal** — meal allowance based on total shifts worked
-- **Taxi** — transport allowance based on distance and shift count
+- **Meal** — meal allowance based on shifts worked
+- **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
+- **Base pay** — Monthly Basic + Compulsory Assignment
+- **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
+- **Estimated net** — JM tax model (NIS, NHT, Education Tax, PAYE bands, optional pension)
 
 ---
 
-## Who It's For
+## App Architecture
 
-This app is for JFB members who need to calculate their night shift allowances. Whether you work short or long distance routes, or a mix of both, the calculator handles standard and advanced calculations in one place.
+The app is a single-page PWA. UI is built with React 18 + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place.
 
----
+| File             | Purpose                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `index.html`     | App shell, script loaders, service-worker registration                                                                       |
+| `styles.css`     | Theme tokens (dark + light), typography, base reset                                                                          |
+| `helpers.jsx`    | Date utilities, JM holidays (Easter computus), aggregate engine, JM tax model, rate history, templates, iCal export, storage |
+| `components.jsx` | Shared primitives (Card, SectionHead, SegToggle, button styles, AnimatedNumber)                                              |
+| `modals.jsx`     | Day editor, Settings (rates/tax/theme/rate-history), Autofill rotation, Onboarding banner                                    |
+| `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                 |
+| `calendar.jsx`   | Period calendar with shift bands, long-press copy/paste, default-distance toggle, holiday chips                              |
+| `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                             |
+| `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                               |
+| `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                 |
+| `ytd.jsx`        | Year-to-date dashboard (totals, hours, OT, composition bar, monthly bars)                                                    |
+| `snapshots.jsx`  | Snapshot history list, sparkline, deltas, detail view                                                                        |
+| `app.jsx`        | Root component — state, persistence, taskbar, header, two-column desktop layout                                              |
+| `sw.js`          | Cache-first service worker (offline support)                                                                                 |
+| `manifest.json`  | PWA manifest                                                                                                                 |
+| `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                   |
 
-## How to Use the App
-
-1. **Open the calculator and confirm rates**  
-   At the top of the screen, check the **Rates effective** date so you know which allowance rates are being applied.
-
-2. **Choose your calculation mode**
-   - **Basic mode**: Shift counts are auto-derived from the calendar. Select **Short** or **Long** distance for the whole period.
-   - **Advanced mode**: Shift counts are still calendar-derived, while distance is split per shift (Short/Long) from day selections.
-
-3. **Set your calendar days (recommended for accuracy)**
-   - Use the pay-period calendar (16th to 15th) to mark what you worked each day.
-   - Tap a day to assign one or more shift types (7AM / 3PM / 10PM).
-   - Mark holiday work where needed (built-in holidays are already recognized, and custom holiday overrides are supported).
-   - Optionally enable **Auto-fill next shift days** to follow the 7AM → 3PM → 10PM rotation pattern.
-   - Use the previous/next arrows to move across pay periods.
-
-4. **Enter base pay inputs**
-   - Fill in **Monthly Basic Allowance**.
-   - Fill in **Compulsory Assignment Allowance**.
-
-5. **Review the Live Summary before saving**
-   The app recalculates instantly and shows:
-   - Allowances: SP1, SP2, Meal, Taxi, and distance tag
-   - Base pay totals
-   - Extra-hours breakdown: total/holiday/non-holiday hours, overtime-over-threshold hours, hourly rate, holiday pay (×2), overtime pay (×1.5)
-   - **Estimated Total Pay**
-
-6. **Fix any mismatch warnings**
-   If any shift in Advanced mode is missing a Short/Long distance assignment, a cross-check warning appears. Complete the assignment before finalising your snapshot.
-
-7. **Save a snapshot of results**
-   Tap **Save Snapshot** to generate the Results page with:
-   - Allowance subtotal
-   - Base pay subtotal
-   - Extra-hours subtotal
-   - Final estimated total
-   - Pay-period label and any cross-check notes
-
-8. **Use utility actions when needed**
-   - **Reset**: Clears current inputs and state.
-   - **Export**: Downloads your current calculator data as JSON.
-   - **Import**: Restores previously exported JSON data.
-
-9. **Use built-in help and reference pages**
-   - Tap **?** for quick help.
-   - Use **About** and **Disclaimers** links at the bottom for context, data/privacy notes, and usage caveats.
-
-> Tip: Install the app to your home screen for faster access and better offline use between shifts.
+State persists in `localStorage` under `nsc:v3`. No data leaves the device.
 
 ---
 
-### Basic Mode Input Contract (tied to existing logic)
+## Using the App
 
-To keep **Basic** simple while preserving calculation parity with **Advanced**, Basic should call the same allowance engine and only change how inputs are collected:
+1. **Open the calculator.** The top header shows the current pay period (16th → 15th) and the rates-effective date. Tap the gear icon to set your rates the first time — the onboarding banner will prompt you.
+2. **Pick a mode from the bottom taskbar.**
+   - **Quick** — one Short/Long distance applied to every shift this period.
+   - **Detailed** — Short/Long set per shift inside the day editor.
+   - **History** — saved snapshots, YTD dashboard, reconciliation.
+3. **Log your shifts on the calendar.** Tap a day to toggle 7AM / 3PM / 10PM and override holiday status. Coloured bands show shift type; bar height scales with hours; a hatch overlay marks Long-distance shifts in Detailed mode.
+4. **Use shortcuts when you can.**
+   - **Auto-fill** — modal-driven rotation (7AM → 3PM → 10PM, single-shift, partial periods, skip Sundays, preserve existing).
+   - **Templates** — save the current week pattern, apply it to any future period with one tap.
+   - **Long-press a day** with shifts → copy mode → tap empty days to paste.
+5. **Enter base-pay inputs** (Monthly Basic, Compulsory Assignment) for OT and holiday-pay math.
+6. **Watch the live total chip** floating above the taskbar — it updates as you tap. The hero summary card breaks down Allowance / Base Pay / Extra Hours, each expandable with formulas (`ƒ` markers reveal the math).
+7. **Resolve mismatches.** If entered counts don't match the calendar, the warning banner highlights the calendar days to review.
+8. **Save a snapshot** when you're done. Snapshots de-dupe per period, show ▲/▼ delta vs the previous period, and can be exported as a shareable PNG.
+9. **Reconcile** against your pay slip from any snapshot — per-line variance flags payroll errors.
+10. **Export / Import.** JSON for full state, `.ics` for the period's shifts as calendar events.
 
-- **SP1 shifts** = count of 3PM shifts for the selected period
-- **SP2 shifts** = count of 10PM shifts for the selected period
-- **Meal claims** = total meal units for the period
-- **Taxi trips** = total taxi units for the period
-- **Taxi distance** = one period-wide selector (Short or Long)
+---
 
-Basic should pass those aggregate values into the existing allowance formulas already used by Advanced (`SP1_RATE`, `SP2_RATE`, `MEAL_RATE`, `TAXI_SHORT`, `TAXI_LONG`) so both modes always produce identical results when given equivalent inputs.
+### Basic Mode Input Contract
 
-Recommended calculation mapping:
+To keep **Quick (Basic)** simple while preserving calculation parity with **Detailed (Advanced)**, both modes call the same allowance engine and only differ in how distance is collected:
 
-- `rSP1 = sp1Count * SP1_RATE`
-- `rSP2 = sp2Count * SP2_RATE`
-- `rMeal = mealCount * MEAL_RATE`
-- `rTaxi = taxiTripCount * (distance === Short ? TAXI_SHORT : TAXI_LONG)`
+- `rSP1 = pm3Count * SP1_RATE`
+- `rSP2 = pm10Count * SP2_RATE`
+- `rMeal = (pm3Count + pm10Count) * MEAL_RATE`
+- Taxi: Quick uses a single period-wide distance; Detailed sums per-shift distances. Same-day 3PM+10PM pairs auto-deduct two taxi units.
 - `allowanceTotal = rSP1 + rSP2 + rMeal + rTaxi`
 
-This keeps Basic as a quick-entry view while remaining fully tied to the existing logic.
+Both modes always produce identical results when given equivalent inputs.
+
+---
 
 ## Created By
 
@@ -105,19 +91,21 @@ Workflow Coaching and Optimisation
 
 ### Data & Privacy
 
-This app does not collect or transmit data to any server. All calculations are performed locally on your device. Your inputs are stored locally in your browser (localStorage) so your state can persist between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device at any point. You can clear local data at any time using **Reset**, or move it using **Export/Import**.
+This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device. Clear local data any time with **Reset period**, **Export**, or by clearing site data in your browser.
 
 ### Accuracy
 
-This calculator is intended as a personal productivity tool to assist with allowance calculations. While every effort has been made to ensure the calculations are accurate, users are responsible for verifying their results against official pay records and entitlements. The app does not constitute official payroll advice.
+This calculator is a personal productivity tool. Every effort has been made to keep the math correct, but users are responsible for verifying results against official pay records and entitlements. The app does not constitute official payroll advice.
 
 ### AI Assistance
 
-This app was developed with assistance from Claude, an AI assistant made by Anthropic, and Perplexity Computer by Perplexity. The concept, design decisions, data inputs, calculations, and content were directed and verified by L/Cpl. R. Marshall. Claude was used to write, review, and refine the code throughout the development process. All calculation logic and allowance rates were specified and confirmed by the developer.
+This app was developed with assistance from Claude, an AI assistant made by Anthropic. The concept, design decisions, calculations, and content were directed and verified by L/Cpl. R. Marshall.
 
 ### Affiliation
 
-This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB, or any affiliated organisation, and is provided as-is for the convenience of personnel.
+This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB or any affiliated organisation.
+
+---
 
 ## Basic Checks
 
@@ -127,11 +115,11 @@ Run the local sanity checks before deploying:
 ./check.sh
 ```
 
-This validates `manifest.json` formatting and ensures core app files exist and are non-empty.
+Validates `manifest.json` formatting, ensures core app files exist and are non-empty, and runs the math sanity tests in `calc.test.js`.
 
 ## Release Checklist
 
-1. Update rates and effective date in `app.js`.
+1. Confirm default rates in `helpers.jsx` (`DEFAULT_RATES`, `DEFAULT_TAX`) and the "Rates effective" label in `app.jsx`.
 2. Run `./check.sh`.
-3. Bump service worker cache version in `sw.js`.
-4. Verify install/offline behavior and copy-results output manually.
+3. Bump the service worker cache version in `sw.js` (`const CACHE`).
+4. Verify install / offline behaviour and the snapshot share-as-PNG output manually.

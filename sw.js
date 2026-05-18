@@ -1,33 +1,39 @@
 "use strict";
 
-// Update this version string on each deploy to bust the cache
-const CACHE = "ns-calculator-v8";
+// Bump this on each deploy to bust the cache
+const CACHE = "ns-calculator-v9";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
+  "./styles.css",
+  "./helpers.jsx",
+  "./components.jsx",
+  "./modals.jsx",
+  "./templates.jsx",
+  "./calendar.jsx",
+  "./summary.jsx",
+  "./share.jsx",
+  "./reconcile.jsx",
+  "./ytd.jsx",
+  "./snapshots.jsx",
+  "./app.jsx",
   "./logo.svg",
   "./icon-192.svg",
   "./icon-512.svg",
-  "./icon-192.png",
-  "./icon-512.png",
-  "./styles.css",
-  "./app.js",
 ];
 
-// Install — cache all assets, then take control immediately
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) => cache.addAll(ASSETS).catch(() => {}))
       .then(() => self.skipWaiting()),
   );
 });
 
-// Activate — remove old caches (preserve font cache), then claim all clients
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches
@@ -43,13 +49,11 @@ self.addEventListener("activate", (e) => {
   );
 });
 
-// Fetch — cache-first for app assets, stale-while-revalidate for Google Fonts
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
-
   const url = new URL(e.request.url);
 
-  // Google Fonts: stale-while-revalidate (serve cached, update in background)
+  // Google Fonts: stale-while-revalidate
   if (
     url.hostname === "fonts.googleapis.com" ||
     url.hostname === "fonts.gstatic.com"
@@ -70,7 +74,7 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // App shell document: network-first (faster update rollouts)
+  // App shell document: network-first
   if (
     url.pathname.endsWith("/index.html") ||
     url.pathname === "/" ||
@@ -92,8 +96,23 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // App assets: cache-first
+  // App assets: cache-first, falling back to network
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request)),
+    caches.match(e.request).then((cached) => {
+      if (cached) return cached;
+      return fetch(e.request)
+        .then((res) => {
+          if (
+            res &&
+            res.status === 200 &&
+            url.origin === self.location.origin
+          ) {
+            const clone = res.clone();
+            caches.open(CACHE).then((c) => c.put(e.request, clone));
+          }
+          return res;
+        })
+        .catch(() => cached);
+    }),
   );
 });
