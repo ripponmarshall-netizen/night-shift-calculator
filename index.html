@@ -60,36 +60,6 @@
           </div>
         </div>
 
-        <div class="section mode-toggle-wrap">
-          <div
-            class="segmented-control"
-            id="mode-segmented"
-            role="radiogroup"
-            aria-label="Calculation mode"
-          >
-            <span class="segmented-thumb" id="mode-thumb"></span>
-            <button
-              type="button"
-              class="segmented-option"
-              id="mode-basic"
-              role="radio"
-              aria-checked="true"
-              data-mode="BASIC"
-            >
-              Basic
-            </button>
-            <button
-              type="button"
-              class="segmented-option"
-              id="mode-advanced"
-              role="radio"
-              aria-checked="false"
-              data-mode="ADVANCED"
-            >
-              Advanced
-            </button>
-          </div>
-        </div>
 
         <div class="ui-card ui-card--calendar section" id="calendar-section">
           <p class="section-header">Calendar</p>
@@ -480,6 +450,37 @@
               onclick="showPage(pageDisclaimer)"
             >
               Disclaimers
+            </button>
+          </div>
+        </div>
+
+        <div class="mode-toggle-wrap" aria-label="Calculation mode switcher">
+          <div
+            class="segmented-control"
+            id="mode-segmented"
+            role="radiogroup"
+            aria-label="Calculation mode"
+          >
+            <span class="segmented-thumb" id="mode-thumb"></span>
+            <button
+              type="button"
+              class="segmented-option"
+              id="mode-basic"
+              role="radio"
+              aria-checked="true"
+              data-mode="BASIC"
+            >
+              Basic
+            </button>
+            <button
+              type="button"
+              class="segmented-option"
+              id="mode-advanced"
+              role="radio"
+              aria-checked="false"
+              data-mode="ADVANCED"
+            >
+              Advanced
             </button>
           </div>
         </div>
