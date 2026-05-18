@@ -659,11 +659,12 @@ function setMode(m, animate) {
   if (m !== "BASIC" && m !== "ADVANCED") return;
   mode = m;
   if (m === "ADVANCED") backfillAdvancedDistances();
-  modeBasicBtn.setAttribute("aria-checked", m === "BASIC" ? "true" : "false");
-  modeAdvancedBtn.setAttribute(
-    "aria-checked",
-    m === "ADVANCED" ? "true" : "false",
-  );
+  const basicActive = m === "BASIC";
+  const advancedActive = m === "ADVANCED";
+  modeBasicBtn.setAttribute("aria-checked", basicActive ? "true" : "false");
+  modeAdvancedBtn.setAttribute("aria-checked", advancedActive ? "true" : "false");
+  modeBasicBtn.setAttribute("aria-selected", basicActive ? "true" : "false");
+  modeAdvancedBtn.setAttribute("aria-selected", advancedActive ? "true" : "false");
   syncTabState(modeBasicBtn, modeAdvancedBtn, m === "BASIC");
   modeBlockBasic.classList.toggle("active", m === "BASIC");
   modeBlockAdvanced.classList.toggle("active", m === "ADVANCED");

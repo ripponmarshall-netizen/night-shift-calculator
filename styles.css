@@ -1847,6 +1847,12 @@ body::before {
     color-mix(in srgb, var(--accent) 80%, transparent);
 }
 
+
+.floating-summary .total-row {
+  position: static;
+  bottom: auto;
+  z-index: auto;
+}
 @media (max-width: 639px) {
   .app {
     padding-inline: 16px;
