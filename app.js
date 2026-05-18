@@ -40,6 +40,7 @@ const STORAGE_KEY_MODE = "nsCalc.mode.v1";
 const STORAGE_KEY_AUTOFILL = "nsCalc.autoFillRotation.v1";
 const STORAGE_KEY_LAST_SNAPSHOT = "nsCalc.lastSnapshotAt.v1";
 const MOTION = { fast: 140, snap: 220, stage: 380 };
+const SHIFT_COUNT_FIELD_IDS = new Set(BASIC_FIELD_IDS.concat(ADV_FIELD_IDS));
 
 const { val, valById, round2, fmt, fmtHrs } = window.NSUIUtils;
 const { safeGet, safeSet, safeRemove } = window.NSStorage;
@@ -229,8 +230,12 @@ function validateInputs(ids, map) {
   ids.forEach(function (id) {
     const el = map[id];
     if (!el) return;
-    const n = parseFloat(el.value);
-    const bad = el.value.trim() !== "" && (isNaN(n) || n < 0 || n > 99);
+    const raw = el.value.trim();
+    const n = parseFloat(raw);
+    const expectsWholeCount = SHIFT_COUNT_FIELD_IDS.has(id);
+    const bad =
+      raw !== "" &&
+      (isNaN(n) || n < 0 || n > 99 || (expectsWholeCount && !Number.isInteger(n)));
     el.classList.toggle("error", bad);
     if (bad) {
       if (!reducedMotion()) {
@@ -758,6 +763,11 @@ function validateBasicRelationship() {
   const valid = cExtra10 <= maxAllowed;
   if (basicFields["basic-10pm-after-3pm-count"]) {
     basicFields["basic-10pm-after-3pm-count"].classList.toggle("error", !valid);
+    if (!valid) {
+      basicFields["basic-10pm-after-3pm-count"].setAttribute("aria-invalid", "true");
+    } else {
+      basicFields["basic-10pm-after-3pm-count"].removeAttribute("aria-invalid");
+    }
   }
   return { valid: valid, c3: c3, c10: c10, cExtra10: cExtra10 };
 }
