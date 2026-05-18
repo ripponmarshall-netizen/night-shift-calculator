@@ -238,7 +238,7 @@ p {
   width: 100%;
   max-width: 640px;
   margin: 0 auto;
-  padding: 32px 20px calc(220px + var(--safe-bottom));
+  padding: 32px 20px calc(120px + var(--safe-bottom));
 }
 
 @media (min-width: 640px) {
@@ -537,31 +537,33 @@ p {
 }
 
 
-.floating-summary {
+.floating-summary-pill {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(80px + var(--safe-bottom));
-  width: min(420px, calc(100vw - 28px));
+  bottom: calc(76px + var(--safe-bottom));
   z-index: 55;
-}
-.summary-collapse-btn {
-  width: 100%;
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
-  background: var(--surface);
-  border-radius: 14px;
-  padding: 10px 14px;
+  width: min(420px, calc(100vw - 28px));
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 8px 18px -14px rgba(0,0,0,.45);
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  box-shadow: 0 12px 24px -16px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
 }
-.summary-collapse-label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); }
-.summary-collapse-value { font-weight: 700; font-variant-numeric: tabular-nums; }
-.floating-summary .total-row {
-  margin: 8px 0 0;
-  position: static;
-  bottom: auto;
+.floating-summary-pill:active { transform: translateX(-50%) scale(0.98); }
+.summary-pill-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+.summary-pill-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 .field--stacked-mobile { align-items: flex-start; }
 .field--stacked-mobile .field-input { margin-top: 2px; }
@@ -1824,9 +1826,6 @@ body::before {
 }
 
 .total-row {
-  position: sticky;
-  bottom: max(10px, calc(var(--safe-bottom) + 10px));
-  z-index: 8;
   border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
   box-shadow: 0 18px 40px -26px
     color-mix(in srgb, var(--accent) 55%, transparent);
@@ -1848,11 +1847,6 @@ body::before {
 }
 
 
-.floating-summary .total-row {
-  position: static;
-  bottom: auto;
-  z-index: auto;
-}
 @media (max-width: 639px) {
   .app {
     padding-inline: 16px;

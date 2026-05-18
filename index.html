@@ -379,32 +379,31 @@
           </div>
         </div>
 
-        <div class="floating-summary" id="floating-summary">
-          <button
-            type="button"
-            class="summary-collapse-btn"
-            id="summary-collapse-btn"
-            aria-expanded="false"
-            aria-controls="total-row"
+        <div class="ui-card ui-card--total total-row" id="total-row">
+          <span class="total-label">Estimated Gross Pay</span>
+          <span class="total-value tween" id="live-grand-total">$0.00</span>
+          <label
+            class="field-label field-label--checkbox total-toggle-label"
+            for="show-net-pay"
           >
-            <span class="summary-collapse-label">Estimated total</span>
-            <span class="summary-collapse-value tween" id="floating-total-preview">$0.00</span>
-          </button>
-          <div class="ui-card ui-card--total total-row" id="total-row" style="opacity: 1" hidden>
-            <span class="total-label">Estimated Gross Pay</span>
-            <span class="total-value tween" id="live-grand-total">$0.00</span>
-            <label
-              class="field-label field-label--checkbox total-toggle-label"
-              for="show-net-pay"
-            >
-              <input id="show-net-pay" type="checkbox" />
-              <span>Show estimated net pay</span>
-            </label>
-            <span class="total-subvalue tween" id="live-net-total" hidden
-              >$0.00</span
-            >
-          </div>
+            <input id="show-net-pay" type="checkbox" />
+            <span>Show estimated net pay</span>
+          </label>
+          <span class="total-subvalue tween" id="live-net-total" hidden
+            >$0.00</span
+          >
         </div>
+
+        <button
+          type="button"
+          class="floating-summary-pill"
+          id="summary-pill"
+          aria-label="Jump to estimated total"
+          hidden
+        >
+          <span class="summary-pill-label">Estimated total</span>
+          <span class="summary-pill-value tween" id="floating-total-preview">$0.00</span>
+        </button>
 
         <div class="btn-wrap">
           <button
