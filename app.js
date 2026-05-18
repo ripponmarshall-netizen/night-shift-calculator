@@ -41,6 +41,11 @@ const STORAGE_KEY_AUTOFILL = "nsCalc.autoFillRotation.v1";
 const STORAGE_KEY_LAST_SNAPSHOT = "nsCalc.lastSnapshotAt.v1";
 const MOTION = { fast: 140, snap: 220, stage: 380 };
 
+const { val, valById, round2, fmt, fmtHrs } = window.NSUIUtils;
+const { safeGet, safeSet, safeRemove } = window.NSStorage;
+const { toYMD, fromYMD, addDays, sameYMD, nextShiftCode } =
+  window.NSCalendarUtils;
+
 function reducedMotion() {
   return !!(
     window.matchMedia &&
@@ -175,83 +180,6 @@ const dayDistEls = {
 };
 
 // ─── Helpers ───
-function val(el) {
-  return el ? parseFloat(el.value) || 0 : 0;
-}
-function valById(id, map) {
-  return val(map[id]);
-}
-function round2(n) {
-  return Math.round(n * 100) / 100;
-}
-function fmt(n) {
-  return (
-    "$" +
-    n.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
-  );
-}
-function fmtHrs(n) {
-  return n.toFixed(2);
-}
-
-function safeGet(key) {
-  try {
-    return localStorage.getItem(key);
-  } catch (e) {
-    return null;
-  }
-}
-function safeSet(key, value) {
-  try {
-    localStorage.setItem(key, value);
-  } catch (e) {}
-}
-function safeRemove(key) {
-  try {
-    localStorage.removeItem(key);
-  } catch (e) {}
-}
-
-function pad2(n) {
-  return n < 10 ? "0" + n : "" + n;
-}
-function toYMD(d) {
-  return (
-    d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
-  );
-}
-function fromYMD(s) {
-  if (typeof s !== "string") return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (!m) return null;
-  const y = +m[1],
-    mo = +m[2] - 1,
-    da = +m[3];
-  const d = new Date(y, mo, da);
-  if (d.getFullYear() !== y || d.getMonth() !== mo || d.getDate() !== da)
-    return null;
-  return d;
-}
-function addDays(d, n) {
-  const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  r.setDate(r.getDate() + n);
-  return r;
-}
-function sameYMD(a, b) {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-function nextShiftCode(code) {
-  const idx = SHIFT_ORDER.indexOf(code);
-  return SHIFT_ORDER[(idx + 1) % SHIFT_ORDER.length];
-}
-
 // ─── Migration: v1 storage → v2 ───
 function migrateStorage() {
   const oldEH = safeGet("extraHours.v1");
@@ -1360,7 +1288,7 @@ function fillShiftRotation(startYmd, startCode) {
   if (!d) return;
   let code = startCode;
   while (true) {
-    const nextCode = nextShiftCode(code);
+    const nextCode = nextShiftCode(code, SHIFT_ORDER);
     d = addDays(d, code === "10PM" && nextCode === "7AM" ? 2 : 1);
     if (d > periodEnd) break;
     const ymd = toYMD(d);
