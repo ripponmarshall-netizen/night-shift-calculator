@@ -237,7 +237,10 @@ function validateInputs(ids, map) {
     const expectsWholeCount = SHIFT_COUNT_FIELD_IDS.has(id);
     const bad =
       raw !== "" &&
-      (isNaN(n) || n < 0 || n > 99 || (expectsWholeCount && !Number.isInteger(n)));
+      (isNaN(n) ||
+        n < 0 ||
+        n > 99 ||
+        (expectsWholeCount && !Number.isInteger(n)));
     el.classList.toggle("error", bad);
     if (bad) {
       if (!reducedMotion()) {
@@ -647,9 +650,15 @@ function setMode(m, animate) {
   const basicActive = m === "BASIC";
   const advancedActive = m === "ADVANCED";
   modeBasicBtn.setAttribute("aria-checked", basicActive ? "true" : "false");
-  modeAdvancedBtn.setAttribute("aria-checked", advancedActive ? "true" : "false");
+  modeAdvancedBtn.setAttribute(
+    "aria-checked",
+    advancedActive ? "true" : "false",
+  );
   modeBasicBtn.setAttribute("aria-selected", basicActive ? "true" : "false");
-  modeAdvancedBtn.setAttribute("aria-selected", advancedActive ? "true" : "false");
+  modeAdvancedBtn.setAttribute(
+    "aria-selected",
+    advancedActive ? "true" : "false",
+  );
   syncTabState(modeBasicBtn, modeAdvancedBtn, m === "BASIC");
   modeBlockBasic.classList.toggle("active", m === "BASIC");
   modeBlockAdvanced.classList.toggle("active", m === "ADVANCED");
@@ -767,7 +776,10 @@ function validateBasicRelationship() {
   if (basicFields["basic-10pm-after-3pm-count"]) {
     basicFields["basic-10pm-after-3pm-count"].classList.toggle("error", !valid);
     if (!valid) {
-      basicFields["basic-10pm-after-3pm-count"].setAttribute("aria-invalid", "true");
+      basicFields["basic-10pm-after-3pm-count"].setAttribute(
+        "aria-invalid",
+        "true",
+      );
     } else {
       basicFields["basic-10pm-after-3pm-count"].removeAttribute("aria-invalid");
     }
@@ -1914,7 +1926,6 @@ document.addEventListener("keydown", function (e) {
     first.focus();
   }
 });
-
 
 if (totalRow && summaryPill && "IntersectionObserver" in window) {
   const summaryObserver = new IntersectionObserver(
