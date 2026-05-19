@@ -205,7 +205,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     dayHolidayHours[key] = hHol;
   }
 
-  const usedPm3 = calPm3, usedPm10 = calPm10, usedAm7 = cal7am;
+  const usedPm3 = calPm3, usedPm10 = calPm10;
 
   const sp1 = usedPm3 * rates.sp1;
   const sp2 = usedPm10 * rates.sp2;
@@ -215,12 +215,14 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   let taxiDeduct = 0;
   if (mode === "basic") {
     const rate = basicDistance === "L" ? rates.taxiLong : rates.taxiShort;
-    taxiGross = (usedPm3 + usedPm10 + usedAm7) * rate;
+    // Taxi covers 3PM (finishes 10PM) and 10PM (finishes 7AM next morning)
+    // shifts only. 7AM shifts are daytime commutes — no taxi allowance.
+    taxiGross = (usedPm3 + usedPm10) * rate;
     taxiDeduct = sameDayPair * 2 * rate;
   } else {
     taxiGross =
-      (shortPm3 + shortPm10 + shortAm7) * rates.taxiShort +
-      (longPm3 + longPm10 + longAm7) * rates.taxiLong;
+      (shortPm3 + shortPm10) * rates.taxiShort +
+      (longPm3 + longPm10) * rates.taxiLong;
     // Detailed mode: deduct exactly the two paired legs at their own distances.
     taxiDeduct = sameDayPairLegSum;
   }
