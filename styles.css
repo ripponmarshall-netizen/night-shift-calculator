@@ -21,6 +21,8 @@
   --warn: oklch(78% 0.16 80);
   --ok: oklch(72% 0.14 150);
   --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+  --bg-translucent: rgba(11, 11, 12, 0.85);
+  --surface-translucent: rgba(20, 20, 24, 0.92);
   --r: 14px;
   --r-sm: 10px;
   --r-xs: 6px;
@@ -47,6 +49,8 @@
   --warn: oklch(60% 0.17 70);
   --ok: oklch(54% 0.15 150);
   --shadow: 0 16px 40px -20px rgba(36, 28, 12, 0.18);
+  --bg-translucent: rgba(250, 249, 247, 0.88);
+  --surface-translucent: rgba(255, 255, 255, 0.94);
 }
 
 * {
