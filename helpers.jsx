@@ -4,13 +4,13 @@ const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7 };
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
   sp2: 200,         // 8 hrs × $25/hr per 10PM shift
-  meal: 500,
+  meal: 950,
   taxiShort: 950,
   taxiLong: 2000,
   threshold: 173.33,
 };
 const STORAGE = "nsc:v3";
-const MIGRATION = "nsc-rates-2026-05";
+const MIGRATION = "nsc-rates-2026-05b";
 
 /* JM tax defaults — TAJ 2025/26 (threshold effective 1 April 2026). */
 const DEFAULT_TAX = {

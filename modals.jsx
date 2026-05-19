@@ -257,9 +257,13 @@ function ThemeTab({ theme, setTheme }) {
   return (
     <div>
       <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12 }}>Appearance</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
         <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#0b0b0c", ink: "#f4f4f5", accent: "#e8a661" }} />
         <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#faf9f7", ink: "#1a1815", accent: "#a06226" }} />
+        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #0b0b0c 0%, #0b0b0c 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#a1a1aa", accent: "#c98a44" }} />
+      </div>
+      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10 }}>
+        Auto follows your device's system appearance.
       </div>
     </div>
   );

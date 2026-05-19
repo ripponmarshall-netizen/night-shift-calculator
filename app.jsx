@@ -35,9 +35,18 @@ function App() {
   }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded]);
 
   useEffect(() => {
-    document.body.setAttribute("data-theme", theme);
-    const meta = document.getElementById("theme-color-meta");
-    if (meta) meta.setAttribute("content", theme === "light" ? "#faf9f7" : "#0b0b0c");
+    const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
+    const apply = () => {
+      const resolved = theme === "auto" ? (mq?.matches ? "light" : "dark") : theme;
+      document.body.setAttribute("data-theme", resolved);
+      const meta = document.getElementById("theme-color-meta");
+      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#0b0b0c");
+    };
+    apply();
+    if (theme === "auto" && mq) {
+      mq.addEventListener?.("change", apply);
+      return () => mq.removeEventListener?.("change", apply);
+    }
   }, [theme]);
 
   const totals = useMemo(
@@ -337,7 +346,7 @@ function Header({ view, mode, onSettings, period, setPeriodAnchor }) {
   return (
     <header style={{
       position: "sticky", top: 0, zIndex: 30,
-      background: "rgba(11,11,12,0.85)",
+      background: "var(--bg-translucent)",
       backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       borderBottom: "1px solid var(--line-soft)",
     }}>
@@ -604,7 +613,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
       {activeTab !== "history" && activeTab !== "about" && (
         <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 6px", pointerEvents: "none" }}>
           <div ref={totalChipRef} className="total-chip" style={{
-            background: "rgba(20, 20, 24, 0.92)",
+            background: "var(--surface-translucent)",
             backdropFilter: "blur(24px) saturate(140%)",
             WebkitBackdropFilter: "blur(24px) saturate(140%)",
             border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
@@ -625,7 +634,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
 
       <div style={{ maxWidth: 540, margin: "0 auto", padding: "0 16px 14px", pointerEvents: "auto" }}>
         <div style={{
-          background: "rgba(20, 20, 24, 0.92)",
+          background: "var(--surface-translucent)",
           backdropFilter: "blur(24px) saturate(140%)",
           WebkitBackdropFilter: "blur(24px) saturate(140%)",
           border: "1px solid var(--line)",
