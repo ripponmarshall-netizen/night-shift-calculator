@@ -2,27 +2,28 @@
 
 const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7 };
 const DEFAULT_RATES = {
-  sp1: 1200,
-  sp2: 1500,
+  sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
+  sp2: 200,         // 8 hrs × $25/hr per 10PM shift
   meal: 500,
   taxiShort: 950,
   taxiLong: 2000,
   threshold: 173.33,
 };
 const STORAGE = "nsc:v3";
+const MIGRATION = "nsc-rates-2026-05";
 
-/* JM tax defaults (editable in Settings) — 2024/2025 approx rates */
+/* JM tax defaults — TAJ 2025/26 (threshold effective 1 April 2026). */
 const DEFAULT_TAX = {
   enabled: true,
-  nis: 3,           // % of gross, capped
-  nisCapMonthly: 5000000 / 12, // approx — also editable
-  nht: 2,           // % of gross
-  eduTax: 2.25,     // % of (gross - NIS)
-  payeThreshold: 1500096 / 12, // monthly tax-free threshold
-  payeRate1: 25,    // % above threshold
-  payeBreak2: 6000000 / 12,    // monthly break point for 30%
-  payeRate2: 30,    // % above break point
-  pension: 0,       // % of gross (user editable, often 0–10%)
+  nis: 3,                       // %
+  nisCapMonthly: 5000000 / 12,  // $5,000,000 annual cap
+  nht: 2,                       // %
+  eduTax: 2.25,                 // % of (gross - NIS - pension)
+  payeThreshold: 1902360 / 12,  // $1,902,360 annual tax-free threshold
+  payeRate1: 25,                // % above threshold up to break point
+  payeBreak2: 6000000 / 12,     // $6,000,000 annual break point
+  payeRate2: 30,                // % above break point
+  pension: 0,                   // % of gross (user editable, often 0–10%)
 };
 
 /* ----- date ----- */
@@ -127,25 +128,24 @@ const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDi
 /* ----- entries ----- */
 function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
 
-/* ----- autofill rotation ----- */
+/* ----- autofill rotation -----
+   Standard rotation is a 4-day cycle: 7AM → 3PM → 10PM → rest. The 10PM shift
+   ends at 07:00 the next morning, so the day after a 10PM is always a rest
+   day; the next 7AM begins on the day after that. */
 function autofillPattern(period, opts) {
-  // opts: { startKey, pattern: "rotation"|"am7"|"pm3"|"pm10", days: "rest"|7|14, skipSunday, defaultDist }
+  // opts: { startKey, pattern: "rotation"|"am7"|"pm3"|"pm10", days: "rest"|7|14, defaultDist }
   const days = periodDays(period);
   const startIdx = Math.max(0, days.findIndex((d) => ymd(d) === opts.startKey));
   const count = opts.days === "rest" ? days.length - startIdx : Math.min(opts.days, days.length - startIdx);
-  const rotation = ["am7", "pm3", "pm10"];
+  const rotation = ["am7", "pm3", "pm10", null]; // null = rest
   const out = {};
   for (let i = 0; i < count; i++) {
+    const slot = opts.pattern === "rotation" ? rotation[i % 4] : opts.pattern;
+    if (!slot) continue; // rest day in the rotation
     const d = days[startIdx + i];
-    if (opts.skipSunday && d.getDay() === 0) continue;
     const e = blankDay();
     e.dist = { am7: opts.defaultDist, pm3: opts.defaultDist, pm10: opts.defaultDist };
-    if (opts.pattern === "rotation") {
-      const slot = rotation[i % 3];
-      e[slot] = true;
-    } else {
-      e[opts.pattern] = true;
-    }
+    e[slot] = true;
     out[ymd(d)] = e;
   }
   return out;
@@ -256,9 +256,20 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   };
 }
 
-/* ----- storage ----- */
+/* ----- storage -----
+   One-shot migration: when MIGRATION changes, rates and tax are force-reset to
+   the new defaults. Everything else (entries, snapshots, templates, base pay,
+   rates history, theme) is preserved. */
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE) || "{}"); } catch { return {}; }
+  let s = {};
+  try { s = JSON.parse(localStorage.getItem(STORAGE) || "{}"); } catch { s = {}; }
+  if (s._migratedAt !== MIGRATION) {
+    s.rates = { ...DEFAULT_RATES };
+    s.tax = { ...DEFAULT_TAX };
+    s._migratedAt = MIGRATION;
+    try { localStorage.setItem(STORAGE, JSON.stringify(s)); } catch {}
+  }
+  return s;
 }
 function saveState(s) {
   try { localStorage.setItem(STORAGE, JSON.stringify(s)); } catch {}

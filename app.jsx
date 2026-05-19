@@ -341,7 +341,7 @@ function Header({ view, mode, onSettings, period, setPeriodAnchor }) {
       backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       borderBottom: "1px solid var(--line-soft)",
     }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "14px 20px 10px", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 14px) 20px 10px", display: "flex", alignItems: "center", gap: 12 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.12em", color: "var(--ink-faint)", textTransform: "uppercase" }}>
             Pay calculator · {subtitle}
