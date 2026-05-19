@@ -307,11 +307,10 @@ function AutofillModal({ period, defaultDist, onApply, onClose }) {
   const [startKey, setStartKey] = useStateM(ymd(period.start));
   const [pattern, setPattern] = useStateM("rotation");
   const [span, setSpan] = useStateM("rest");
-  const [skipSunday, setSkipSunday] = useStateM(false);
   const [dist, setDist] = useStateM(defaultDist || "S");
   const [preserve, setPreserve] = useStateM(true);
 
-  const preview = autofillPattern(period, { startKey, pattern, days: span, skipSunday, defaultDist: dist });
+  const preview = autofillPattern(period, { startKey, pattern, days: span, defaultDist: dist });
   const fillCount = Object.keys(preview).length;
 
   return (
@@ -335,7 +334,7 @@ function AutofillModal({ period, defaultDist, onApply, onClose }) {
         <FieldLabel>Pattern</FieldLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
           <PatternCard active={pattern === "rotation"} onClick={() => setPattern("rotation")}
-            title="Standard rotation" desc="7AM → 3PM → 10PM, repeating" />
+            title="Standard rotation" desc="7AM → 3PM → 10PM → rest, repeating" />
           <PatternCard active={pattern === "am7"} onClick={() => setPattern("am7")} title="7AM only" desc="8h shifts" color="var(--am)" />
           <PatternCard active={pattern === "pm3"} onClick={() => setPattern("pm3")} title="3PM only" desc="7h shifts" color="var(--sp1)" />
           <PatternCard active={pattern === "pm10"} onClick={() => setPattern("pm10")} title="10PM only" desc="9h, crosses midnight" color="var(--sp2)" />
@@ -359,10 +358,6 @@ function AutofillModal({ period, defaultDist, onApply, onClose }) {
         <SegToggle options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={dist} onChange={setDist} />
 
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, cursor: "pointer", padding: "8px 0" }}>
-          <input type="checkbox" checked={skipSunday} onChange={(e) => setSkipSunday(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
-          <span style={{ fontSize: 13.5 }}>Skip Sundays</span>
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 0" }}>
           <input type="checkbox" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
           <span style={{ fontSize: 13.5 }}>Preserve days that already have shifts</span>
         </label>
@@ -377,7 +372,7 @@ function AutofillModal({ period, defaultDist, onApply, onClose }) {
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
           <button onClick={onClose} style={ghostBtn()}>Cancel</button>
-          <button onClick={() => onApply({ startKey, pattern, days: span, skipSunday, defaultDist: dist, preserve })} style={accentBtn()}>
+          <button onClick={() => onApply({ startKey, pattern, days: span, defaultDist: dist, preserve })} style={accentBtn()}>
             Apply
           </button>
         </div>
