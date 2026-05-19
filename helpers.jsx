@@ -156,6 +156,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   let calPm3 = 0, calPm10 = 0, cal7am = 0, sameDayPair = 0;
   let shortPm3 = 0, longPm3 = 0, shortPm10 = 0, longPm10 = 0, shortAm7 = 0, longAm7 = 0;
   let totalHours = 0, holidayHours = 0;
+  let sameDayPairLegSum = 0; // sum of actual leg rates for same-day 3PM+10PM pairs (advanced mode)
 
   const days = periodDays(period);
   const dayHours = {}; // key -> hours for stripe viz
@@ -190,7 +191,12 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       h += SHIFT_HOURS.pm10_next; // attributed to this day for total; holiday goes to next day's bucket
       if (nextHol) hHol += SHIFT_HOURS.pm10_next;
       if (e.dist?.pm10 === "L") longPm10++; else shortPm10++;
-      if (e.pm3) sameDayPair++;
+      if (e.pm3) {
+        sameDayPair++;
+        const r3  = (e.dist?.pm3  === "L") ? rates.taxiLong : rates.taxiShort;
+        const r10 = (e.dist?.pm10 === "L") ? rates.taxiLong : rates.taxiShort;
+        sameDayPairLegSum += r3 + r10;
+      }
     }
 
     totalHours += h;
@@ -206,18 +212,18 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   const meal = (usedPm3 + usedPm10) * rates.meal;
 
   let taxiGross = 0;
+  let taxiDeduct = 0;
   if (mode === "basic") {
     const rate = basicDistance === "L" ? rates.taxiLong : rates.taxiShort;
     taxiGross = (usedPm3 + usedPm10 + usedAm7) * rate;
+    taxiDeduct = sameDayPair * 2 * rate;
   } else {
     taxiGross =
       (shortPm3 + shortPm10 + shortAm7) * rates.taxiShort +
       (longPm3 + longPm10 + longAm7) * rates.taxiLong;
+    // Detailed mode: deduct exactly the two paired legs at their own distances.
+    taxiDeduct = sameDayPairLegSum;
   }
-  const deductRate = mode === "basic"
-    ? (basicDistance === "L" ? rates.taxiLong : rates.taxiShort)
-    : rates.taxiShort;
-  const taxiDeduct = sameDayPair * 2 * deductRate;
   const taxi = Math.max(0, taxiGross - taxiDeduct);
 
   const allowanceSubtotal = sp1 + sp2 + meal + taxi;
@@ -294,18 +300,16 @@ function calcTax(grossMonthly, tx) {
   const eduTax = eduBase * (tx.eduTax / 100);
   lines.push({ label: "Education Tax", pct: tx.eduTax, base: eduBase, value: eduTax });
   if (pension > 0) lines.push({ label: "Pension", pct: tx.pension, base: grossMonthly, value: pension });
-  // PAYE — over threshold; bracket 2 over break point
-  const taxable = Math.max(0, grossMonthly - tx.payeThreshold - nis - pension);
-  let paye = 0;
-  // For PAYE we apply bracket logic on gross above threshold:
-  // bracket1: from threshold to break2 at rate1; bracket2: above break2 at rate2
+  // PAYE — bracket 1 from threshold to break point at rate1, bracket 2 above
+  // the break point at rate2. Chargeable income deducts NIS and pension; NHT
+  // and Education Tax are not deducted from the PAYE base.
   const aboveThreshold = Math.max(0, grossMonthly - tx.payeThreshold - nis - pension);
   const bracket1Width = Math.max(0, tx.payeBreak2 - tx.payeThreshold);
   const inBracket1 = Math.min(aboveThreshold, bracket1Width);
   const inBracket2 = Math.max(0, aboveThreshold - bracket1Width);
   const paye1 = inBracket1 * (tx.payeRate1 / 100);
   const paye2 = inBracket2 * (tx.payeRate2 / 100);
-  paye = paye1 + paye2;
+  const paye = paye1 + paye2;
   if (paye1 > 0) lines.push({ label: `Income Tax @ ${tx.payeRate1}%`, pct: tx.payeRate1, base: inBracket1, value: paye1 });
   if (paye2 > 0) lines.push({ label: `Income Tax @ ${tx.payeRate2}%`, pct: tx.payeRate2, base: inBracket2, value: paye2 });
   const deductions = nis + nht + eduTax + pension + paye;

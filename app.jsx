@@ -455,7 +455,10 @@ function ShiftCountsCard({ mode, counts, setCounts, basicDistance, setBasicDista
           <div style={{ marginBottom: 12 }}>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Distance</div>
             <SegToggle
-              options={[{ v: "S", l: "Short — $950" }, { v: "L", l: "Long — $2,000" }]}
+              options={[
+                { v: "S", l: `Short — ${fmt(totals.rates.taxiShort)}` },
+                { v: "L", l: `Long — ${fmt(totals.rates.taxiLong)}` },
+              ]}
               value={basicDistance} onChange={setBasicDistance}
             />
           </div>
