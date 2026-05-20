@@ -155,6 +155,7 @@ function EmptyState({ onBack }) {
 }
 
 function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
+  useModalDismiss(onClose);
   const t = snap.totals;
   const copy = () => {
     const txt = [
@@ -181,7 +182,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 12px 12px",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 540, maxHeight: "82vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18,

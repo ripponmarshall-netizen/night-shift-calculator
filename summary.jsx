@@ -74,8 +74,8 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
           <Row label="Meal" value={fmt(totals.meal)} formula onClick={() => showMath("Meal allowance", `(${totals.cal.pm3} × 3PM + ${totals.cal.pm10} × 10PM) × ${fmt(totals.rates.meal)} = ${totals.cal.pm3 + totals.cal.pm10} × ${fmt(totals.rates.meal)}`, totals.meal)} />
           <Row label="Taxi" value={fmt(totals.taxi)} formula onClick={() => showMath("Taxi allowance",
             mode === "basic"
-              ? `${totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10} shifts × ${fmt(basicDistance === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)} (${basicDistance === "L" ? "Long" : "Short"})${totals.taxiDeduct > 0 ? `\nminus ${totals.cal.sameDayPair} same-day pair × 2 × rate = − ${fmt(totals.taxiDeduct)}` : ""}`
-              : `Short (${totals.cal.shortAm7 + totals.cal.shortPm3 + totals.cal.shortPm10}) × ${fmt(totals.rates.taxiShort)}\n+ Long (${totals.cal.longAm7 + totals.cal.longPm3 + totals.cal.longPm10}) × ${fmt(totals.rates.taxiLong)}${totals.taxiDeduct > 0 ? `\n− pair deduction ${fmt(totals.taxiDeduct)}` : ""}`,
+              ? `${totals.cal.pm3 + totals.cal.pm10} shifts (3PM + 10PM) × ${fmt(basicDistance === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)} (${basicDistance === "L" ? "Long" : "Short"})${totals.taxiDeduct > 0 ? `\nminus ${totals.cal.sameDayPair} same-day pair × 2 × rate = − ${fmt(totals.taxiDeduct)}` : ""}`
+              : `Short (${totals.cal.shortPm3 + totals.cal.shortPm10}) × ${fmt(totals.rates.taxiShort)}\n+ Long (${totals.cal.longPm3 + totals.cal.longPm10}) × ${fmt(totals.rates.taxiLong)}${totals.taxiDeduct > 0 ? `\n− pair deduction ${fmt(totals.taxiDeduct)}` : ""}`,
             totals.taxi)} />
           {totals.taxiDeduct > 0 && <Row label={`Same-day pair deduction (×${totals.cal.sameDayPair})`} value={"− " + fmt(totals.taxiDeduct)} faint />}
           <Row label="Distance" value={distLabel} />
@@ -145,12 +145,13 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
 }
 
 function MathPopover({ label, formula, value, onClose }) {
+  useModalDismiss(onClose);
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.5)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 380,
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 14, padding: 18,

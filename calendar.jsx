@@ -161,6 +161,12 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         </div>
       </div>
 
+      {totals.holidayHours > 0 && (
+        <div className="mono" style={{ fontSize: 10, color: "var(--ink-faint)", padding: "0 16px 12px" }}>
+          * day total includes holiday hours (paid ×2)
+        </div>
+      )}
+
       {periodHolidays.length > 0 && (
         <div style={{ padding: "10px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
           <div className="mono" style={{ fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>

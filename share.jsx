@@ -1,6 +1,11 @@
 /* share.jsx — render snapshot as PNG image for sharing */
 
 function renderSnapshotCanvas(snap, theme = "dark") {
+  if (theme === "auto") {
+    const prefersLight = typeof window !== "undefined" && window.matchMedia
+      && window.matchMedia("(prefers-color-scheme: light)").matches;
+    theme = prefersLight ? "light" : "dark";
+  }
   const W = 1080, H = 1350;
   const canvas = document.createElement("canvas");
   canvas.width = W;

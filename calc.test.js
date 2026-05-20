@@ -1,5 +1,5 @@
 const assert = require("assert");
-const { aggregate } = require("./helpers.jsx");
+const { aggregate, calcTax, DEFAULT_TAX } = require("./helpers.jsx");
 
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -35,13 +35,17 @@ function computeEstimatedNetPay(grossMonthly) {
   const nisMonthlyCap = NIS_ANNUAL_CAP / 12;
   const nisMonthly = Math.min(gross, nisMonthlyCap) * NIS_RATE;
   const nhtMonthly = gross * NHT_RATE;
-  const eduTaxMonthly = gross * EDU_TAX_RATE;
+  // Education Tax base excludes NIS (and pension); mirrors calcTax in helpers.jsx.
+  const eduTaxMonthly = Math.max(0, gross - nisMonthly) * EDU_TAX_RATE;
+  // PAYE chargeable income deducts only the threshold and NIS — NHT and
+  // Education Tax are NOT deductible from the PAYE base (JM rules).
   const chargeableIncome = Math.max(
     0,
-    gross - PAYE_THRESHOLD_MONTHLY - nisMonthly - nhtMonthly - eduTaxMonthly,
+    gross - PAYE_THRESHOLD_MONTHLY - nisMonthly,
   );
-  const lowerBand = Math.min(chargeableIncome, PAYE_BAND_LIMIT_MONTHLY);
-  const upperBand = Math.max(0, chargeableIncome - PAYE_BAND_LIMIT_MONTHLY);
+  const bandWidth = PAYE_BAND_LIMIT_MONTHLY - PAYE_THRESHOLD_MONTHLY;
+  const lowerBand = Math.min(chargeableIncome, bandWidth);
+  const upperBand = Math.max(0, chargeableIncome - bandWidth);
   const payeMonthly = lowerBand * PAYE_RATE_LOWER + upperBand * PAYE_RATE_UPPER;
   return round2(gross - nisMonthly - nhtMonthly - eduTaxMonthly - payeMonthly);
 }
@@ -53,9 +57,35 @@ assert.strictEqual(computeBasic(2, 2, 2), 4333.2);
 assert.strictEqual(validateBasic(3, 2, 2), true);
 assert.strictEqual(validateBasic(3, 2, 3), false);
 assert.strictEqual(computeEstimatedNetPay(0), 0);
-assert.strictEqual(computeEstimatedNetPay(50000), 46375);
-assert.strictEqual(computeEstimatedNetPay(200000), 178757.5);
-assert.strictEqual(computeEstimatedNetPay(800000), 600009);
+assert.strictEqual(computeEstimatedNetPay(50000), 46408.75);
+assert.strictEqual(computeEstimatedNetPay(200000), 176767.5);
+assert.strictEqual(computeEstimatedNetPay(800000), 582163.75);
+
+// Direct coverage of the shipping tax engine (calcTax) — guards the real
+// function rather than a parallel reimplementation.
+const taxNear = (g, expected) =>
+  assert.ok(
+    Math.abs(calcTax(g, DEFAULT_TAX).net - expected) < 0.01,
+    `calcTax(${g}).net = ${calcTax(g, DEFAULT_TAX).net}, expected ~${expected}`,
+  );
+taxNear(0, 0);
+taxNear(50000, 46408.75);
+taxNear(200000, 176767.5);
+taxNear(800000, 582163.75);
+
+// computeEstimatedNetPay must mirror calcTax (pension = 0) at every level.
+for (const g of [0, 50000, 200000, 800000, 1234567]) {
+  assert.ok(
+    Math.abs(computeEstimatedNetPay(g) - calcTax(g, DEFAULT_TAX).net) < 0.01,
+    `tax model drift at ${g}: ${computeEstimatedNetPay(g)} vs ${calcTax(g, DEFAULT_TAX).net}`,
+  );
+}
+
+// Disabling tax returns gross unchanged.
+assert.strictEqual(
+  calcTax(200000, { ...DEFAULT_TAX, enabled: false }).net,
+  200000,
+);
 
 // Upgrade-plan section 2: test coverage expansion for allowance combinations
 assert.strictEqual(computeBasic(3, 0, 0), 5899.8); // SP1-only

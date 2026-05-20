@@ -138,8 +138,32 @@ function AnimatedNumber({ value, format, durationMs = 350 }) {
   return <span className="mono">{format(display)}</span>;
 }
 
+/* sanitizeDecimal — keep digits and a single decimal point */
+function sanitizeDecimal(v) {
+  let s = String(v).replace(/[^0-9.]/g, "");
+  const i = s.indexOf(".");
+  if (i !== -1) s = s.slice(0, i + 1) + s.slice(i + 1).replace(/\./g, "");
+  return s;
+}
+
+/* useModalDismiss — close on Escape and lock background scroll while mounted */
+function useModalDismiss(onClose) {
+  const cbRef = useRefC(onClose);
+  cbRef.current = onClose;
+  useEffectC(() => {
+    const onKey = (e) => { if (e.key === "Escape") cbRef.current?.(); };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, []);
+}
+
 Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn,
-  AnimatedNumber,
+  AnimatedNumber, sanitizeDecimal, useModalDismiss,
 });

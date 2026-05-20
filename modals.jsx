@@ -3,6 +3,7 @@ const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
 function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear }) {
+  useModalDismiss(onClose);
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
@@ -22,7 +23,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center",
       padding: "0 12px 12px",
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 540,
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 16,
@@ -117,9 +118,10 @@ function DistRow({ value, onChange }) {
 /* ============ Settings ============ */
 function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onClose }) {
   const [tab, setTab] = useStateM("rates");
+  useModalDismiss(onClose);
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18 }}>
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Settings</div>
@@ -135,18 +137,31 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
             { v: "theme", l: "Theme" },
           ]} value={tab} onChange={setTab} small />
         </div>
-        {tab === "rates" && <RatesTab rates={rates} setRates={setRates} />}
-        {tab === "tax" && <TaxTab tax={tax} setTax={setTax} />}
-        {tab === "history" && <RateHistoryTab ratesHistory={ratesHistory} setRatesHistory={setRatesHistory} currentRates={rates} />}
-        {tab === "theme" && <ThemeTab theme={theme} setTheme={setTheme} />}
+        <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} /></div>
+        <div style={{ display: tab === "tax" ? "block" : "none" }}><TaxTab tax={tax} setTax={setTax} /></div>
+        <div style={{ display: tab === "history" ? "block" : "none" }}><RateHistoryTab ratesHistory={ratesHistory} setRatesHistory={setRatesHistory} currentRates={rates} /></div>
+        <div style={{ display: tab === "theme" ? "block" : "none" }}><ThemeTab theme={theme} setTheme={setTheme} /></div>
       </div>
     </div>
   );
 }
 
+const ratesToDraft = (r) => {
+  const out = {};
+  for (const k of Object.keys(r)) out[k] = String(r[k]);
+  return out;
+};
+
 function RatesTab({ rates, setRates }) {
-  const [draft, setDraft] = useStateM(rates);
-  const set = (k, v) => setDraft((p) => ({ ...p, [k]: Number(v) || 0 }));
+  const [draft, setDraft] = useStateM(() => ratesToDraft(rates));
+  const [saved, setSaved] = useStateM(false);
+  const set = (k, v) => { setSaved(false); setDraft((p) => ({ ...p, [k]: sanitizeDecimal(v) })); };
+  const save = () => {
+    const num = {};
+    for (const k of Object.keys(draft)) num[k] = Number(draft[k]) || 0;
+    setRates(num);
+    setSaved(true);
+  };
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -157,17 +172,31 @@ function RatesTab({ rates, setRates }) {
         <RateInput label="Taxi — Short" value={draft.taxiShort} onChange={(v) => set("taxiShort", v)} />
         <RateInput label="Taxi — Long" value={draft.taxiLong} onChange={(v) => set("taxiLong", v)} />
       </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-        <button onClick={() => setDraft(DEFAULT_RATES)} style={ghostBtn()}>Defaults</button>
-        <button onClick={() => setRates(draft)} style={primaryBtn()}>Save</button>
+      <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
+        {saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        <button onClick={() => { setDraft(ratesToDraft(DEFAULT_RATES)); setSaved(false); }} style={ghostBtn()}>Defaults</button>
+        <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
     </div>
   );
 }
 
+const taxToDraft = (t) => {
+  const out = {};
+  for (const k of Object.keys(t)) out[k] = typeof t[k] === "boolean" ? t[k] : String(t[k]);
+  return out;
+};
+
 function TaxTab({ tax, setTax }) {
-  const [draft, setDraft] = useStateM(tax);
-  const set = (k, v) => setDraft((p) => ({ ...p, [k]: typeof v === "boolean" ? v : (Number(v) || 0) }));
+  const [draft, setDraft] = useStateM(() => taxToDraft(tax));
+  const [saved, setSaved] = useStateM(false);
+  const set = (k, v) => { setSaved(false); setDraft((p) => ({ ...p, [k]: typeof v === "boolean" ? v : sanitizeDecimal(v) })); };
+  const save = () => {
+    const out = {};
+    for (const k of Object.keys(draft)) out[k] = typeof draft[k] === "boolean" ? draft[k] : (Number(draft[k]) || 0);
+    setTax(out);
+    setSaved(true);
+  };
   return (
     <div>
       <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer" }}>
@@ -192,9 +221,10 @@ function TaxTab({ tax, setTax }) {
           </div>
         </>
       )}
-      <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-        <button onClick={() => setDraft(DEFAULT_TAX)} style={ghostBtn()}>Defaults</button>
-        <button onClick={() => setTax(draft)} style={primaryBtn()}>Save</button>
+      <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
+        {saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        <button onClick={() => { setDraft(taxToDraft(DEFAULT_TAX)); setSaved(false); }} style={ghostBtn()}>Defaults</button>
+        <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
     </div>
   );
@@ -245,7 +275,6 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{
           flex: 1, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10,
           padding: "9px 12px", color: "var(--ink)", fontSize: 14, fontFamily: "inherit",
-          colorScheme: "dark",
         }} />
         <button onClick={addEntry} style={primaryBtn()}>Save current rates</button>
       </div>
@@ -306,7 +335,8 @@ function RateInput({ label, value, onChange }) {
 }
 
 /* ============ Autofill ============ */
-function AutofillModal({ period, defaultDist, onApply, onClose }) {
+function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
+  useModalDismiss(onClose);
   const days = periodDays(period);
   const [startKey, setStartKey] = useStateM(ymd(period.start));
   const [pattern, setPattern] = useStateM("rotation");
@@ -315,14 +345,17 @@ function AutofillModal({ period, defaultDist, onApply, onClose }) {
   const [preserve, setPreserve] = useStateM(true);
 
   const preview = autofillPattern(period, { startKey, pattern, days: span, defaultDist: dist });
-  const fillCount = Object.keys(preview).length;
+  const hasShifts = (e) => !!e && (e.am7 || e.pm3 || e.pm10);
+  const fillCount = Object.keys(preview).filter(
+    (k) => !(preserve && hasShifts(existing?.[k]))
+  ).length;
 
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18,
