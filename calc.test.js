@@ -115,8 +115,17 @@ const HOL = "2026-05-23"; // Labour Day (JM)
 const PREV = "2026-05-22";
 const PLAIN = "2026-05-20";
 const agg = (entries) =>
-  aggregate(entries, HOL_PERIOD, "basic", "S", HOL_COUNTS, HOL_BASEPAY, HOL_RATES);
-const holNear = (actual, expected) => assert.ok(Math.abs(actual - expected) < 0.01);
+  aggregate(
+    entries,
+    HOL_PERIOD,
+    "basic",
+    "S",
+    HOL_COUNTS,
+    HOL_BASEPAY,
+    HOL_RATES,
+  );
+const holNear = (actual, expected) =>
+  assert.ok(Math.abs(actual - expected) < 0.01);
 
 // 1. Non-holiday baseline: nothing counts as holiday hours.
 let r = agg({ [PLAIN]: D({ am7: 1, pm3: 1, pm10: 1 }) });
@@ -152,7 +161,10 @@ holNear(r.holidayPay, 4000);
 // 7. 10PM the day before a holiday, then 7AM on the holiday: the carryover is
 //    the holiday's first segment, so 7AM (8h) is the 2nd shift and earns holiday.
 //    The carryover never adds holiday hours to the previous day.
-r = agg({ [PREV]: D({ pm10: 1, holiday: false }), [HOL]: D({ am7: 1, holiday: true }) });
+r = agg({
+  [PREV]: D({ pm10: 1, holiday: false }),
+  [HOL]: D({ am7: 1, holiday: true }),
+});
 assert.strictEqual(r.holidayHours, 8);
 holNear(r.holidayPay, 16000);
 assert.strictEqual(r.dayHolidayHours[PREV], 0);
