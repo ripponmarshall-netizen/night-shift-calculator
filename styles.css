@@ -3,6 +3,7 @@
 
 :root,
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0b0b0c;
   --bg-1: #131316;
   --bg-2: #1a1a1f;
@@ -31,6 +32,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg: #faf9f7;
   --bg-1: #ffffff;
   --bg-2: #f3f1ec;

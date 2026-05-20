@@ -29,6 +29,16 @@ function App() {
 
   const period = useMemo(() => periodFor(fromYmd(periodAnchor)), [periodAnchor]);
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
+  const ratesEffectiveLabel = useMemo(() => {
+    if (!ratesHistory || ratesHistory.length === 0) return "Current rates";
+    const sorted = [...ratesHistory].sort((a, b) => new Date(b.effectiveFrom) - new Date(a.effectiveFrom));
+    for (const e of sorted) {
+      if (new Date(e.effectiveFrom) <= period.start) {
+        return "Rates effective " + new Date(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      }
+    }
+    return "Current rates";
+  }, [ratesHistory, period]);
 
   useEffect(() => {
     saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded });
@@ -151,7 +161,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, snapshots }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -174,6 +184,10 @@ function App() {
         if (obj.counts) setCounts(obj.counts);
         if (obj.basePay) setBasePay(obj.basePay);
         if (obj.rates) setRates(obj.rates);
+        if (obj.tax) setTax(obj.tax);
+        if (obj.ratesHistory) setRatesHistory(obj.ratesHistory);
+        if (obj.templates) setTemplates(obj.templates);
+        if (obj.theme) setTheme(obj.theme);
         if (obj.snapshots) setSnapshots(obj.snapshots);
       } catch (e) { alert("Could not import file."); }
     };
@@ -234,7 +248,7 @@ function App() {
   return (
     <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : "Calculator"}
          style={{ paddingBottom: `calc(120px + var(--safe-bottom))` }}>
-      <Header view={view} mode={mode} onSettings={() => setSettingsOpen(true)} period={period} setPeriodAnchor={setPeriodAnchor} />
+      <Header view={view} mode={mode} onSettings={() => setSettingsOpen(true)} period={period} setPeriodAnchor={setPeriodAnchor} ratesEffective={ratesEffectiveLabel} />
 
       {!onboarded && (
         <RatesOnboardingBanner
@@ -308,14 +322,14 @@ function App() {
 
       {settingsOpen && (
         <SettingsModal
-          rates={rates} setRates={(r) => { setRates(r); setSettingsOpen(false); }}
-          tax={tax} setTax={(t) => { setTax(t); setSettingsOpen(false); }}
+          rates={rates} setRates={setRates}
+          tax={tax} setTax={setTax}
           ratesHistory={ratesHistory} setRatesHistory={setRatesHistory}
           theme={theme} setTheme={setTheme}
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {autofillOpen && <AutofillModal period={period} defaultDist={defaultDist} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
+      {autofillOpen && <AutofillModal period={period} defaultDist={defaultDist} existing={entries} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
       {templatesOpen && (
         <TemplatesModal
           templates={templates}
@@ -341,7 +355,7 @@ function App() {
 }
 
 /* ============ Header ============ */
-function Header({ view, mode, onSettings, period, setPeriodAnchor }) {
+function Header({ view, mode, onSettings, period, setPeriodAnchor, ratesEffective }) {
   const subtitle = view === "history" ? "History" : view === "about" ? "About" : mode === "basic" ? "Quick" : "Detailed";
   return (
     <header style={{
@@ -365,7 +379,7 @@ function Header({ view, mode, onSettings, period, setPeriodAnchor }) {
         <div className="mono" style={{ fontSize: 11, color: "var(--ink-dim)", flex: 1, minWidth: 0 }}>
           Period · <span style={{ color: "var(--ink)" }}>{periodLabel(period)}</span>
         </div>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>Rates effective May 2026</div>
+        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{ratesEffective}</div>
       </div>
     </header>
   );
@@ -545,7 +559,7 @@ function DistCell({ label, color, s, l }) {
 
 /* ============ base pay ============ */
 function BasePayCard({ basePay, setBasePay }) {
-  const setP = (k, v) => setBasePay((p) => ({ ...p, [k]: v.replace(/[^0-9.]/g, "") }));
+  const setP = (k, v) => setBasePay((p) => ({ ...p, [k]: sanitizeDecimal(v) }));
   return (
     <Card>
       <SectionHead title="Base Pay Inputs" subtitle="Drives hourly rate for OT" />

@@ -167,7 +167,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     const key = ymd(d);
     const e = entries[key];
     if (!e) continue;
-    const isHol = e.holiday === null ? isJamaicaHoliday(d) : e.holiday;
+    const isHol = e.holiday == null ? isJamaicaHoliday(d) : e.holiday;
     let h = 0, hHol = 0;
 
     // Holiday pay (×2) applies only to the 2nd+ shift on a holiday day; the
