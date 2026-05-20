@@ -189,6 +189,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--warn) 0%, transparent); }
           50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--warn) 30%, transparent); }
         }
+        @media (prefers-reduced-motion: reduce) {
+          .pulse-day { animation: none; }
+        }
       `}</style>
     </Card>
   );
