@@ -29,7 +29,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
         marginBottom: `calc(96px + var(--safe-bottom))`,
         animation: "slideUp 0.18s ease-out",
       }}>
-        <style>{`@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }`}</style>
+        <style>{`@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @media (prefers-reduced-motion: reduce) { @keyframes slideUp { from, to { transform: none; opacity: 1; } } }`}</style>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit day</div>

@@ -1,4 +1,5 @@
 /* helpers.jsx — date utils, JM holidays (with Easter calc), aggregate, storage */
+/* Pure JS, no JSX — kept Node-loadable so calc.test.js can require() it. */
 
 const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7 };
 const DEFAULT_RATES = {
@@ -169,27 +170,38 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     const isHol = e.holiday === null ? isJamaicaHoliday(d) : e.holiday;
     let h = 0, hHol = 0;
 
+    // Holiday pay (×2) applies only to the 2nd+ shift on a holiday day; the
+    // first shift in time order is regular. Time order on this calendar day:
+    // a 10PM carried over from the previous day (starts 00:00) → 7AM → 3PM → 10PM.
+    const prevEntry = entries[ymd(addDays(d, -1))];
+    const carryoverFromPrev = !!(prevEntry && prevEntry.pm10);
+    let firstSeg;
+    if (carryoverFromPrev) firstSeg = "carryover";
+    else if (e.am7) firstSeg = "am7";
+    else if (e.pm3) firstSeg = "pm3";
+    else if (e.pm10) firstSeg = "pm10_start";
+    else firstSeg = null;
+
     if (e.am7) {
       cal7am++;
       h += SHIFT_HOURS.am7;
-      if (isHol) hHol += SHIFT_HOURS.am7;
+      if (isHol && firstSeg !== "am7") hHol += SHIFT_HOURS.am7;
       if (e.dist?.am7 === "L") longAm7++; else shortAm7++;
     }
     if (e.pm3) {
       calPm3++;
       h += SHIFT_HOURS.pm3;
-      if (isHol) hHol += SHIFT_HOURS.pm3;
+      if (isHol && firstSeg !== "pm3") hHol += SHIFT_HOURS.pm3;
       if (e.dist?.pm3 === "L") longPm3++; else shortPm3++;
     }
     if (e.pm10) {
       calPm10++;
       h += SHIFT_HOURS.pm10_start;
-      if (isHol) hHol += SHIFT_HOURS.pm10_start;
-      const nextDate = addDays(d, 1);
-      const nextEntry = entries[ymd(nextDate)];
-      const nextHol = nextEntry && nextEntry.holiday !== null ? nextEntry.holiday : isJamaicaHoliday(nextDate);
-      h += SHIFT_HOURS.pm10_next; // attributed to this day for total; holiday goes to next day's bucket
-      if (nextHol) hHol += SHIFT_HOURS.pm10_next;
+      if (isHol && firstSeg !== "pm10_start") hHol += SHIFT_HOURS.pm10_start;
+      // The 7h carryover starts at 00:00 on the next day, so it is always that
+      // day's first segment — under the rule it never earns holiday pay. The
+      // hours still count toward totals, attributed to this (start) day.
+      h += SHIFT_HOURS.pm10_next;
       if (e.dist?.pm10 === "L") longPm10++; else shortPm10++;
       if (e.pm3) {
         sameDayPair++;
@@ -419,7 +431,7 @@ function toICS(entries, periodKeyOrAll) {
   return lines.join("\r\n");
 }
 
-Object.assign(window, {
+const _exports = {
   SHIFT_HOURS, DEFAULT_RATES, DEFAULT_TAX, STORAGE,
   pad, ymd, fromYmd, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
@@ -428,4 +440,7 @@ Object.assign(window, {
   blankDay, autofillPattern, aggregate,
   calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
-});
+};
+
+if (typeof window !== "undefined") Object.assign(window, _exports);
+if (typeof module !== "undefined" && module.exports) module.exports = _exports;
