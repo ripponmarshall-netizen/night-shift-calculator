@@ -2,7 +2,7 @@
 const { useState: useStateR, useMemo: useMemoR } = React;
 
 function ReconcileModal({ snapshot, onSave, onClose }) {
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   const t = snapshot.totals;
   const existing = snapshot.reconcile || {};
   const [actual, setActual] = useStateR({
@@ -47,10 +47,10 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 18,
+        borderRadius: 18, padding: 18, outline: "none",
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>

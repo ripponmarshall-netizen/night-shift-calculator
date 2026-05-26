@@ -176,19 +176,21 @@ function App() {
       const f = inp.files?.[0]; if (!f) return;
       try {
         const obj = JSON.parse(await f.text());
+        const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+        if (!isObj(obj)) { alert("Could not import file."); return; }
         if (obj.mode) setMode(obj.mode);
         if (obj.periodAnchor) setPeriodAnchor(obj.periodAnchor);
-        if (obj.entries) setEntries(obj.entries);
+        if (isObj(obj.entries)) setEntries(obj.entries);
         if (obj.basicDistance) setBasicDistance(obj.basicDistance);
         if (obj.defaultDist) setDefaultDist(obj.defaultDist);
-        if (obj.counts) setCounts(obj.counts);
-        if (obj.basePay) setBasePay(obj.basePay);
-        if (obj.rates) setRates(obj.rates);
-        if (obj.tax) setTax(obj.tax);
-        if (obj.ratesHistory) setRatesHistory(obj.ratesHistory);
-        if (obj.templates) setTemplates(obj.templates);
+        if (isObj(obj.counts)) setCounts(obj.counts);
+        if (isObj(obj.basePay)) setBasePay(obj.basePay);
+        if (isObj(obj.rates)) setRates(obj.rates);
+        if (isObj(obj.tax)) setTax(obj.tax);
+        if (Array.isArray(obj.ratesHistory)) setRatesHistory(obj.ratesHistory);
+        if (Array.isArray(obj.templates)) setTemplates(obj.templates);
         if (obj.theme) setTheme(obj.theme);
-        if (obj.snapshots) setSnapshots(obj.snapshots);
+        if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
       } catch (e) { alert("Could not import file."); }
     };
     inp.click();
@@ -530,6 +532,7 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
+        aria-label={`${label} shift count`}
         style={{
           width: "100%",
           background: "var(--bg-1)",
@@ -580,6 +583,7 @@ function MoneyInput({ label, value, onChange }) {
           inputMode="decimal" value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0.00"
+          aria-label={label}
           style={{
             width: "100%", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 10,
             padding: "10px 12px 10px 24px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit"

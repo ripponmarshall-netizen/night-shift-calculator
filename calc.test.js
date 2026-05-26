@@ -154,6 +154,8 @@ const agg = (entries) =>
     HOL_BASEPAY,
     HOL_RATES,
   );
+const agg2 = (entries, rates, basePay) =>
+  aggregate(entries, HOL_PERIOD, "basic", "S", HOL_COUNTS, basePay, rates);
 const holNear = (actual, expected) =>
   assert.ok(Math.abs(actual - expected) < 0.01);
 
@@ -198,5 +200,58 @@ r = agg({
 assert.strictEqual(r.holidayHours, 8);
 holNear(r.holidayPay, 16000);
 assert.strictEqual(r.dayHolidayHours[PREV], 0);
+
+// Input-validation guards: bad rates/tax (via Settings, import, or corrupted
+// storage) must never yield NaN/Infinity or negative pay.
+const GUARD_RATES = {
+  sp1: 66.6,
+  sp2: 200,
+  meal: 950,
+  taxiShort: 950,
+  taxiLong: 2000,
+  threshold: 173.33,
+};
+const oneShift = { [PLAIN]: D({ am7: 1, pm3: 1 }) }; // 15h on a non-holiday day
+
+// threshold = 0 must not divide into Infinity/NaN (was: hourlyRate=Infinity → NaN grand).
+let g = agg2(
+  oneShift,
+  { ...GUARD_RATES, threshold: 0 },
+  { monthly: 173330, compulsory: 0 },
+);
+assert.ok(Number.isFinite(g.hourlyRate), "hourlyRate finite when threshold=0");
+assert.ok(Number.isFinite(g.holidayPay), "holidayPay finite when threshold=0");
+assert.ok(Number.isFinite(g.grand), "grand finite when threshold=0");
+
+// Negative threshold falls back to default; OT is not inflated.
+g = agg2(
+  oneShift,
+  { ...GUARD_RATES, threshold: -100 },
+  { monthly: 173330, compulsory: 0 },
+);
+assert.strictEqual(g.otHours, 0);
+
+// Negative allowance rates clamp to 0 (never a negative allowance).
+g = agg2(
+  oneShift,
+  { ...GUARD_RATES, sp1: -100, meal: -50 },
+  { monthly: 0, compulsory: 0 },
+);
+assert.ok(g.sp1 >= 0 && g.meal >= 0 && g.allowanceSubtotal >= 0);
+
+// Negative base pay is treated as 0.
+g = agg2(oneShift, GUARD_RATES, { monthly: -5000, compulsory: -100 });
+assert.strictEqual(g.monthlyBasic, 0);
+assert.strictEqual(g.compulsory, 0);
+assert.ok(g.hourlyRate >= 0 && g.holidayPay >= 0);
+
+// Tax rate > 100% can't deduct more than gross from that line.
+let tr = calcTax(100000, { ...DEFAULT_TAX, nis: 150 });
+assert.ok(tr.nis <= 100000, "NIS clamped so it can't exceed gross");
+
+// Negative tax rate can't create a refund (negative deduction).
+tr = calcTax(100000, { ...DEFAULT_TAX, nis: -10 });
+assert.ok(tr.nis >= 0, "NIS deduction never negative");
+assert.ok(tr.deductions >= 0, "total deductions never negative");
 
 console.log("calc tests passed");
