@@ -159,6 +159,18 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   let totalHours = 0, holidayHours = 0;
   let sameDayPairLegSum = 0; // sum of actual leg rates for same-day 3PM+10PM pairs (advanced mode)
 
+  // Normalize rates so corrupted storage or imported data can never produce
+  // negative pay or a divide-by-zero. threshold must stay > 0 (it divides).
+  const nn = (v) => Math.max(0, Number(v) || 0);
+  const R = {
+    sp1: nn(rates.sp1),
+    sp2: nn(rates.sp2),
+    meal: nn(rates.meal),
+    taxiShort: nn(rates.taxiShort),
+    taxiLong: nn(rates.taxiLong),
+    threshold: Number(rates.threshold) > 0 ? Number(rates.threshold) : DEFAULT_RATES.threshold,
+  };
+
   const days = periodDays(period);
   const dayHours = {}; // key -> hours for stripe viz
   const dayHolidayHours = {};
@@ -205,8 +217,8 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       if (e.dist?.pm10 === "L") longPm10++; else shortPm10++;
       if (e.pm3) {
         sameDayPair++;
-        const r3  = (e.dist?.pm3  === "L") ? rates.taxiLong : rates.taxiShort;
-        const r10 = (e.dist?.pm10 === "L") ? rates.taxiLong : rates.taxiShort;
+        const r3  = (e.dist?.pm3  === "L") ? R.taxiLong : R.taxiShort;
+        const r10 = (e.dist?.pm10 === "L") ? R.taxiLong : R.taxiShort;
         sameDayPairLegSum += r3 + r10;
       }
     }
@@ -219,22 +231,22 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
 
   const usedPm3 = calPm3, usedPm10 = calPm10;
 
-  const sp1 = usedPm3 * rates.sp1;
-  const sp2 = usedPm10 * rates.sp2;
-  const meal = (usedPm3 + usedPm10) * rates.meal;
+  const sp1 = usedPm3 * R.sp1;
+  const sp2 = usedPm10 * R.sp2;
+  const meal = (usedPm3 + usedPm10) * R.meal;
 
   let taxiGross = 0;
   let taxiDeduct = 0;
   if (mode === "basic") {
-    const rate = basicDistance === "L" ? rates.taxiLong : rates.taxiShort;
+    const rate = basicDistance === "L" ? R.taxiLong : R.taxiShort;
     // Taxi covers 3PM (finishes 10PM) and 10PM (finishes 7AM next morning)
     // shifts only. 7AM shifts are daytime commutes — no taxi allowance.
     taxiGross = (usedPm3 + usedPm10) * rate;
     taxiDeduct = sameDayPair * 2 * rate;
   } else {
     taxiGross =
-      (shortPm3 + shortPm10) * rates.taxiShort +
-      (longPm3 + longPm10) * rates.taxiLong;
+      (shortPm3 + shortPm10) * R.taxiShort +
+      (longPm3 + longPm10) * R.taxiLong;
     // Detailed mode: deduct exactly the two paired legs at their own distances.
     taxiDeduct = sameDayPairLegSum;
   }
@@ -242,13 +254,13 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
 
   const allowanceSubtotal = sp1 + sp2 + meal + taxi;
 
-  const monthlyBasic = Number(basePay.monthly) || 0;
-  const compulsory = Number(basePay.compulsory) || 0;
+  const monthlyBasic = Math.max(0, Number(basePay.monthly) || 0);
+  const compulsory = Math.max(0, Number(basePay.compulsory) || 0);
   const baseSubtotal = monthlyBasic + compulsory;
 
-  const hourlyRate = monthlyBasic > 0 ? monthlyBasic / rates.threshold : 0;
+  const hourlyRate = monthlyBasic > 0 ? monthlyBasic / R.threshold : 0;
   const nonHolidayHours = Math.max(0, totalHours - holidayHours);
-  const otHours = Math.max(0, nonHolidayHours - rates.threshold);
+  const otHours = Math.max(0, nonHolidayHours - R.threshold);
   const holidayPay = holidayHours * hourlyRate * 2;
   const overtimePay = otHours * hourlyRate * 1.5;
   const extraSubtotal = holidayPay + overtimePay;
@@ -301,31 +313,39 @@ function calcTax(grossMonthly, tx) {
     return { net: grossMonthly || 0, deductions: 0, lines: [] };
   }
   const lines = [];
+  // Clamp config so a bad rate can't deduct more than gross, and no deduction
+  // can go negative (which would inflate net pay). Percentages are bounded to
+  // [0, 100]; caps and thresholds to >= 0.
+  const pct = (v) => Math.min(100, Math.max(0, Number(v) || 0));
+  const nonNeg = (v) => Math.max(0, Number(v) || 0);
+  const nisPct = pct(tx.nis), nhtPct = pct(tx.nht), eduPct = pct(tx.eduTax), pensionPct = pct(tx.pension);
+  const rate1 = pct(tx.payeRate1), rate2 = pct(tx.payeRate2);
+  const nisCap = nonNeg(tx.nisCapMonthly), payeThreshold = nonNeg(tx.payeThreshold), payeBreak2 = nonNeg(tx.payeBreak2);
   // NIS — capped
-  const nisBase = Math.min(grossMonthly, tx.nisCapMonthly);
-  const nis = nisBase * (tx.nis / 100);
-  lines.push({ label: "NIS", pct: tx.nis, base: nisBase, value: nis, note: grossMonthly > tx.nisCapMonthly ? "capped" : null });
+  const nisBase = Math.min(grossMonthly, nisCap);
+  const nis = nisBase * (nisPct / 100);
+  lines.push({ label: "NIS", pct: nisPct, base: nisBase, value: nis, note: grossMonthly > nisCap ? "capped" : null });
   // NHT
-  const nht = grossMonthly * (tx.nht / 100);
-  lines.push({ label: "NHT", pct: tx.nht, base: grossMonthly, value: nht });
+  const nht = grossMonthly * (nhtPct / 100);
+  lines.push({ label: "NHT", pct: nhtPct, base: grossMonthly, value: nht });
   // Education tax — on (gross - NIS - pension)
-  const pension = grossMonthly * (tx.pension / 100);
+  const pension = grossMonthly * (pensionPct / 100);
   const eduBase = Math.max(0, grossMonthly - nis - pension);
-  const eduTax = eduBase * (tx.eduTax / 100);
-  lines.push({ label: "Education Tax", pct: tx.eduTax, base: eduBase, value: eduTax });
-  if (pension > 0) lines.push({ label: "Pension", pct: tx.pension, base: grossMonthly, value: pension });
+  const eduTax = eduBase * (eduPct / 100);
+  lines.push({ label: "Education Tax", pct: eduPct, base: eduBase, value: eduTax });
+  if (pension > 0) lines.push({ label: "Pension", pct: pensionPct, base: grossMonthly, value: pension });
   // PAYE — bracket 1 from threshold to break point at rate1, bracket 2 above
   // the break point at rate2. Chargeable income deducts NIS and pension; NHT
   // and Education Tax are not deducted from the PAYE base.
-  const aboveThreshold = Math.max(0, grossMonthly - tx.payeThreshold - nis - pension);
-  const bracket1Width = Math.max(0, tx.payeBreak2 - tx.payeThreshold);
+  const aboveThreshold = Math.max(0, grossMonthly - payeThreshold - nis - pension);
+  const bracket1Width = Math.max(0, payeBreak2 - payeThreshold);
   const inBracket1 = Math.min(aboveThreshold, bracket1Width);
   const inBracket2 = Math.max(0, aboveThreshold - bracket1Width);
-  const paye1 = inBracket1 * (tx.payeRate1 / 100);
-  const paye2 = inBracket2 * (tx.payeRate2 / 100);
+  const paye1 = inBracket1 * (rate1 / 100);
+  const paye2 = inBracket2 * (rate2 / 100);
   const paye = paye1 + paye2;
-  if (paye1 > 0) lines.push({ label: `Income Tax @ ${tx.payeRate1}%`, pct: tx.payeRate1, base: inBracket1, value: paye1 });
-  if (paye2 > 0) lines.push({ label: `Income Tax @ ${tx.payeRate2}%`, pct: tx.payeRate2, base: inBracket2, value: paye2 });
+  if (paye1 > 0) lines.push({ label: `Income Tax @ ${rate1}%`, pct: rate1, base: inBracket1, value: paye1 });
+  if (paye2 > 0) lines.push({ label: `Income Tax @ ${rate2}%`, pct: rate2, base: inBracket2, value: paye2 });
   const deductions = nis + nht + eduTax + pension + paye;
   return { net: grossMonthly - deductions, deductions, lines, nis, nht, eduTax, pension, paye };
 }

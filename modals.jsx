@@ -3,7 +3,7 @@ const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
 function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear }) {
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
@@ -23,12 +23,13 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center",
       padding: "0 12px 12px",
     }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 540,
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 16,
         marginBottom: `calc(96px + var(--safe-bottom))`,
         animation: "slideUp 0.18s ease-out",
+        outline: "none",
       }}>
         <style>{`@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @media (prefers-reduced-motion: reduce) { @keyframes slideUp { from, to { transform: none; opacity: 1; } } }`}</style>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
@@ -118,10 +119,10 @@ function DistRow({ value, onChange }) {
 /* ============ Settings ============ */
 function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onClose }) {
   const [tab, setTab] = useStateM("rates");
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18 }}>
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18, outline: "none" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Settings</div>
@@ -155,26 +156,41 @@ const ratesToDraft = (r) => {
 function RatesTab({ rates, setRates }) {
   const [draft, setDraft] = useStateM(() => ratesToDraft(rates));
   const [saved, setSaved] = useStateM(false);
-  const set = (k, v) => { setSaved(false); setDraft((p) => ({ ...p, [k]: sanitizeDecimal(v) })); };
+  const [errors, setErrors] = useStateM({});
+  const set = (k, v) => {
+    setSaved(false);
+    setErrors((e) => { if (!e[k]) return e; const n = { ...e }; delete n[k]; return n; });
+    setDraft((p) => ({ ...p, [k]: sanitizeDecimal(v) }));
+  };
   const save = () => {
     const num = {};
-    for (const k of Object.keys(draft)) num[k] = Number(draft[k]) || 0;
+    const errs = {};
+    for (const k of Object.keys(draft)) {
+      const v = Number(draft[k]);
+      if (draft[k] === "" || !Number.isFinite(v) || v < 0) errs[k] = "Must be ≥ 0";
+      else num[k] = v;
+    }
+    if (!(Number(draft.threshold) > 0)) errs.threshold = "Must be > 0";
+    if (Object.keys(errs).length) { setErrors(errs); setSaved(false); return; }
+    setErrors({});
     setRates(num);
     setSaved(true);
   };
+  const hasErrors = Object.keys(errors).length > 0;
   return (
     <div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <RateInput label="SP1 (3PM, per shift)" value={draft.sp1} onChange={(v) => set("sp1", v)} />
-        <RateInput label="SP2 (10PM, per shift)" value={draft.sp2} onChange={(v) => set("sp2", v)} />
-        <RateInput label="Meal (per shift)" value={draft.meal} onChange={(v) => set("meal", v)} />
-        <RateInput label="Threshold (hours)" value={draft.threshold} onChange={(v) => set("threshold", v)} />
-        <RateInput label="Taxi — Short" value={draft.taxiShort} onChange={(v) => set("taxiShort", v)} />
-        <RateInput label="Taxi — Long" value={draft.taxiLong} onChange={(v) => set("taxiLong", v)} />
+        <RateInput label="SP1 (3PM, per shift)" value={draft.sp1} onChange={(v) => set("sp1", v)} error={errors.sp1} />
+        <RateInput label="SP2 (10PM, per shift)" value={draft.sp2} onChange={(v) => set("sp2", v)} error={errors.sp2} />
+        <RateInput label="Meal (per shift)" value={draft.meal} onChange={(v) => set("meal", v)} error={errors.meal} />
+        <RateInput label="Threshold (hours)" value={draft.threshold} onChange={(v) => set("threshold", v)} error={errors.threshold} />
+        <RateInput label="Taxi — Short" value={draft.taxiShort} onChange={(v) => set("taxiShort", v)} error={errors.taxiShort} />
+        <RateInput label="Taxi — Long" value={draft.taxiLong} onChange={(v) => set("taxiLong", v)} error={errors.taxiLong} />
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
-        {saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
-        <button onClick={() => { setDraft(ratesToDraft(DEFAULT_RATES)); setSaved(false); }} style={ghostBtn()}>Defaults</button>
+        {hasErrors ? <span className="mono" style={{ fontSize: 11.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
+          : saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        <button onClick={() => { setDraft(ratesToDraft(DEFAULT_RATES)); setSaved(false); setErrors({}); }} style={ghostBtn()}>Defaults</button>
         <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
     </div>
@@ -187,16 +203,33 @@ const taxToDraft = (t) => {
   return out;
 };
 
+const TAX_PCT_KEYS = new Set(["nis", "nht", "eduTax", "payeRate1", "payeRate2", "pension"]);
+
 function TaxTab({ tax, setTax }) {
   const [draft, setDraft] = useStateM(() => taxToDraft(tax));
   const [saved, setSaved] = useStateM(false);
-  const set = (k, v) => { setSaved(false); setDraft((p) => ({ ...p, [k]: typeof v === "boolean" ? v : sanitizeDecimal(v) })); };
+  const [errors, setErrors] = useStateM({});
+  const set = (k, v) => {
+    setSaved(false);
+    setErrors((e) => { if (!e[k]) return e; const n = { ...e }; delete n[k]; return n; });
+    setDraft((p) => ({ ...p, [k]: typeof v === "boolean" ? v : sanitizeDecimal(v) }));
+  };
   const save = () => {
     const out = {};
-    for (const k of Object.keys(draft)) out[k] = typeof draft[k] === "boolean" ? draft[k] : (Number(draft[k]) || 0);
+    const errs = {};
+    for (const k of Object.keys(draft)) {
+      if (typeof draft[k] === "boolean") { out[k] = draft[k]; continue; }
+      const v = Number(draft[k]);
+      if (draft[k] === "" || !Number.isFinite(v) || v < 0) errs[k] = "Must be ≥ 0";
+      else if (TAX_PCT_KEYS.has(k) && v > 100) errs[k] = "0–100%";
+      else out[k] = v;
+    }
+    if (Object.keys(errs).length) { setErrors(errs); setSaved(false); return; }
+    setErrors({});
     setTax(out);
     setSaved(true);
   };
+  const hasErrors = Object.keys(errors).length > 0;
   return (
     <div>
       <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer" }}>
@@ -206,15 +239,15 @@ function TaxTab({ tax, setTax }) {
       {draft.enabled && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-            <RateInput label="NIS %" value={draft.nis} onChange={(v) => set("nis", v)} />
-            <RateInput label="NIS cap (monthly)" value={draft.nisCapMonthly} onChange={(v) => set("nisCapMonthly", v)} />
-            <RateInput label="NHT %" value={draft.nht} onChange={(v) => set("nht", v)} />
-            <RateInput label="Education Tax %" value={draft.eduTax} onChange={(v) => set("eduTax", v)} />
-            <RateInput label="PAYE threshold (monthly)" value={draft.payeThreshold} onChange={(v) => set("payeThreshold", v)} />
-            <RateInput label="PAYE rate (lower) %" value={draft.payeRate1} onChange={(v) => set("payeRate1", v)} />
-            <RateInput label="PAYE break point" value={draft.payeBreak2} onChange={(v) => set("payeBreak2", v)} />
-            <RateInput label="PAYE rate (upper) %" value={draft.payeRate2} onChange={(v) => set("payeRate2", v)} />
-            <RateInput label="Pension % (if any)" value={draft.pension} onChange={(v) => set("pension", v)} />
+            <RateInput label="NIS %" value={draft.nis} onChange={(v) => set("nis", v)} error={errors.nis} />
+            <RateInput label="NIS cap (monthly)" value={draft.nisCapMonthly} onChange={(v) => set("nisCapMonthly", v)} error={errors.nisCapMonthly} />
+            <RateInput label="NHT %" value={draft.nht} onChange={(v) => set("nht", v)} error={errors.nht} />
+            <RateInput label="Education Tax %" value={draft.eduTax} onChange={(v) => set("eduTax", v)} error={errors.eduTax} />
+            <RateInput label="PAYE threshold (monthly)" value={draft.payeThreshold} onChange={(v) => set("payeThreshold", v)} error={errors.payeThreshold} />
+            <RateInput label="PAYE rate (lower) %" value={draft.payeRate1} onChange={(v) => set("payeRate1", v)} error={errors.payeRate1} />
+            <RateInput label="PAYE break point" value={draft.payeBreak2} onChange={(v) => set("payeBreak2", v)} error={errors.payeBreak2} />
+            <RateInput label="PAYE rate (upper) %" value={draft.payeRate2} onChange={(v) => set("payeRate2", v)} error={errors.payeRate2} />
+            <RateInput label="Pension % (if any)" value={draft.pension} onChange={(v) => set("pension", v)} error={errors.pension} />
           </div>
           <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
             Defaults follow Jamaica's 2024/2025 brackets. Verify against your most recent pay slip. Estimates only.
@@ -222,8 +255,9 @@ function TaxTab({ tax, setTax }) {
         </>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
-        {saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
-        <button onClick={() => { setDraft(taxToDraft(DEFAULT_TAX)); setSaved(false); }} style={ghostBtn()}>Defaults</button>
+        {hasErrors ? <span className="mono" style={{ fontSize: 11.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
+          : saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        <button onClick={() => { setDraft(taxToDraft(DEFAULT_TAX)); setSaved(false); setErrors({}); }} style={ghostBtn()}>Defaults</button>
         <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
     </div>
@@ -321,22 +355,25 @@ function ThemeCard({ active, onClick, label, preview }) {
   );
 }
 
-function RateInput({ label, value, onChange }) {
+function RateInput({ label, value, onChange, error }) {
   return (
     <div>
       <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
       <input
         inputMode="decimal" value={value}
         onChange={(e) => onChange(e.target.value)}
-        style={{ width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", color: "var(--ink)", fontSize: 15, outline: "none", fontFamily: "inherit" }}
+        aria-label={label}
+        aria-invalid={error ? "true" : undefined}
+        style={{ width: "100%", background: "var(--bg-2)", border: `1px solid ${error ? "color-mix(in oklab, var(--warn) 55%, var(--line))" : "var(--line)"}`, borderRadius: 10, padding: "9px 12px", color: "var(--ink)", fontSize: 15, outline: "none", fontFamily: "inherit" }}
       />
+      {error && <div className="mono" style={{ fontSize: 10, color: "var(--warn)", marginTop: 4 }}>{error}</div>}
     </div>
   );
 }
 
 /* ============ Autofill ============ */
 function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   const days = periodDays(period);
   const [startKey, setStartKey] = useStateM(ymd(period.start));
   const [pattern, setPattern] = useStateM("rotation");
@@ -355,10 +392,10 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
       position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 18,
+        borderRadius: 18, padding: 18, outline: "none",
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>

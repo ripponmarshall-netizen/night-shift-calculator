@@ -145,16 +145,16 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
 }
 
 function MathPopover({ label, formula, value, onClose }) {
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   return (
     <div onClick={onClose} style={{
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.5)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
         width: "100%", maxWidth: 380,
         background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 14, padding: 18,
+        borderRadius: 14, padding: 18, outline: "none",
       }}>
         <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>How this is calculated</div>
         <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{label}</div>

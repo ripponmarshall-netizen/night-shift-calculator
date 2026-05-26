@@ -88,10 +88,16 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const isHighlighted = highlight && highlight.has(key);
           const isClipboardSource = clipboard && clipboard.srcKey === key;
           const isPasteTarget = !!clipboard && !has;
+          const dateStr = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+          const shiftList = [e?.am7 && "7AM", e?.pm3 && "3PM", e?.pm10 && "10PM"].filter(Boolean);
+          const ariaLabel = has
+            ? `${dateStr} — ${shiftList.join(", ")} shift${shiftList.length > 1 ? "s" : ""}, ${hours} hours${isHol ? ", holiday" : ""}`
+            : `${dateStr}, no shifts${isHol ? ", holiday" : ""}`;
           return (
             <DayButton
               key={key}
               d={d}
+              ariaLabel={ariaLabel}
               hasShifts={has}
               isClipboardActive={!!clipboard}
               onTap={() => {
@@ -203,7 +209,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
   );
 }
 
-function DayButton({ d, onTap, onLongPress, hasShifts, isClipboardActive, children, style, className }) {
+function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive, children, style, className }) {
   const timerRef = React.useRef(null);
   const movedRef = React.useRef(false);
   const triggeredRef = React.useRef(false);
@@ -246,6 +252,7 @@ function DayButton({ d, onTap, onLongPress, hasShifts, isClipboardActive, childr
   return (
     <button
       type="button"
+      aria-label={ariaLabel}
       className={className}
       style={style}
       onPointerDown={start}

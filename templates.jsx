@@ -4,7 +4,7 @@ const { useState: useStateT, useMemo: useMemoT } = React;
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, period, onClose }) {
-  useModalDismiss(onClose);
+  const dialogRef = useModalDismiss(onClose);
   const [mode, setMode] = useStateT("apply"); // apply | save
   const [selected, setSelected] = useStateT(templates[0]?.id || null);
   const [newName, setNewName] = useStateT("");
@@ -32,8 +32,8 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
 
   return (
     <div onClick={onClose} style={modalBackdrop}>
-      <div onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
-        ...modalCard, maxWidth: 520, maxHeight: "88vh", overflow: "auto",
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+        ...modalCard, maxWidth: 520, maxHeight: "88vh", overflow: "auto", outline: "none",
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>

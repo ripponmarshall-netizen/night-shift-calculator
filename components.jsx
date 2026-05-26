@@ -146,20 +146,49 @@ function sanitizeDecimal(v) {
   return s;
 }
 
-/* useModalDismiss — close on Escape and lock background scroll while mounted */
+/* useModalDismiss — close on Escape, lock background scroll, and manage focus.
+   Returns a ref: attach it to the dialog container to enable initial focus and
+   a Tab focus-trap. Focus is always restored to the opener on unmount. */
 function useModalDismiss(onClose) {
   const cbRef = useRefC(onClose);
   cbRef.current = onClose;
+  const dialogRef = useRefC(null);
   useEffectC(() => {
-    const onKey = (e) => { if (e.key === "Escape") cbRef.current?.(); };
+    const prevFocus = document.activeElement;
+    const focusables = () => {
+      const root = dialogRef.current;
+      if (!root) return [];
+      return Array.from(root.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )).filter((el) => el.offsetParent !== null || el === document.activeElement);
+    };
+    if (dialogRef.current) {
+      const f = focusables();
+      (f[0] || dialogRef.current).focus?.();
+    }
+    const onKey = (e) => {
+      if (e.key === "Escape") { cbRef.current?.(); return; }
+      if (e.key === "Tab" && dialogRef.current) {
+        const f = focusables();
+        if (f.length === 0) { e.preventDefault(); return; }
+        const first = f[0], last = f[f.length - 1], active = document.activeElement;
+        if (e.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && (active === last || !dialogRef.current.contains(active))) {
+          e.preventDefault(); first.focus();
+        }
+      }
+    };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      prevFocus?.focus?.();
     };
   }, []);
+  return dialogRef;
 }
 
 Object.assign(window, {
