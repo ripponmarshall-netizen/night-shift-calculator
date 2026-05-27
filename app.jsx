@@ -197,15 +197,9 @@ function App() {
   };
 
   const copySummary = () => {
-    const t = totals;
-    const txt = [
-      `Night Shift — ${periodLabel(period)}`,
-      `SP1 ${fmt(t.sp1)}  SP2 ${fmt(t.sp2)}  Meal ${fmt(t.meal)}  Taxi ${fmt(t.taxi)}`,
-      `Allowance ${fmt(t.allowanceSubtotal)}  Base ${fmt(t.baseSubtotal)}  Extra ${fmt(t.extraSubtotal)}`,
-      `Total ${fmt(t.grand)}`,
-    ].join("\n");
-    navigator.clipboard?.writeText(txt);
-    alert("Copied to clipboard.");
+    const net = calcTax(totals.grand, tax).net;
+    navigator.clipboard?.writeText(summaryText(totals, periodLabel(period), net));
+    showToast("Summary copied");
   };
 
   const applyAutofill = (opts) => {
@@ -352,6 +346,7 @@ function App() {
       )}
 
       <GlobalStyle />
+      <ToastHost />
     </div>
   );
 }

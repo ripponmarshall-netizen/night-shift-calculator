@@ -2,7 +2,7 @@
 const { useState: useStateR, useMemo: useMemoR } = React;
 
 function ReconcileModal({ snapshot, onSave, onClose }) {
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const t = snapshot.totals;
   const existing = snapshot.reconcile || {};
   const [actual, setActual] = useStateR({
@@ -43,11 +43,11 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
   };
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
         width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18, outline: "none",
@@ -58,7 +58,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>vs pay slip</div>
             <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
           </div>
-          <button onClick={onClose} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()}>✕</button>
         </div>
 
         <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
@@ -155,7 +155,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={ghostBtn()}>Cancel</button>
+          <button onClick={close} style={ghostBtn()}>Cancel</button>
           <button onClick={save} style={accentBtn()}>Save reconciliation</button>
         </div>
       </div>

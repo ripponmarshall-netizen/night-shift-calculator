@@ -126,6 +126,43 @@ const fmtShort = (n) => {
 };
 const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/* ----- shareable plain-text summary -----
+   One source of truth for the "Copy summary" text (used by the live view and
+   snapshot detail). Right-aligns values to a fixed column so it reads as a tidy
+   breakdown when pasted. `net` is optional (estimated net after tax). */
+function summaryText(totals, periodStr, net) {
+  const W = 38;
+  const row = (label, value, indent = 0) => {
+    const l = " ".repeat(indent) + label;
+    const v = String(value);
+    return l + " ".repeat(Math.max(1, W - l.length - v.length)) + v;
+  };
+  const lines = [
+    `Night Shift — ${periodStr}`,
+    "",
+    row("ALLOWANCE", fmt(totals.allowanceSubtotal)),
+    row("SP1 · 3PM", fmt(totals.sp1), 2),
+    row("SP2 · 10PM", fmt(totals.sp2), 2),
+    row("Meal", fmt(totals.meal), 2),
+    row("Taxi", fmt(totals.taxi), 2),
+    "",
+    row("BASE PAY", fmt(totals.baseSubtotal)),
+    row("Monthly Basic", fmt(totals.monthlyBasic), 2),
+    row("Compulsory", fmt(totals.compulsory), 2),
+    "",
+    row("EXTRA HOURS", fmt(totals.extraSubtotal)),
+    row(`Holiday ×2 · ${fmtH(totals.holidayHours)}h`, fmt(totals.holidayPay), 2),
+    row(`Overtime ×1.5 · ${fmtH(totals.otHours)}h`, fmt(totals.overtimePay), 2),
+    "",
+    row("TOTAL (est. gross)", fmt(totals.grand)),
+  ];
+  if (net != null && Number.isFinite(net) && Math.round(net) !== Math.round(totals.grand)) {
+    lines.push(row("Est. net", fmt(net)));
+  }
+  lines.push("", "— Night Shift Calculator");
+  return lines.join("\n");
+}
+
 /* ----- entries ----- */
 function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
 
@@ -456,7 +493,7 @@ const _exports = {
   pad, ymd, fromYmd, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
-  fmt, fmtShort, fmtH,
+  fmt, fmtShort, fmtH, summaryText,
   blankDay, autofillPattern, aggregate,
   calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,

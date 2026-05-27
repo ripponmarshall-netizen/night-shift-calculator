@@ -115,6 +115,15 @@ function accentBtn() {
   };
 }
 
+/* prefersReducedMotion — respect the OS "reduce motion" accessibility setting */
+function prefersReducedMotion() {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
+}
+
 /* AnimatedNumber — smooth count to target */
 function AnimatedNumber({ value, format, durationMs = 350 }) {
   const [display, setDisplay] = useStateC(value);
@@ -122,6 +131,7 @@ function AnimatedNumber({ value, format, durationMs = 350 }) {
   const startRef = useRefC(null);
   const rafRef = useRefC(null);
   useEffectC(() => {
+    if (prefersReducedMotion()) { setDisplay(value); return; }
     fromRef.current = display;
     startRef.current = performance.now();
     const to = value;
@@ -138,6 +148,58 @@ function AnimatedNumber({ value, format, durationMs = 350 }) {
   return <span className="mono">{format(display)}</span>;
 }
 
+/* Collapse — animate height open/closed via grid-template-rows (no measuring) */
+function Collapse({ open, children }) {
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateRows: open ? "1fr" : "0fr",
+      transition: "grid-template-rows 0.22s ease",
+    }}>
+      <div style={{ overflow: "hidden", minHeight: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+/* Toast — decoupled: any module calls showToast(); ToastHost (mounted once)
+   renders an animated, auto-dismissing toast above the taskbar. */
+function showToast(message) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("nsc-toast", { detail: message }));
+  }
+}
+function ToastHost() {
+  const [toast, setToast] = useStateC(null);
+  const timerRef = useRefC(null);
+  useEffectC(() => {
+    const onToast = (e) => {
+      setToast({ id: Date.now(), message: String(e.detail || "") });
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setToast(null), 2200);
+    };
+    window.addEventListener("nsc-toast", onToast);
+    return () => {
+      window.removeEventListener("nsc-toast", onToast);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+  if (!toast) return null;
+  return (
+    <div aria-live="polite" style={{
+      position: "fixed", left: 0, right: 0, bottom: "calc(120px + var(--safe-bottom))",
+      display: "flex", justifyContent: "center", zIndex: 90, pointerEvents: "none", padding: "0 16px",
+    }}>
+      <div key={toast.id} className="nsc-toast mono" style={{
+        background: "var(--surface-translucent)",
+        backdropFilter: "blur(24px) saturate(140%)", WebkitBackdropFilter: "blur(24px) saturate(140%)",
+        border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
+        color: "var(--ink)", borderRadius: 999, padding: "10px 16px", fontSize: 12.5,
+        boxShadow: "0 12px 32px -16px rgba(0,0,0,0.7)", maxWidth: 420,
+      }}>{toast.message}</div>
+    </div>
+  );
+}
+
 /* sanitizeDecimal — keep digits and a single decimal point */
 function sanitizeDecimal(v) {
   let s = String(v).replace(/[^0-9.]/g, "");
@@ -146,13 +208,31 @@ function sanitizeDecimal(v) {
   return s;
 }
 
-/* useModalDismiss — close on Escape, lock background scroll, and manage focus.
-   Returns a ref: attach it to the dialog container to enable initial focus and
-   a Tab focus-trap. Focus is always restored to the opener on unmount. */
+/* useModalDismiss — close on Escape, lock background scroll, manage focus, and
+   drive an exit animation. Returns { ref, closing, close }:
+   - attach `ref` to the dialog container for initial focus + Tab focus-trap
+   - call `close()` from the backdrop/close buttons; it plays the exit animation
+     (toggling `closing`) and then unmounts via onClose after MODAL_EXIT_MS
+     (immediately when reduced-motion is on)
+   Focus is always restored to the opener on unmount. */
+const MODAL_EXIT_MS = 180;
 function useModalDismiss(onClose) {
   const cbRef = useRefC(onClose);
   cbRef.current = onClose;
   const dialogRef = useRefC(null);
+  const [closing, setClosing] = useStateC(false);
+  const closingRef = useRefC(false);
+
+  const close = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    if (prefersReducedMotion()) { cbRef.current?.(); return; }
+    setClosing(true);
+    setTimeout(() => cbRef.current?.(), MODAL_EXIT_MS);
+  };
+  const closeRef = useRefC(close);
+  closeRef.current = close;
+
   useEffectC(() => {
     const prevFocus = document.activeElement;
     const focusables = () => {
@@ -167,7 +247,7 @@ function useModalDismiss(onClose) {
       (f[0] || dialogRef.current).focus?.();
     }
     const onKey = (e) => {
-      if (e.key === "Escape") { cbRef.current?.(); return; }
+      if (e.key === "Escape") { closeRef.current?.(); return; }
       if (e.key === "Tab" && dialogRef.current) {
         const f = focusables();
         if (f.length === 0) { e.preventDefault(); return; }
@@ -188,11 +268,12 @@ function useModalDismiss(onClose) {
       prevFocus?.focus?.();
     };
   }, []);
-  return dialogRef;
+  return { ref: dialogRef, closing, close };
 }
 
 Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
+  prefersReducedMotion, Collapse, showToast, ToastHost,
 });

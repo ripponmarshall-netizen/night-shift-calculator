@@ -97,3 +97,105 @@ button {
 #root {
   min-height: 100vh;
 }
+
+/* ----- shared motion: modal enter/exit, backdrop fade, toast ----- */
+@keyframes nscFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes nscFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes nscSheetIn {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes nscSheetOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+@keyframes nscCenterIn {
+  from {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes nscCenterOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+@keyframes nscToastIn {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.nsc-backdrop {
+  animation: nscFadeIn 0.18s ease-out;
+}
+.nsc-backdrop.is-closing {
+  animation: nscFadeOut 0.18s ease-in forwards;
+}
+.nsc-modal.nsc-sheet {
+  animation: nscSheetIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.nsc-modal.nsc-sheet.is-closing {
+  animation: nscSheetOut 0.18s ease-in forwards;
+}
+.nsc-modal.nsc-center {
+  animation: nscCenterIn 0.18s ease-out;
+}
+.nsc-modal.nsc-center.is-closing {
+  animation: nscCenterOut 0.16s ease-in forwards;
+}
+.nsc-toast {
+  animation: nscToastIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Respect the OS "reduce motion" setting across the whole app. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
