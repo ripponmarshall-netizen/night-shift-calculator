@@ -212,17 +212,20 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
 function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive, children, style, className }) {
   const timerRef = React.useRef(null);
   const movedRef = React.useRef(false);
-  const triggeredRef = React.useRef(false);
+  const longPressedRef = React.useRef(false);
   const startPosRef = React.useRef(null);
 
+  const clearTimer = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  };
   const start = (e) => {
     movedRef.current = false;
-    triggeredRef.current = false;
+    longPressedRef.current = false;
     startPosRef.current = { x: e.clientX, y: e.clientY };
     if (hasShifts && !isClipboardActive) {
       timerRef.current = setTimeout(() => {
         if (!movedRef.current) {
-          triggeredRef.current = true;
+          longPressedRef.current = true;
           if (navigator.vibrate) navigator.vibrate(20);
           onLongPress?.();
         }
@@ -235,18 +238,18 @@ function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardAct
     const dy = Math.abs(e.clientY - startPosRef.current.y);
     if (dx > 8 || dy > 8) {
       movedRef.current = true;
-      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      clearTimer();
     }
   };
-  const end = () => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
-    if (!triggeredRef.current && !movedRef.current) {
-      onTap?.();
-    }
-    triggeredRef.current = false;
-  };
-  const cancel = () => {
-    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  // Tap is handled on `click` so the cell is operable by mouse, touch, keyboard
+  // (Enter/Space on the native button) and assistive tech alike. Pointer
+  // handlers only detect a long-press (copy) and drag/scroll, then swallow the
+  // trailing pointer-driven click so those gestures don't also open the editor.
+  const onClick = () => {
+    clearTimer();
+    if (longPressedRef.current) { longPressedRef.current = false; return; }
+    if (movedRef.current) { movedRef.current = false; return; }
+    onTap?.();
   };
 
   return (
@@ -257,9 +260,9 @@ function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardAct
       style={style}
       onPointerDown={start}
       onPointerMove={move}
-      onPointerUp={end}
-      onPointerCancel={cancel}
-      onPointerLeave={cancel}
+      onPointerCancel={clearTimer}
+      onPointerLeave={clearTimer}
+      onClick={onClick}
     >
       {children}
     </button>
