@@ -28,11 +28,13 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
             <AnimatedNumber value={est} format={fmt} />
           </div>
-          <button onClick={() => setShowNet((v) => !v)} style={{
-            background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12, padding: 0, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit",
-          }}>
-            {showNet ? "Hide net" : `Show est. net (${fmt(net)})`}
-          </button>
+          {tax?.enabled && (
+            <button onClick={() => setShowNet((v) => !v)} style={{
+              background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12, padding: 0, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit",
+            }}>
+              {showNet ? "Hide net" : `Show est. net (${fmt(net)})`}
+            </button>
+          )}
         </div>
         <div className="mono" style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
           <span>Allow {fmtShort(totals.allowanceSubtotal)}</span>
