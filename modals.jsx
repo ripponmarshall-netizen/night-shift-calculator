@@ -3,7 +3,7 @@ const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
 function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear }) {
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
@@ -18,20 +18,18 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
   const setDist = (k, v) => onChange((e) => ({ ...e, dist: { ...e.dist, [k]: v } }));
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
       position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center",
       padding: "0 12px 12px",
     }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-sheet" + (closing ? " is-closing" : "")} style={{
         width: "100%", maxWidth: 540,
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 16,
         marginBottom: `calc(96px + var(--safe-bottom))`,
-        animation: "slideUp 0.18s ease-out",
         outline: "none",
       }}>
-        <style>{`@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } } @media (prefers-reduced-motion: reduce) { @keyframes slideUp { from, to { transform: none; opacity: 1; } } }`}</style>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit day</div>
@@ -40,7 +38,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
             </div>
             {autoHolName && <div className="mono" style={{ fontSize: 11, color: "var(--holiday)", marginTop: 2 }}>● {autoHolName}</div>}
           </div>
-          <button onClick={onClose} style={iconBtn()} aria-label="Close">✕</button>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
         <DayToggle label="7AM shift" hours="8h" color="var(--am)" active={entry.am7} onClick={() => toggle("am7")} />
@@ -73,7 +71,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
           <button onClick={onClear} style={ghostBtn()}>Clear day</button>
           <div style={{ flex: 1 }} />
-          <button onClick={onClose} style={primaryBtn()}>Done</button>
+          <button onClick={close} style={primaryBtn()}>Done</button>
         </div>
       </div>
     </div>
@@ -119,16 +117,16 @@ function DistRow({ value, onChange }) {
 /* ============ Settings ============ */
 function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onClose }) {
   const [tab, setTab] = useStateM("rates");
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18, outline: "none" }}>
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18, outline: "none" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Settings</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Configuration</div>
           </div>
-          <button onClick={onClose} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()}>✕</button>
         </div>
         <div style={{ marginBottom: 14 }}>
           <SegToggle options={[
@@ -373,7 +371,7 @@ function RateInput({ label, value, onChange, error }) {
 
 /* ============ Autofill ============ */
 function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const days = periodDays(period);
   const [startKey, setStartKey] = useStateM(ymd(period.start));
   const [pattern, setPattern] = useStateM("rotation");
@@ -388,11 +386,11 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
   ).length;
 
   return (
-    <div onClick={onClose} style={{
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
       position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
     }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
         width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18, outline: "none",
@@ -402,7 +400,7 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Auto-fill</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Pattern</div>
           </div>
-          <button onClick={onClose} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()}>✕</button>
         </div>
 
         <FieldLabel>Pattern</FieldLabel>
@@ -445,7 +443,7 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={ghostBtn()}>Cancel</button>
+          <button onClick={close} style={ghostBtn()}>Cancel</button>
           <button onClick={() => onApply({ startKey, pattern, days: span, defaultDist: dist, preserve })} style={accentBtn()}>
             Apply
           </button>

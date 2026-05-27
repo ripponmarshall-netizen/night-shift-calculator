@@ -4,7 +4,7 @@ const { useState: useStateT, useMemo: useMemoT } = React;
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, period, onClose }) {
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const [mode, setMode] = useStateT("apply"); // apply | save
   const [selected, setSelected] = useStateT(templates[0]?.id || null);
   const [newName, setNewName] = useStateT("");
@@ -31,8 +31,8 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
   };
 
   return (
-    <div onClick={onClose} style={modalBackdrop}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={modalBackdrop}>
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
         ...modalCard, maxWidth: 520, maxHeight: "88vh", overflow: "auto", outline: "none",
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
@@ -40,7 +40,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Templates</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Weekly patterns</div>
           </div>
-          <button onClick={onClose} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()}>✕</button>
         </div>
 
         <div style={{ marginBottom: 14 }}>
@@ -78,7 +78,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
                       <span style={{ fontSize: 13.5 }}>Preserve days that already have shifts</span>
                     </label>
                     <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-                      <button onClick={onClose} style={ghostBtn()}>Cancel</button>
+                      <button onClick={close} style={ghostBtn()}>Cancel</button>
                       <button onClick={() => { onApply(selectedTpl, { preserve }); onClose(); }} style={accentBtn()}>
                         Apply to this period
                       </button>
@@ -104,7 +104,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
               }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
-              <button onClick={onClose} style={ghostBtn()}>Cancel</button>
+              <button onClick={close} style={ghostBtn()}>Cancel</button>
               <button onClick={saveCurrent} style={accentBtn()}>Save template</button>
             </div>
           </>

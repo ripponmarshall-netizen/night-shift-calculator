@@ -1,5 +1,10 @@
 const assert = require("assert");
-const { aggregate, calcTax, DEFAULT_TAX } = require("./helpers.jsx");
+const {
+  aggregate,
+  calcTax,
+  DEFAULT_TAX,
+  summaryText,
+} = require("./helpers.jsx");
 
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -253,5 +258,18 @@ assert.ok(tr.nis <= 100000, "NIS clamped so it can't exceed gross");
 tr = calcTax(100000, { ...DEFAULT_TAX, nis: -10 });
 assert.ok(tr.nis >= 0, "NIS deduction never negative");
 assert.ok(tr.deductions >= 0, "total deductions never negative");
+
+// summaryText: tidy breakdown with a Total line; Est. net only when provided;
+// never emits NaN/undefined.
+const stTotals = agg2(oneShift, GUARD_RATES, {
+  monthly: 173330,
+  compulsory: 0,
+});
+const stWithNet = summaryText(stTotals, "May 16 – Jun 15, 2026", 150000);
+assert.ok(stWithNet.includes("TOTAL (est. gross)"));
+assert.ok(stWithNet.includes("Est. net"));
+assert.ok(!/NaN|undefined/.test(stWithNet));
+const stNoNet = summaryText(stTotals, "May 16 – Jun 15, 2026");
+assert.ok(!stNoNet.includes("Est. net"));
 
 console.log("calc tests passed");

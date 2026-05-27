@@ -155,34 +155,29 @@ function EmptyState({ onBack }) {
 }
 
 function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
-  const dialogRef = useModalDismiss(onClose);
+  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const t = snap.totals;
   const copy = () => {
-    const txt = [
-      `Night Shift — ${snap.period}`,
-      `SP1 ${fmt(t.sp1)}  SP2 ${fmt(t.sp2)}  Meal ${fmt(t.meal)}  Taxi ${fmt(t.taxi)}`,
-      `Allowance ${fmt(t.allowanceSubtotal)}  Base ${fmt(t.baseSubtotal)}  Extra ${fmt(t.extraSubtotal)}`,
-      `Total ${fmt(t.grand)}`,
-    ].join("\n");
-    navigator.clipboard?.writeText(txt);
-    alert("Copied to clipboard.");
+    const net = calcTax(snap.totals.grand, snap.tax).net;
+    navigator.clipboard?.writeText(summaryText(snap.totals, snap.period, net));
+    showToast("Summary copied");
   };
-  const downloadPng = () => downloadSnapshotImage(snap, theme);
+  const downloadPng = () => { downloadSnapshotImage(snap, theme); showToast("Image downloaded"); };
   const copyPng = async () => {
     try {
       await copySnapshotImage(snap, theme);
-      alert("Image copied to clipboard.");
+      showToast("Image copied");
     } catch {
-      alert("Couldn't copy image — try Download instead.");
+      showToast("Couldn't copy image — try Download");
     }
   };
   const recon = snap.reconcile;
   return (
-    <div onClick={onClose} style={{
+    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 12px 12px",
     }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" style={{
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-sheet" + (closing ? " is-closing" : "")} style={{
         width: "100%", maxWidth: 540, maxHeight: "82vh", overflow: "auto",
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18,
@@ -195,7 +190,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>{snap.period}</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Captured {new Date(snap.at).toLocaleString()}</div>
           </div>
-          <button onClick={onClose} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()}>✕</button>
         </div>
 
         <Row label="Allowance" muted />
