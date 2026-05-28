@@ -3,7 +3,11 @@ const { useMemo: useMemoYtd } = React;
 
 function YTDDashboard({ snapshots }) {
   const year = new Date().getFullYear();
-  const thisYear = snapshots.filter((s) => new Date(s.at).getFullYear() === year);
+  // Attribute each snapshot to its pay period's year (consistent with the
+  // monthly buckets below), falling back to capture date for legacy snapshots
+  // saved before periodKey existed.
+  const periodYear = (s) => (s.periodKey ? fromYmd(s.periodKey).getFullYear() : new Date(s.at).getFullYear());
+  const thisYear = snapshots.filter((s) => periodYear(s) === year);
 
   const stats = useMemoYtd(() => {
     const total = thisYear.reduce((a, s) => a + s.totals.grand, 0);
