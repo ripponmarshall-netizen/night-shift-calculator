@@ -246,7 +246,7 @@ assert.strictEqual(r.totalHours, 7);
 // pm10 partial on a holiday (am7 + pm10, am7 is first/regular): pm10 total 6h,
 // ratio 6/9, pre-midnight leg = 2*6/9 = 1.333h earns holiday pay.
 r = agg({ [HOL]: D({ am7: 1, pm10: 1, holiday: true, hours: { pm10: 6 } }) });
-holNear(r.holidayHours, 2 * 6 / 9);
+holNear(r.holidayHours, (2 * 6) / 9);
 assert.strictEqual(r.totalHours, 8 + 6);
 assert.strictEqual(r.cal.pm10, 1); // 6 > 4.5 => full allowance credit
 
