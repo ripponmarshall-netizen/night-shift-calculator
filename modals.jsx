@@ -12,10 +12,22 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
     const next = { ...e, [k]: !e[k], dist: { ...e.dist } };
     // first-time turning on: apply default distance for advanced
     if (!e[k] && mode === "advanced") next.dist[k] = defaultDist || "S";
+    // turning off: drop any stale hours override so it can't silently re-apply
+    if (e[k] && e.hours && e.hours[k] != null) {
+      const hours = { ...e.hours };
+      delete hours[k];
+      next.hours = Object.keys(hours).length ? hours : undefined;
+    }
     return next;
   });
   const setHoliday = (v) => onChange((e) => ({ ...e, holiday: v }));
   const setDist = (k, v) => onChange((e) => ({ ...e, dist: { ...e.dist, [k]: v } }));
+  const setHours = (k, raw) => onChange((e) => {
+    const v = sanitizeDecimal(raw);
+    const hours = { ...(e.hours || {}) };
+    if (v === "") delete hours[k]; else hours[k] = v;
+    return { ...e, hours: Object.keys(hours).length ? hours : undefined };
+  });
 
   return (
     <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
@@ -42,10 +54,13 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
         </div>
 
         <DayToggle label="7AM shift" hours="8h" color="var(--am)" active={entry.am7} onClick={() => toggle("am7")} />
+        {entry.am7 && <HoursRow keyName="am7" entry={entry} onChange={setHours} />}
         {mode === "advanced" && entry.am7 && <DistRow value={entry.dist.am7} onChange={(v) => setDist("am7", v)} />}
         <DayToggle label="3PM shift" hours="7h" color="var(--sp1)" active={entry.pm3} onClick={() => toggle("pm3")} />
+        {entry.pm3 && <HoursRow keyName="pm3" entry={entry} onChange={setHours} />}
         {mode === "advanced" && entry.pm3 && <DistRow value={entry.dist.pm3} onChange={(v) => setDist("pm3", v)} />}
         <DayToggle label="10PM shift" hours="9h · crosses midnight" color="var(--sp2)" active={entry.pm10} onClick={() => toggle("pm10")} />
+        {entry.pm10 && <HoursRow keyName="pm10" entry={entry} onChange={setHours} hint="total · crosses midnight" />}
         {mode === "advanced" && entry.pm10 && <DistRow value={entry.dist.pm10} onChange={(v) => setDist("pm10", v)} />}
 
         <div style={{ height: 1, background: "var(--line-soft)", margin: "12px 0" }} />
@@ -110,6 +125,28 @@ function DistRow({ value, onChange }) {
   return (
     <div style={{ display: "flex", justifyContent: "flex-end", margin: "-4px 0 8px 38px" }}>
       <SegToggle small options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+// Editable actual hours for a shift. Blank = standard hours (shown as placeholder).
+// A partial shift's hours count toward total/overtime; only > half a shift earns
+// the per-shift allowance.
+function HoursRow({ keyName, entry, onChange, hint }) {
+  const std = stdHours(keyName);
+  const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, margin: "-4px 0 8px 38px" }}>
+      <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>
+        Hours worked{hint ? ` · ${hint}` : ""}
+      </span>
+      <input
+        inputMode="decimal" value={raw} placeholder={String(std)}
+        onChange={(e) => onChange(keyName, e.target.value)}
+        aria-label={`Hours worked for ${keyName}`}
+        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 14, outline: "none", fontFamily: "inherit", textAlign: "right" }}
+      />
+      <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
     </div>
   );
 }
