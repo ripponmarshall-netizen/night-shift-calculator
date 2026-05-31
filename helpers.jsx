@@ -2,6 +2,17 @@
 /* Pure JS, no JSX — kept Node-loadable so calc.test.js can require() it. */
 
 const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7 };
+const PM10_TOTAL = SHIFT_HOURS.pm10_start + SHIFT_HOURS.pm10_next; // 9h, crosses midnight
+/* Standard hours for a shift key (pm10 is the total across midnight). */
+function stdHours(key) { return key === "pm10" ? PM10_TOTAL : SHIFT_HOURS[key]; }
+/* Effective hours actually worked for a shift. An entry may carry an optional
+   sparse override: hours: { am7?, pm3?, pm10? } (string or number). Absent,
+   blank, or invalid => the standard hours, so old entries stay backward
+   compatible. pm10 override is the TOTAL across midnight (default 9). */
+function effHours(e, key) {
+  const v = e && e.hours && e.hours[key];
+  return (v == null || v === "" || !(Number(v) >= 0)) ? stdHours(key) : Number(v);
+}
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
   sp2: 200,         // 8 hrs × $25/hr per 10PM shift
@@ -164,6 +175,8 @@ function summaryText(totals, periodStr, net) {
 }
 
 /* ----- entries ----- */
+// optional hours: { am7?, pm3?, pm10? } — actual hours worked (string/number).
+// Absent/blank/invalid => SHIFT_HOURS default. pm10 = TOTAL across midnight (9).
 function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
 
 /* ----- autofill rotation -----
@@ -231,28 +244,42 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     else if (e.pm10) firstSeg = "pm10_start";
     else firstSeg = null;
 
+    // Allowance credit (SP1/SP2/meal/taxi): a shift counts as a FULL shift only
+    // when more than half its standard hours were worked. Half or less earns no
+    // allowance, but the actual hours below still count toward totals/overtime.
+    const credit = {
+      am7:  e.am7  && effHours(e, "am7")  > stdHours("am7")  / 2,
+      pm3:  e.pm3  && effHours(e, "pm3")  > stdHours("pm3")  / 2,
+      pm10: e.pm10 && effHours(e, "pm10") > stdHours("pm10") / 2,
+    };
+
     if (e.am7) {
-      cal7am++;
-      h += SHIFT_HOURS.am7;
-      if (isHol && firstSeg !== "am7") hHol += SHIFT_HOURS.am7;
-      if (e.dist?.am7 === "L") longAm7++; else shortAm7++;
+      if (credit.am7) cal7am++;
+      const ha = effHours(e, "am7");
+      h += ha;
+      if (isHol && firstSeg !== "am7") hHol += ha;
+      if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (e.pm3) {
-      calPm3++;
-      h += SHIFT_HOURS.pm3;
-      if (isHol && firstSeg !== "pm3") hHol += SHIFT_HOURS.pm3;
-      if (e.dist?.pm3 === "L") longPm3++; else shortPm3++;
+      if (credit.pm3) calPm3++;
+      const hp3 = effHours(e, "pm3");
+      h += hp3;
+      if (isHol && firstSeg !== "pm3") hHol += hp3;
+      if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
     if (e.pm10) {
-      calPm10++;
-      h += SHIFT_HOURS.pm10_start;
-      if (isHol && firstSeg !== "pm10_start") hHol += SHIFT_HOURS.pm10_start;
-      // The 7h carryover starts at 00:00 on the next day, so it is always that
-      // day's first segment — under the rule it never earns holiday pay. The
-      // hours still count toward totals, attributed to this (start) day.
-      h += SHIFT_HOURS.pm10_next;
-      if (e.dist?.pm10 === "L") longPm10++; else shortPm10++;
-      if (e.pm3) {
+      if (credit.pm10) calPm10++;
+      // Single editable total; split the pre-midnight vs carryover legs
+      // proportionally so the holiday rule scales (default 9 → 2h pre-midnight).
+      const tot = effHours(e, "pm10");
+      const ratio = PM10_TOTAL > 0 ? tot / PM10_TOTAL : 0;
+      const startSeg = SHIFT_HOURS.pm10_start * ratio;
+      h += tot;
+      // The carryover leg starts at 00:00 next day, so it is always that day's
+      // first segment and never earns holiday pay; only the pre-midnight leg can.
+      if (isHol && firstSeg !== "pm10_start") hHol += startSeg;
+      if (credit.pm10) { if (e.dist?.pm10 === "L") longPm10++; else shortPm10++; }
+      if (credit.pm10 && credit.pm3) {
         sameDayPair++;
         const r3  = (e.dist?.pm3  === "L") ? R.taxiLong : R.taxiShort;
         const r10 = (e.dist?.pm10 === "L") ? R.taxiLong : R.taxiShort;
@@ -489,7 +516,7 @@ function toICS(entries, periodKeyOrAll) {
 }
 
 const _exports = {
-  SHIFT_HOURS, DEFAULT_RATES, DEFAULT_TAX, STORAGE,
+  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE,
   pad, ymd, fromYmd, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,

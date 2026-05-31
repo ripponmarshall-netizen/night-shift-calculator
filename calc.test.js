@@ -145,6 +145,7 @@ const D = (opts = {}) => ({
   pm10: !!opts.pm10,
   holiday: opts.holiday ?? null,
   dist: { am7: "S", pm3: "S", pm10: "S" },
+  ...(opts.hours ? { hours: opts.hours } : {}),
 });
 const HOL = "2026-05-23"; // Labour Day (JM)
 const PREV = "2026-05-22";
@@ -205,6 +206,54 @@ r = agg({
 assert.strictEqual(r.holidayHours, 8);
 holNear(r.holidayPay, 16000);
 assert.strictEqual(r.dayHolidayHours[PREV], 0);
+
+// Partial-hours rule: actual hours always count toward total/overtime/holiday
+// hours, but a shift earns its full per-shift allowance only when MORE THAN half
+// its standard hours were worked (half or less => no allowance credit).
+
+// Backward compat: an entry with no hours override uses the standard hours.
+r = agg({ [PLAIN]: D({ am7: 1 }) });
+assert.strictEqual(r.totalHours, 8);
+assert.strictEqual(r.cal.am7, 1);
+
+// Worked more than half (6h of 8h): full allowance credit, actual hours total.
+r = agg({ [PLAIN]: D({ am7: 1, hours: { am7: 6 } }) });
+assert.strictEqual(r.totalHours, 6);
+assert.strictEqual(r.cal.am7, 1);
+
+// Worked exactly half (4h of 8h) or less: hours count, but no allowance credit.
+r = agg({ [PLAIN]: D({ am7: 1, hours: { am7: 4 } }) });
+assert.strictEqual(r.totalHours, 4);
+assert.strictEqual(r.cal.am7, 0);
+r = agg({ [PLAIN]: D({ am7: 1, hours: { am7: 3 } }) });
+assert.strictEqual(r.totalHours, 3);
+assert.strictEqual(r.cal.am7, 0);
+
+// A half-or-less pm3 shift earns no SP1/meal; a >half one does.
+let rNone = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: 3 } }) }); // 3 <= 3.5
+let rFull = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: 4 } }) }); // 4 > 3.5
+assert.strictEqual(rNone.cal.pm3, 0);
+holNear(rNone.sp1, 0);
+assert.strictEqual(rFull.cal.pm3, 1);
+holNear(rFull.sp1, HOL_RATES.sp1);
+
+// Invalid/blank override falls back to the standard hours.
+r = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: "" } }) });
+assert.strictEqual(r.totalHours, 7);
+r = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: "abc" } }) });
+assert.strictEqual(r.totalHours, 7);
+
+// pm10 partial on a holiday (am7 + pm10, am7 is first/regular): pm10 total 6h,
+// ratio 6/9, pre-midnight leg = 2*6/9 = 1.333h earns holiday pay.
+r = agg({ [HOL]: D({ am7: 1, pm10: 1, holiday: true, hours: { pm10: 6 } }) });
+holNear(r.holidayHours, 2 * 6 / 9);
+assert.strictEqual(r.totalHours, 8 + 6);
+assert.strictEqual(r.cal.pm10, 1); // 6 > 4.5 => full allowance credit
+
+// pm10 worked half or less (4h <= 4.5) earns no allowance credit.
+r = agg({ [PLAIN]: D({ pm10: 1, hours: { pm10: 4 } }) });
+assert.strictEqual(r.cal.pm10, 0);
+assert.strictEqual(r.totalHours, 4);
 
 // Input-validation guards: bad rates/tax (via Settings, import, or corrupted
 // storage) must never yield NaN/Infinity or negative pay.

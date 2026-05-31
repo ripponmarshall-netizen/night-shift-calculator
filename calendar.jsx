@@ -141,9 +141,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
               </div>
 
               <div style={{ display: "flex", gap: 2, alignItems: "flex-end", flex: 1, marginTop: 4 }}>
-                {e?.am7 && <ShiftBand color="var(--am)" hours={SHIFT_HOURS.am7} dist={e.dist?.am7} mode={mode} />}
-                {e?.pm3 && <ShiftBand color="var(--sp1)" hours={SHIFT_HOURS.pm3} dist={e.dist?.pm3} mode={mode} />}
-                {e?.pm10 && <ShiftBand color="var(--sp2)" hours={SHIFT_HOURS.pm10_start + SHIFT_HOURS.pm10_next} dist={e.dist?.pm10} mode={mode} />}
+                {e?.am7 && <ShiftBand color="var(--am)" hours={effHours(e, "am7")} dist={e.dist?.am7} mode={mode} />}
+                {e?.pm3 && <ShiftBand color="var(--sp1)" hours={effHours(e, "pm3")} dist={e.dist?.pm3} mode={mode} />}
+                {e?.pm10 && <ShiftBand color="var(--sp2)" hours={effHours(e, "pm10")} dist={e.dist?.pm10} mode={mode} />}
               </div>
 
               {has && (
