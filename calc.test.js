@@ -327,7 +327,14 @@ assert.ok(!stNoNet.includes("Est. net"));
 // ratesAt: effective-from dates are parsed as LOCAL midnight (like period.start),
 // so a rate effective on the same date a period starts must apply on that date —
 // regardless of the host machine's timezone.
-const currentRates = { sp1: 1, sp2: 1, meal: 1, taxiShort: 1, taxiLong: 1, threshold: 173.33 };
+const currentRates = {
+  sp1: 1,
+  sp2: 1,
+  meal: 1,
+  taxiShort: 1,
+  taxiLong: 1,
+  threshold: 173.33,
+};
 const aprRates = { ...currentRates, sp1: 50 };
 const mayRates = { ...currentRates, sp1: 99 };
 const history = [
@@ -348,11 +355,18 @@ assert.strictEqual(
 );
 // A future-only effective date falls back to currentRates.
 assert.strictEqual(
-  ratesAt(periodFor(fromYmd("2026-03-16")), [{ effectiveFrom: "2026-05-16", rates: mayRates }], currentRates).sp1,
+  ratesAt(
+    periodFor(fromYmd("2026-03-16")),
+    [{ effectiveFrom: "2026-05-16", rates: mayRates }],
+    currentRates,
+  ).sp1,
   1,
   "ratesAt: future-only history falls back to current rates",
 );
 // Empty/absent history returns current rates.
-assert.strictEqual(ratesAt(periodFor(fromYmd("2026-05-16")), [], currentRates).sp1, 1);
+assert.strictEqual(
+  ratesAt(periodFor(fromYmd("2026-05-16")), [], currentRates).sp1,
+  1,
+);
 
 console.log("calc tests passed");
