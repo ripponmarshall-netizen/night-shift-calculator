@@ -161,7 +161,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -191,6 +191,7 @@ function App() {
         if (Array.isArray(obj.templates)) setTemplates(obj.templates);
         if (obj.theme) setTheme(obj.theme);
         if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
+        if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
       } catch (e) { alert("Could not import file."); }
     };
     inp.click();

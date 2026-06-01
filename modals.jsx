@@ -77,9 +77,10 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
             </div>
           </div>
           <SegToggle
-            options={[{ v: "off", l: "Off" }, { v: "on", l: "Holiday" }]}
-            value={isHol ? "on" : "off"}
-            onChange={(v) => setHoliday(v === "on")}
+            small
+            options={[{ v: "auto", l: "Auto" }, { v: "off", l: "Regular" }, { v: "on", l: "Holiday" }]}
+            value={entry.holiday === null ? "auto" : entry.holiday ? "on" : "off"}
+            onChange={(v) => setHoliday(v === "auto" ? null : v === "on")}
           />
         </div>
 
