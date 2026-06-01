@@ -7,12 +7,14 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   const sortedAsc = useMemoSn(() => [...list].sort((a, b) => new Date(a.at) - new Date(b.at)), [list]);
   const sortedDesc = useMemoSn(() => [...list].sort((a, b) => new Date(b.at) - new Date(a.at)), [list]);
 
-  const max = Math.max(1, ...sortedAsc.map((s) => s.totals.grand));
-  const avg = sortedAsc.length ? sortedAsc.reduce((a, s) => a + s.totals.grand, 0) / sortedAsc.length : 0;
+  // Coerce grand so a legacy/imported snapshot missing the field can't yield NaN.
+  const g = (s) => Number(s?.totals?.grand) || 0;
+  const max = Math.max(1, ...sortedAsc.map(g));
+  const avg = sortedAsc.length ? sortedAsc.reduce((a, s) => a + g(s), 0) / sortedAsc.length : 0;
   const latest = sortedDesc[0];
   const prev = sortedDesc[1];
-  const delta = latest && prev ? latest.totals.grand - prev.totals.grand : 0;
-  const deltaPct = prev?.totals.grand ? (delta / prev.totals.grand) * 100 : 0;
+  const delta = latest && prev ? g(latest) - g(prev) : 0;
+  const deltaPct = g(prev) ? (delta / g(prev)) * 100 : 0;
 
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
@@ -28,7 +30,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
                 <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Latest</div>
-                <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{fmt(latest.totals.grand)}</div>
+                <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{fmt(g(latest))}</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>vs previous</div>
@@ -40,7 +42,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
                 </div>
               </div>
             </div>
-            <Sparkline points={sortedAsc.map((s) => s.totals.grand)} labels={sortedAsc.map((s) => s.period)} avg={avg} />
+            <Sparkline points={sortedAsc.map(g)} labels={sortedAsc.map((s) => s.period)} avg={avg} />
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 8 }}>
               avg {fmt(avg)} · max {fmt(max)} · {sortedAsc.length} periods
             </div>
@@ -53,7 +55,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sortedDesc.map((s, i) => {
               const prevSnap = sortedDesc[i + 1];
-              const d = prevSnap ? s.totals.grand - prevSnap.totals.grand : 0;
+              const d = prevSnap ? g(s) - g(prevSnap) : 0;
               return (
                 <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelected(s)} onDelete={() => onDelete(s.at)} />
               );

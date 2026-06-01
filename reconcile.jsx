@@ -31,8 +31,12 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
   ];
 
   const totalActualPerLine = lines.reduce((sum, l) => sum + (Number(actual[l.k]) || 0), 0);
-  const actualGrand = Number(actual.grand) || totalActualPerLine;
+  // Use the explicit "Pay slip total" when entered (honoring an explicit 0),
+  // otherwise fall back to the sum of the per-line actuals.
+  const actualGrand = actual.grand !== "" ? Number(actual.grand) || 0 : totalActualPerLine;
   const totalVariance = actualGrand - t.grand;
+  // There's a total to compare whenever the user entered the grand or any line.
+  const hasTotal = actual.grand !== "" || totalActualPerLine !== 0;
 
   const save = () => {
     onSave({
@@ -130,10 +134,11 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             </div>
             <div className="mono" style={{
               textAlign: "right", fontSize: 13, fontWeight: 700,
-              color: Math.abs(totalVariance) < 0.01 ? "var(--ok)" :
-                     Math.abs(totalVariance) > 100 ? "var(--holiday)" : "var(--warn)",
+              color: !hasTotal ? "var(--ink-faint)" :
+                     Math.abs(totalVariance) < 0.01 ? "var(--ok)" :
+                     totalVariance > 0 ? "var(--ok)" : "var(--holiday)",
             }}>
-              {actual.grand === "" ? "—" :
+              {!hasTotal ? "—" :
                 Math.abs(totalVariance) < 0.01 ? "✓ match" :
                 `${totalVariance >= 0 ? "+" : ""}${fmt(totalVariance)}`}
             </div>

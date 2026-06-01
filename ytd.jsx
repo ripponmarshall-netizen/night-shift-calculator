@@ -10,19 +10,22 @@ function YTDDashboard({ snapshots }) {
   const thisYear = snapshots.filter((s) => periodYear(s) === year);
 
   const stats = useMemoYtd(() => {
-    const total = thisYear.reduce((a, s) => a + s.totals.grand, 0);
-    const hours = thisYear.reduce((a, s) => a + s.totals.totalHours, 0);
-    const holHours = thisYear.reduce((a, s) => a + s.totals.holidayHours, 0);
-    const otHours = thisYear.reduce((a, s) => a + s.totals.otHours, 0);
-    const sumAllow = thisYear.reduce((a, s) => a + s.totals.allowanceSubtotal, 0);
-    const sumBase = thisYear.reduce((a, s) => a + s.totals.baseSubtotal, 0);
-    const sumExtra = thisYear.reduce((a, s) => a + s.totals.extraSubtotal, 0);
-    const biggest = [...thisYear].sort((a, b) => b.totals.grand - a.totals.grand)[0];
+    // Legacy/imported snapshots may omit newer totals fields; coerce so a single
+    // missing value can't turn an entire reduce (and the whole dashboard) into NaN.
+    const f = (s, k) => Number(s.totals?.[k]) || 0;
+    const total = thisYear.reduce((a, s) => a + f(s, "grand"), 0);
+    const hours = thisYear.reduce((a, s) => a + f(s, "totalHours"), 0);
+    const holHours = thisYear.reduce((a, s) => a + f(s, "holidayHours"), 0);
+    const otHours = thisYear.reduce((a, s) => a + f(s, "otHours"), 0);
+    const sumAllow = thisYear.reduce((a, s) => a + f(s, "allowanceSubtotal"), 0);
+    const sumBase = thisYear.reduce((a, s) => a + f(s, "baseSubtotal"), 0);
+    const sumExtra = thisYear.reduce((a, s) => a + f(s, "extraSubtotal"), 0);
+    const biggest = [...thisYear].sort((a, b) => f(b, "grand") - f(a, "grand"))[0];
     // monthly bucket by snapshot's pay period start month
     const monthly = Array(12).fill(0);
     for (const s of thisYear) {
       const m = s.periodKey ? fromYmd(s.periodKey).getMonth() : new Date(s.at).getMonth();
-      monthly[m] += s.totals.grand;
+      monthly[m] += f(s, "grand");
     }
     return { total, hours, holHours, otHours, sumAllow, sumBase, sumExtra, biggest, monthly };
   }, [thisYear]);
