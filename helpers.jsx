@@ -42,6 +42,10 @@ const DEFAULT_TAX = {
 const pad = (n) => String(n).padStart(2, "0");
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fromYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+/* Parse an effective-from date (a "YYYY-MM-DD" from <input type="date">) as a
+   LOCAL midnight, matching how period.start is built. Using new Date(string) on
+   a date-only ISO string would parse it as UTC midnight and shift the day. */
+const effDate = (s) => fromYmd(String(s).slice(0, 10));
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 const monthName = (m) => ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][m];
@@ -418,9 +422,9 @@ function calcTax(grossMonthly, tx) {
 function ratesAt(period, ratesHistory, currentRates) {
   if (!ratesHistory || ratesHistory.length === 0) return currentRates;
   const target = period.start;
-  const sorted = [...ratesHistory].sort((a, b) => new Date(b.effectiveFrom) - new Date(a.effectiveFrom));
+  const sorted = [...ratesHistory].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
   for (const entry of sorted) {
-    if (new Date(entry.effectiveFrom) <= target) return entry.rates;
+    if (effDate(entry.effectiveFrom) <= target) return entry.rates;
   }
   return currentRates;
 }
@@ -517,7 +521,7 @@ function toICS(entries, periodKeyOrAll) {
 
 const _exports = {
   SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE,
-  pad, ymd, fromYmd, addDays, sameDay, monthName, monthNameLong,
+  pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
   fmt, fmtShort, fmtH, summaryText,

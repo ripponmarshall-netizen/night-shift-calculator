@@ -302,7 +302,7 @@ function TaxTab({ tax, setTax }) {
 
 function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
   const [date, setDate] = useStateM("");
-  const list = [...(ratesHistory || [])].sort((a, b) => new Date(b.effectiveFrom) - new Date(a.effectiveFrom));
+  const list = [...(ratesHistory || [])].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
   const addEntry = () => {
     if (!date) { alert("Pick an effective-from date."); return; }
     const entry = { effectiveFrom: date, rates: { ...currentRates } };
@@ -331,7 +331,7 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
               background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 10,
             }}>
               <div>
-                <div className="mono" style={{ fontSize: 11.5, color: "var(--ink)" }}>Effective from {new Date(e.effectiveFrom).toLocaleDateString()}</div>
+                <div className="mono" style={{ fontSize: 11.5, color: "var(--ink)" }}>Effective from {effDate(e.effectiveFrom).toLocaleDateString()}</div>
                 <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 2 }}>
                   SP1 {fmt(e.rates.sp1)} · SP2 {fmt(e.rates.sp2)} · Meal {fmt(e.rates.meal)}
                 </div>

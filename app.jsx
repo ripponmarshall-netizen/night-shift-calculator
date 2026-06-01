@@ -31,10 +31,10 @@ function App() {
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
   const ratesEffectiveLabel = useMemo(() => {
     if (!ratesHistory || ratesHistory.length === 0) return "Current rates";
-    const sorted = [...ratesHistory].sort((a, b) => new Date(b.effectiveFrom) - new Date(a.effectiveFrom));
+    const sorted = [...ratesHistory].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
     for (const e of sorted) {
-      if (new Date(e.effectiveFrom) <= period.start) {
-        return "Rates effective " + new Date(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      if (effDate(e.effectiveFrom) <= period.start) {
+        return "Rates effective " + effDate(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" });
       }
     }
     return "Current rates";
