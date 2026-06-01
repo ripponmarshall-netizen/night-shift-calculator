@@ -147,34 +147,54 @@ const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDi
    breakdown when pasted. `net` is optional (estimated net after tax). */
 function summaryText(totals, periodStr, net) {
   const W = 38;
+  // Right-aligns `value` to column W, with optional left indent on the label.
   const row = (label, value, indent = 0) => {
     const l = " ".repeat(indent) + label;
     const v = String(value);
     return l + " ".repeat(Math.max(1, W - l.length - v.length)) + v;
   };
+  const rule = (ch) => ch.repeat(W);
+  const now = new Date();
+  const generated = `${monthName(now.getMonth())} ${now.getDate()}, ${now.getFullYear()}`;
+  // One section: a header, its line items, a thin divider, then its subtotal.
+  const section = (title, items, subtotal) => [
+    title,
+    ...items.map(([label, value]) => row(label, value, 2)),
+    "  " + rule("─").slice(2),
+    row("Subtotal", subtotal, 2),
+  ];
+
   const lines = [
-    `Night Shift — ${periodStr}`,
+    rule("═"),
+    "   NIGHT SHIFT — PAY STATEMENT",
+    `   Period: ${periodStr}`,
+    `   Generated: ${generated}`,
+    rule("═"),
     "",
-    row("ALLOWANCE", fmt(totals.allowanceSubtotal)),
-    row("SP1 · 3PM", fmt(totals.sp1), 2),
-    row("SP2 · 10PM", fmt(totals.sp2), 2),
-    row("Meal", fmt(totals.meal), 2),
-    row("Taxi", fmt(totals.taxi), 2),
+    ...section("ALLOWANCES", [
+      ["SP1 · 3PM", fmt(totals.sp1)],
+      ["SP2 · 10PM", fmt(totals.sp2)],
+      ["Meal", fmt(totals.meal)],
+      ["Taxi", fmt(totals.taxi)],
+    ], fmt(totals.allowanceSubtotal)),
     "",
-    row("BASE PAY", fmt(totals.baseSubtotal)),
-    row("Monthly Basic", fmt(totals.monthlyBasic), 2),
-    row("Compulsory", fmt(totals.compulsory), 2),
+    ...section("BASE PAY", [
+      ["Monthly Basic", fmt(totals.monthlyBasic)],
+      ["Compulsory", fmt(totals.compulsory)],
+    ], fmt(totals.baseSubtotal)),
     "",
-    row("EXTRA HOURS", fmt(totals.extraSubtotal)),
-    row(`Holiday ×2 · ${fmtH(totals.holidayHours)}h`, fmt(totals.holidayPay), 2),
-    row(`Overtime ×1.5 · ${fmtH(totals.otHours)}h`, fmt(totals.overtimePay), 2),
+    ...section("EXTRA HOURS", [
+      [`Holiday ×2 · ${fmtH(totals.holidayHours)}h`, fmt(totals.holidayPay)],
+      [`Overtime ×1.5 · ${fmtH(totals.otHours)}h`, fmt(totals.overtimePay)],
+    ], fmt(totals.extraSubtotal)),
     "",
-    row("TOTAL (est. gross)", fmt(totals.grand)),
+    rule("═"),
+    row("GROSS TOTAL", fmt(totals.grand), 2),
   ];
   if (net != null && Number.isFinite(net) && Math.round(net) !== Math.round(totals.grand)) {
-    lines.push(row("Est. net", fmt(net)));
+    lines.push(row("Estimated Net", fmt(net), 2));
   }
-  lines.push("", "— Night Shift Calculator");
+  lines.push(rule("═"), "— Night Shift Calculator");
   return lines.join("\n");
 }
 
