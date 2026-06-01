@@ -311,18 +311,18 @@ tr = calcTax(100000, { ...DEFAULT_TAX, nis: -10 });
 assert.ok(tr.nis >= 0, "NIS deduction never negative");
 assert.ok(tr.deductions >= 0, "total deductions never negative");
 
-// summaryText: tidy breakdown with a Total line; Est. net only when provided;
-// never emits NaN/undefined.
+// summaryText: tidy breakdown with a Total line; Estimated Net only when
+// provided; never emits NaN/undefined.
 const stTotals = agg2(oneShift, GUARD_RATES, {
   monthly: 173330,
   compulsory: 0,
 });
 const stWithNet = summaryText(stTotals, "May 16 – Jun 15, 2026", 150000);
-assert.ok(stWithNet.includes("TOTAL (est. gross)"));
-assert.ok(stWithNet.includes("Est. net"));
+assert.ok(stWithNet.includes("GROSS TOTAL"));
+assert.ok(stWithNet.includes("Estimated Net"));
 assert.ok(!/NaN|undefined/.test(stWithNet));
 const stNoNet = summaryText(stTotals, "May 16 – Jun 15, 2026");
-assert.ok(!stNoNet.includes("Est. net"));
+assert.ok(!stNoNet.includes("Estimated Net"));
 
 // ratesAt: effective-from dates are parsed as LOCAL midnight (like period.start),
 // so a rate effective on the same date a period starts must apply on that date —
