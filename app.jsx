@@ -155,7 +155,7 @@ function App() {
 
   const reset = () => {
     if (!confirm("Reset current period inputs (calendar, counts, base pay)? Rates and snapshots are kept.")) return;
-    setEntries({});
+    setEntries((prev) => clearPeriodEntries(prev, period));
     setCounts({ pm3: "", pm10: "", am7: "" });
     setBasePay({ monthly: "", compulsory: "" });
   };

@@ -7,6 +7,10 @@ const {
   ratesAt,
   periodFor,
   fromYmd,
+  clearPeriodEntries,
+  loadState,
+  saveState,
+  STORAGE,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -368,5 +372,46 @@ assert.strictEqual(
   ratesAt(periodFor(fromYmd("2026-05-16")), [], currentRates).sp1,
   1,
 );
+
+// Resetting the current period must preserve shifts stored for other periods.
+const resetPeriod = periodFor(fromYmd("2026-05-20"));
+const entriesAcrossPeriods = {
+  "2026-05-15": D({ pm3: 1 }), // preceding period
+  "2026-05-16": D({ am7: 1 }), // current period boundary
+  "2026-06-15": D({ pm10: 1 }), // current period boundary
+  "2026-06-16": D({ pm3: 1 }), // following period
+};
+assert.deepStrictEqual(clearPeriodEntries(entriesAcrossPeriods, resetPeriod), {
+  "2026-05-15": entriesAcrossPeriods["2026-05-15"],
+  "2026-06-16": entriesAcrossPeriods["2026-06-16"],
+});
+
+// Normal saves must retain the one-shot migration marker; otherwise a reload
+// resets customized rates and tax settings back to defaults every session.
+const stored = new Map();
+global.localStorage = {
+  getItem: (key) => stored.get(key) ?? null,
+  setItem: (key, value) => stored.set(key, value),
+};
+const customRates = { ...GUARD_RATES, sp1: 4321 };
+const customTax = { ...DEFAULT_TAX, pension: 7 };
+saveState({ rates: customRates, tax: customTax });
+let persisted = loadState();
+assert.deepStrictEqual(persisted.rates, customRates);
+assert.deepStrictEqual(persisted.tax, customTax);
+assert.ok(persisted._migratedAt, "saveState persists the migration marker");
+
+// Malformed-but-valid JSON storage must recover safely instead of crashing.
+stored.set(STORAGE, "null");
+persisted = loadState();
+assert.deepStrictEqual(persisted.rates, {
+  sp1: 66.6,
+  sp2: 200,
+  meal: 950,
+  taxiShort: 950,
+  taxiLong: 2000,
+  threshold: 173.33,
+});
+assert.deepStrictEqual(persisted.tax, DEFAULT_TAX);
 
 console.log("calc tests passed");
