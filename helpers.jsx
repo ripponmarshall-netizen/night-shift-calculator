@@ -203,6 +203,15 @@ function summaryText(totals, periodStr, net) {
 // Absent/blank/invalid => SHIFT_HOURS default. pm10 = TOTAL across midnight (9).
 function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
 
+/* Remove only the entries displayed in a pay period. Entries are stored in one
+   date-keyed map across periods, so replacing the whole map would destroy
+   shifts logged for earlier or later periods. */
+function clearPeriodEntries(entries, period) {
+  const out = { ...entries };
+  for (const d of periodDays(period)) delete out[ymd(d)];
+  return out;
+}
+
 /* ----- autofill rotation -----
    Standard rotation is a 4-day cycle: 7AM → 3PM → 10PM → rest. The 10PM shift
    ends at 07:00 the next morning, so the day after a 10PM is always a rest
@@ -383,6 +392,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
 function loadState() {
   let s = {};
   try { s = JSON.parse(localStorage.getItem(STORAGE) || "{}"); } catch { s = {}; }
+  if (!s || typeof s !== "object" || Array.isArray(s)) s = {};
   if (s._migratedAt !== MIGRATION) {
     s.rates = { ...DEFAULT_RATES };
     s.tax = { ...DEFAULT_TAX };
@@ -392,7 +402,9 @@ function loadState() {
   return s;
 }
 function saveState(s) {
-  try { localStorage.setItem(STORAGE, JSON.stringify(s)); } catch {}
+  // Keep the one-shot migration marker through normal App saves. Without it,
+  // every reload would treat persisted state as stale and reset custom rates.
+  try { localStorage.setItem(STORAGE, JSON.stringify({ ...s, _migratedAt: MIGRATION })); } catch {}
 }
 
 /* ----- JM tax calculator (monthly) ----- */
@@ -545,7 +557,7 @@ const _exports = {
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
   fmt, fmtShort, fmtH, summaryText,
-  blankDay, autofillPattern, aggregate,
+  blankDay, clearPeriodEntries, autofillPattern, aggregate,
   calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
 };
