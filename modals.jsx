@@ -324,8 +324,8 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {list.map((e, i) => (
-            <div key={i} style={{
+          {list.map((e) => (
+            <div key={`${e.effectiveFrom}-${ratesHistory.indexOf(e)}`} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
               padding: "10px 12px",
               background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 10,
@@ -336,7 +336,8 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
                   SP1 {fmt(e.rates.sp1)} · SP2 {fmt(e.rates.sp2)} · Meal {fmt(e.rates.meal)}
                 </div>
               </div>
-              <button onClick={() => setRatesHistory(ratesHistory.filter((_, j) => j !== i))} style={iconBtn()} aria-label="Delete">✕</button>
+              {/* Delete by identity: `list` is sorted, so its index doesn't match ratesHistory's. */}
+              <button onClick={() => setRatesHistory(ratesHistory.filter((x) => x !== e))} style={iconBtn()} aria-label="Delete">✕</button>
             </div>
           ))}
         </div>

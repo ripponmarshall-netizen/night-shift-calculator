@@ -242,21 +242,33 @@ function autofillPattern(period, opts) {
    The Home wizard never computes pay itself: it turns plain answers into
    ordinary calendar entries, and aggregate() does the math exactly as it does
    for the calendar. Two input methods:
-   - rotation: the standard 7AM → 3PM → 10PM → rest cycle, starting on the
-     person's first 7AM (one of the first 4 days of the period). Real dates, so
+   - rotation: the standard 7AM → 3PM → 10PM → rest cycle, anchored on any day
+     the person works a 7AM. The cycle runs both ways from that day, so the
+     whole period is filled, including the days before it. Real dates, so
      public holidays apply as usual.
-   - totals: shift counts only. Shifts are spread across the period in rotation
-     order and marked holiday: false — with no real dates, holiday pay can't be
-     known, so none is guessed. */
+   - totals: shift counts only. Shifts are spread across the period's regular
+     (non-holiday) days in rotation order. With no real dates, holiday pay
+     can't be known, so none is guessed. */
 
-/* Rotation entries for someone whose first 7AM is `firstAm7` days after the
-   period start (0–3). Day 0 then sits at rotation index (4 - firstAm7) % 4. */
-function rotationEntries(period, firstAm7, dist) {
-  const k = Math.min(3, Math.max(0, Math.trunc(Number(firstAm7) || 0)));
+const dayOffset = (from, to) => Math.round((to - from) / 86400000);
+
+/* Rotation entries for the whole period, given one day the person works a
+   7AM: a "YYYY-MM-DD" key (any date, inside the period or not) or a day
+   offset from the period start. Day 0 sits at rotation index (-offset) mod 4. */
+function rotationEntries(period, am7Anchor, dist) {
+  const off = typeof am7Anchor === "string"
+    ? dayOffset(period.start, fromYmd(am7Anchor))
+    : Math.trunc(Number(am7Anchor) || 0);
   return autofillPattern(period, {
     startKey: ymd(period.start), pattern: "rotation", days: "rest",
-    defaultDist: dist || "S", phase: (4 - k) % 4,
+    defaultDist: dist || "S", phase: ((-off % 4) + 4) % 4,
   });
+}
+
+/* Days the totals path may place shifts on: every day that isn't a public
+   holiday, so no holiday pay is ever implied by the placement. */
+function regularDays(period) {
+  return periodDays(period).filter((d) => !isJamaicaHoliday(d));
 }
 
 /* Validate shift totals against the period. Returns an error string or null.
@@ -264,15 +276,15 @@ function rotationEntries(period, firstAm7, dist) {
 function totalsError(period, t) {
   const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
   const pm3 = n(t.pm3), pm10 = n(t.pm10), am7 = n(t.am7), pairs = n(t.pairs);
-  const len = periodDays(period).length;
+  const len = regularDays(period).length;
   if (pairs > Math.min(pm3, pm10)) return "Back-to-back days can't exceed your 3PM or 10PM count.";
-  if (am7 + pm3 + pm10 - pairs > len) return `That's more shift days than the ${len} days in this period.`;
+  if (am7 + pm3 + pm10 - pairs > len) return `That's more shift days than the ${len} working days in this period.`;
   return null;
 }
 
 /* Place shift totals on the calendar: one shift (or one 3PM+10PM pair) per
-   day, interleaved in rotation order and spaced evenly across the period.
-   Returns {} when the totals are invalid (see totalsError). */
+   day, interleaved in rotation order and spaced evenly across the period's
+   regular days. Returns {} when the totals are invalid (see totalsError). */
 function totalsEntries(period, t, dist) {
   if (totalsError(period, t)) return {};
   const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
@@ -283,13 +295,12 @@ function totalsEntries(period, t, dist) {
   while (order.some((k) => left[k] > 0)) {
     for (const k of order) if (left[k] > 0) { seq.push(k); left[k]--; }
   }
-  const days = periodDays(period);
+  const days = regularDays(period);
   const out = {};
   const d0 = dist || "S";
   seq.forEach((kind, i) => {
     const d = days[Math.floor((i * days.length) / seq.length)];
     const e = blankDay();
-    e.holiday = false;
     e.dist = { am7: d0, pm3: d0, pm10: d0 };
     if (kind === "pair") { e.pm3 = true; e.pm10 = true; } else e[kind] = true;
     out[ymd(d)] = e;
@@ -439,10 +450,14 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
 
   const grand = allowanceSubtotal + baseSubtotal + extraSubtotal;
 
+  // A count left blank (or missing, e.g. from an imported file) isn't a
+  // cross-check, so it can never flag a mismatch.
+  const given = (v) => v != null && v !== "";
+  const c = counts || {};
   const mismatch = {
-    pm3: counts.pm3 !== "" && Number(counts.pm3) !== calPm3,
-    pm10: counts.pm10 !== "" && Number(counts.pm10) !== calPm10,
-    am7: counts.am7 !== "" && Number(counts.am7) !== cal7am,
+    pm3: given(c.pm3) && Number(c.pm3) !== calPm3,
+    pm10: given(c.pm10) && Number(c.pm10) !== calPm10,
+    am7: given(c.am7) && Number(c.am7) !== cal7am,
   };
   const hasMismatch = mismatch.pm3 || mismatch.pm10 || mismatch.am7;
 

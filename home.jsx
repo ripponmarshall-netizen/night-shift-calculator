@@ -164,7 +164,9 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
     compulsory: basePay.compulsory || "",
     dist: basicDistance || "S",
     method: "rotation",
-    firstAm7: 0,
+    // Any day the person works a 7AM. Start from a 7AM already on this
+    // period's calendar if there is one, else the period's first day.
+    am7Key: firstAm7Key(entries, period) || ymd(period.start),
     // Prefill totals with what's already on the calendar for this period.
     totals: shiftDays > 0
       ? { pm3: String(totals.cal.pm3), pm10: String(totals.cal.pm10), am7: String(totals.cal.am7), pairs: String(totals.cal.sameDayPair) }
@@ -177,7 +179,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
   const replace = draft.method === "totals" || !draft.keep;
   const plan = useMemoH(() => {
     const fill = draft.method === "rotation"
-      ? rotationEntries(period, draft.firstAm7, draft.dist)
+      ? rotationEntries(period, draft.am7Key, draft.dist)
       : totalsEntries(period, draft.totals, draft.dist);
     const nextCounts = draft.method === "totals"
       ? { pm3: numStr(draft.totals.pm3), pm10: numStr(draft.totals.pm10), am7: numStr(draft.totals.am7) }
@@ -239,7 +241,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
           </div>
 
           {draft.method === "rotation"
-            ? <RotationPicker period={period} value={draft.firstAm7} onChange={(k) => set({ firstAm7: k })} />
+            ? <RotationPicker period={period} value={draft.am7Key} onChange={(k) => set({ am7Key: k })} />
             : <TotalsPicker values={draft.totals} onChange={(t) => set({ totals: t })} error={totalsErr} />}
 
           {shiftDays > 0 && (
@@ -337,51 +339,68 @@ function HomeMoney({ label, value, onChange }) {
   );
 }
 
-/* Pick the day of your first 7AM among the first 4 days of the period; the
-   strip previews the resulting first 8 days of the rotation. */
+function firstAm7Key(entries, period) {
+  for (const d of periodDays(period)) {
+    const e = entries[ymd(d)];
+    if (e && e.am7) return ymd(d);
+  }
+  return null;
+}
+
+/* The whole period as a calendar: tap any day you work a 7AM and the rotation
+   fills in both directions, so days before the chosen date are covered too.
+   Each cell shows the shift that day will get, so the grid is its own preview. */
 function RotationPicker({ period, value, onChange }) {
   const days = periodDays(period);
   const preview = rotationEntries(period, value, "S");
-  const dayLabel = (d) => d.toLocaleDateString("en-US", { weekday: "short" });
+  const lead = period.start.getDay();
   return (
     <>
-      <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 8 }}>When is your first 7AM shift this period?</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-        {days.slice(0, 4).map((d, k) => {
-          const active = value === k;
+      <div style={{ fontSize: 14, fontWeight: 500 }}>Tap any day you work a 7AM</div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 3, marginBottom: 10, lineHeight: 1.45 }}>
+        Your rotation fills the whole period from that day, before and after it. Check the days below match your roster.
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }} role="group" aria-label="Rotation calendar">
+        {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
+          <div key={"h" + i} className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)", textAlign: "center", padding: "2px 0" }}>{w}</div>
+        ))}
+        {Array.from({ length: lead }).map((_, i) => <div key={"b" + i} />)}
+        {days.map((d) => {
+          const key = ymd(d);
+          const e = preview[key];
+          const k = e ? (e.am7 ? "am7" : e.pm3 ? "pm3" : "pm10") : null;
+          const sh = k ? HOME_SHIFTS[k] : null;
+          const anchor = key === value;
+          const hol = holidayName(d);
           return (
-            <button key={k} onClick={() => onChange(k)} aria-pressed={active} style={{
-              padding: "10px 4px", borderRadius: 10, cursor: "pointer", fontFamily: "inherit",
-              background: active ? "var(--ink)" : "var(--bg-2)", color: active ? "var(--bg)" : "var(--ink)",
-              border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
-            }}>
-              <div className="mono" style={{ fontSize: 10.5, opacity: 0.75 }}>{dayLabel(d)}</div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{monthName(d.getMonth())} {d.getDate()}</div>
+            <button
+              key={key}
+              onClick={() => onChange(key)}
+              aria-pressed={anchor}
+              aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${sh ? sh.label : "off"}${hol ? `, ${hol}` : ""}${anchor ? ", chosen 7AM" : ""}`}
+              style={{
+                position: "relative", padding: "5px 0 4px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
+                textAlign: "center", minWidth: 0,
+                background: sh ? `color-mix(in oklab, ${sh.color} 20%, transparent)` : "var(--bg-2)",
+                border: anchor ? "2px solid var(--accent)" : `1px solid ${sh ? `color-mix(in oklab, ${sh.color} 50%, transparent)` : "var(--line-soft)"}`,
+                color: "var(--ink)",
+              }}
+            >
+              <div className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>{d.getDate()}</div>
+              <div className="mono" style={{ fontSize: 10, fontWeight: 600, color: sh ? "var(--ink)" : "var(--ink-faint)" }}>{sh ? sh.label : "Off"}</div>
+              {hol && <span style={{ position: "absolute", top: 3, right: 3, width: 5, height: 5, borderRadius: "50%", background: "var(--holiday)" }} />}
             </button>
           );
         })}
       </div>
-
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "14px 0 6px" }}>Your first 8 days</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 3 }}>
-        {days.slice(0, 8).map((d) => {
-          const e = preview[ymd(d)];
-          const k = e ? (e.am7 ? "am7" : e.pm3 ? "pm3" : "pm10") : null;
-          const s = k ? HOME_SHIFTS[k] : null;
-          return (
-            <div key={ymd(d)} style={{
-              borderRadius: 6, padding: "5px 0", textAlign: "center",
-              background: s ? `color-mix(in oklab, ${s.color} 22%, transparent)` : "var(--bg-2)",
-              border: `1px solid ${s ? `color-mix(in oklab, ${s.color} 55%, transparent)` : "var(--line-soft)"}`,
-            }}>
-              <div className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>{d.getDate()}</div>
-              <div className="mono" style={{ fontSize: 10, fontWeight: 600, color: s ? "var(--ink)" : "var(--ink-faint)" }}>{s ? s.label : "Off"}</div>
-            </div>
-          );
-        })}
-      </div>
       <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-        Repeats to {monthName(period.end.getMonth())} {period.end.getDate()}. Public holidays are applied automatically. Took leave or swapped a shift? Adjust those days on the calendar afterwards.
+        {holidaysInPeriod(period).length > 0 && (
+          <>
+            <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: "var(--holiday)", marginRight: 5, verticalAlign: "middle" }} />
+            Public holiday, applied automatically.{" "}
+          </>
+        )}
+        Took leave or swapped a shift? Adjust those days on the calendar afterwards.
       </div>
     </>
   );
@@ -407,7 +426,7 @@ function TotalsPicker({ values, onChange, error }) {
       </div>
       {error && <div role="alert" style={{ fontSize: 12.5, color: "var(--warn)", marginTop: 10 }}>{error}</div>}
       <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.45 }}>
-        Your shifts are spread across the calendar for the math. Holiday pay isn't included from totals. To count it, log your holiday shifts on the calendar.
+        Your shifts are spread across the period's regular days for the math. Holiday pay isn't included from totals. To count it, log your holiday shifts on the calendar.
       </div>
     </>
   );

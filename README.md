@@ -55,10 +55,12 @@ The app opens on **Home**. Tap **Start** and answer three questions:
 1. **Your pay:** Monthly Basic and Compulsory Assignment (leave blank for allowances only).
 2. **Your commute:** Short or Long taxi distance.
 3. **Your shifts**, either:
-   - **My rotation:** pick the day of your first 7AM this period (any of the first four days). The standard 7AM → 3PM → 10PM → off cycle fills the period, and public holidays apply automatically.
-   - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the calendar for the math; holiday pay isn't included from totals.
+   - **My rotation:** tap any day you work a 7AM on the period calendar. The standard 7AM → 3PM → 10PM → off cycle fills the whole period from that day, including the days before it, and public holidays apply automatically.
+   - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the period's regular (non-holiday) days for the math; holiday pay isn't included from totals.
 
 The live estimate updates as you answer. **See my pay** saves the answers into the same calendar and inputs the full calculator uses, so both screens always show the same numbers. Use **Update my shifts** to redo it, or **See the full breakdown** to fine-tune individual days.
+
+The phone's **Back** button returns to Home from any other screen.
 
 ### The detailed way (Quick / Detailed)
 

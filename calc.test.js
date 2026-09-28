@@ -496,13 +496,15 @@ expectedStarts.forEach((expected, k) => {
   holNear(r.sp2, 7 * 200);
   holNear(r.meal, 15 * 950);
   holNear(r.taxi, 15 * 950);
-  // Every placed day is inside the period and marked non-holiday.
+  // Every placed day is inside the period, never on a public holiday, and
+  // keeps the automatic holiday flag (no override that could stick later).
   const inPeriod = new Set(
     Array.from({ length: 31 }, (_, i) => ymd(new Date(2026, 4, 16 + i))),
   );
   for (const [k, e] of Object.entries(te)) {
     assert.ok(inPeriod.has(k), `${k} inside period`);
-    assert.strictEqual(e.holiday, false);
+    assert.notStrictEqual(k, HOL, "totals never land on a public holiday");
+    assert.strictEqual(e.holiday, null);
   }
 }
 // Totals with back-to-back 3PM+10PM days apply the same-day taxi deduction.
@@ -533,17 +535,18 @@ assert.deepStrictEqual(
   totalsEntries(HOL_PERIOD, { pm3: 20, pm10: 20, am7: 0, pairs: 0 }, "S"),
   {},
 );
-// A full period of single shifts fits exactly (31 days, 31 shifts).
-assert.strictEqual(
-  totalsError(HOL_PERIOD, { pm3: 11, pm10: 10, am7: 10, pairs: 0 }),
-  null,
-);
-assert.strictEqual(
-  Object.keys(
-    totalsEntries(HOL_PERIOD, { pm3: 11, pm10: 10, am7: 10, pairs: 0 }, "S"),
-  ).length,
-  31,
-);
+// A full period of single shifts fits exactly: 31 days minus Labour Day = 30
+// working days. One more shift day is rejected. Even fully packed, no holiday
+// hours appear (the day after a 10PM is never a holiday with a shift).
+{
+  const full = { pm3: 10, pm10: 10, am7: 10, pairs: 0 };
+  assert.strictEqual(totalsError(HOL_PERIOD, full), null);
+  const te = totalsEntries(HOL_PERIOD, full, "S");
+  assert.strictEqual(Object.keys(te).length, 30);
+  assert.strictEqual(te[HOL], undefined);
+  assert.strictEqual(agg(te).holidayHours, 0);
+  assert.ok(totalsError(HOL_PERIOD, { ...full, am7: 11 }));
+}
 
 // mergePeriodFill: replace clears only this period; keep fills empty days only.
 {
@@ -567,6 +570,63 @@ assert.strictEqual(
     "2026-05-17": fill["2026-05-17"],
     "2026-05-20": saved["2026-05-20"],
   });
+}
+
+// Rotation anchored on ANY 7AM day: the cycle runs both ways, so the days
+// before the chosen date are filled too (not just the days after it).
+{
+  // Anchor on May 22 (offset 6). 22 = 7AM → 21 rest, 20 10PM, 19 3PM, 18 7AM,
+  // 17 rest, 16 10PM; forward 23 3PM, 24 10PM, 25 rest, 26 7AM.
+  const rot = rotationEntries(HOL_PERIOD, "2026-05-22", "S");
+  const want = {
+    "2026-05-16": "pm10",
+    "2026-05-17": null,
+    "2026-05-18": "am7",
+    "2026-05-19": "pm3",
+    "2026-05-20": "pm10",
+    "2026-05-21": null,
+    "2026-05-22": "am7",
+    "2026-05-23": "pm3",
+    "2026-05-24": "pm10",
+    "2026-05-25": null,
+    "2026-05-26": "am7",
+  };
+  for (const [k, v] of Object.entries(want)) {
+    assert.strictEqual(shiftOn(rot, k), v, `anchor May 22 → ${k}`);
+  }
+  // Same rotation from an equivalent anchor 4 days earlier, a numeric offset,
+  // or a 7AM date outside the period (last period / next period).
+  assert.deepStrictEqual(rotationEntries(HOL_PERIOD, "2026-05-18", "S"), rot);
+  assert.deepStrictEqual(rotationEntries(HOL_PERIOD, 6, "S"), rot);
+  assert.deepStrictEqual(rotationEntries(HOL_PERIOD, "2026-05-14", "S"), rot);
+  assert.deepStrictEqual(rotationEntries(HOL_PERIOD, "2026-06-15", "S"), rot);
+  // Every day of the period is covered by the cycle: 31 days → 23 shift days.
+  assert.strictEqual(Object.keys(rot).length, 23);
+}
+
+// Missing count keys (e.g. an imported file) are "not entered": no mismatch.
+{
+  const r = aggregate(
+    { [PLAIN]: D({ pm3: 1 }) },
+    HOL_PERIOD,
+    "basic",
+    "S",
+    {},
+    HOL_BASEPAY,
+    HOL_RATES,
+  );
+  assert.strictEqual(r.hasMismatch, false);
+  const r2 = aggregate(
+    { [PLAIN]: D({ pm3: 1 }) },
+    HOL_PERIOD,
+    "basic",
+    "S",
+    { pm3: "2" },
+    HOL_BASEPAY,
+    HOL_RATES,
+  );
+  assert.strictEqual(r2.mismatch.pm3, true);
+  assert.strictEqual(r2.mismatch.pm10, false);
 }
 
 console.log("calc tests passed");
