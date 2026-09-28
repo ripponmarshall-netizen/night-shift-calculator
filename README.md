@@ -36,6 +36,7 @@ The app is a single-page PWA. UI is built with React 18 + Babel-standalone loade
 | `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                 |
 | `ytd.jsx`        | Year-to-date dashboard (totals, hours, OT, composition bar, monthly bars)                                                    |
 | `snapshots.jsx`  | Snapshot history list, sparkline, deltas, detail view                                                                        |
+| `home.jsx`       | Home page: 3-step setup (pay → commute → shifts by rotation or totals) and an at-a-glance result                             |
 | `app.jsx`        | Root component — state, persistence, taskbar, header, two-column desktop layout                                              |
 | `sw.js`          | Cache-first service worker (offline support)                                                                                 |
 | `manifest.json`  | PWA manifest                                                                                                                 |
@@ -47,8 +48,22 @@ State persists in `localStorage` under `nsc:v3`. No data leaves the device.
 
 ## Using the App
 
+### The simple way (Home)
+
+The app opens on **Home**. Tap **Start** and answer three questions:
+
+1. **Your pay:** Monthly Basic and Compulsory Assignment (leave blank for allowances only).
+2. **Your commute:** Short or Long taxi distance.
+3. **Your shifts**, either:
+   - **My rotation:** pick the day of your first 7AM this period (any of the first four days). The standard 7AM → 3PM → 10PM → off cycle fills the period, and public holidays apply automatically.
+   - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the calendar for the math; holiday pay isn't included from totals.
+
+The live estimate updates as you answer. **See my pay** saves the answers into the same calendar and inputs the full calculator uses, so both screens always show the same numbers. Use **Update my shifts** to redo it, or **See the full breakdown** to fine-tune individual days.
+
+### The detailed way (Quick / Detailed)
+
 1. **Open the calculator.** The top header shows the current pay period (16th → 15th) and the rates-effective date. Tap the gear icon to set your rates the first time — the onboarding banner will prompt you.
-2. **Pick a mode from the bottom taskbar.**
+2. **Pick a mode from the bottom taskbar** (next to **Home**).
    - **Quick** — one Short/Long distance applied to every shift this period.
    - **Detailed** — Short/Long set per shift inside the day editor.
    - **History** — saved snapshots, YTD dashboard, reconciliation.

@@ -217,14 +217,17 @@ function clearPeriodEntries(entries, period) {
    ends at 07:00 the next morning, so the day after a 10PM is always a rest
    day; the next 7AM begins on the day after that. */
 function autofillPattern(period, opts) {
-  // opts: { startKey, pattern: "rotation"|"am7"|"pm3"|"pm10", days: "rest"|7|14, defaultDist }
+  // opts: { startKey, pattern: "rotation"|"am7"|"pm3"|"pm10", days: "rest"|7|14, defaultDist, phase? }
+  // phase (0–3, default 0) is where in the rotation the start day falls:
+  // 0 = 7AM, 1 = 3PM, 2 = 10PM, 3 = rest. Omitted => today's behaviour.
   const days = periodDays(period);
   const startIdx = Math.max(0, days.findIndex((d) => ymd(d) === opts.startKey));
   const count = opts.days === "rest" ? days.length - startIdx : Math.min(opts.days, days.length - startIdx);
   const rotation = ["am7", "pm3", "pm10", null]; // null = rest
+  const phase = ((Math.trunc(Number(opts.phase) || 0) % 4) + 4) % 4;
   const out = {};
   for (let i = 0; i < count; i++) {
-    const slot = opts.pattern === "rotation" ? rotation[i % 4] : opts.pattern;
+    const slot = opts.pattern === "rotation" ? rotation[(i + phase) % 4] : opts.pattern;
     if (!slot) continue; // rest day in the rotation
     const d = days[startIdx + i];
     const e = blankDay();
@@ -233,6 +236,78 @@ function autofillPattern(period, opts) {
     out[ymd(d)] = e;
   }
   return out;
+}
+
+/* ----- simple (Home) setup -----
+   The Home wizard never computes pay itself: it turns plain answers into
+   ordinary calendar entries, and aggregate() does the math exactly as it does
+   for the calendar. Two input methods:
+   - rotation: the standard 7AM → 3PM → 10PM → rest cycle, starting on the
+     person's first 7AM (one of the first 4 days of the period). Real dates, so
+     public holidays apply as usual.
+   - totals: shift counts only. Shifts are spread across the period in rotation
+     order and marked holiday: false — with no real dates, holiday pay can't be
+     known, so none is guessed. */
+
+/* Rotation entries for someone whose first 7AM is `firstAm7` days after the
+   period start (0–3). Day 0 then sits at rotation index (4 - firstAm7) % 4. */
+function rotationEntries(period, firstAm7, dist) {
+  const k = Math.min(3, Math.max(0, Math.trunc(Number(firstAm7) || 0)));
+  return autofillPattern(period, {
+    startKey: ymd(period.start), pattern: "rotation", days: "rest",
+    defaultDist: dist || "S", phase: (4 - k) % 4,
+  });
+}
+
+/* Validate shift totals against the period. Returns an error string or null.
+   `pairs` = days with both a 3PM and a 10PM (these get the taxi deduction). */
+function totalsError(period, t) {
+  const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
+  const pm3 = n(t.pm3), pm10 = n(t.pm10), am7 = n(t.am7), pairs = n(t.pairs);
+  const len = periodDays(period).length;
+  if (pairs > Math.min(pm3, pm10)) return "Back-to-back days can't exceed your 3PM or 10PM count.";
+  if (am7 + pm3 + pm10 - pairs > len) return `That's more shift days than the ${len} days in this period.`;
+  return null;
+}
+
+/* Place shift totals on the calendar: one shift (or one 3PM+10PM pair) per
+   day, interleaved in rotation order and spaced evenly across the period.
+   Returns {} when the totals are invalid (see totalsError). */
+function totalsEntries(period, t, dist) {
+  if (totalsError(period, t)) return {};
+  const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
+  const pairs = n(t.pairs);
+  const left = { am7: n(t.am7), pm3: n(t.pm3) - pairs, pm10: n(t.pm10) - pairs, pair: pairs };
+  const order = ["am7", "pm3", "pm10", "pair"];
+  const seq = [];
+  while (order.some((k) => left[k] > 0)) {
+    for (const k of order) if (left[k] > 0) { seq.push(k); left[k]--; }
+  }
+  const days = periodDays(period);
+  const out = {};
+  const d0 = dist || "S";
+  seq.forEach((kind, i) => {
+    const d = days[Math.floor((i * days.length) / seq.length)];
+    const e = blankDay();
+    e.holiday = false;
+    e.dist = { am7: d0, pm3: d0, pm10: d0 };
+    if (kind === "pair") { e.pm3 = true; e.pm10 = true; } else e[kind] = true;
+    out[ymd(d)] = e;
+  });
+  return out;
+}
+
+/* Merge generated entries into the saved map for one period. replace=true
+   clears the period's days first (other periods are never touched);
+   replace=false only fills days that have no shifts yet. */
+function mergePeriodFill(entries, period, fill, replace) {
+  const base = replace ? clearPeriodEntries(entries, period) : { ...entries };
+  for (const [k, v] of Object.entries(fill)) {
+    const cur = base[k];
+    if (!replace && cur && (cur.am7 || cur.pm3 || cur.pm10)) continue;
+    base[k] = v;
+  }
+  return base;
 }
 
 /* ----- aggregate (calculation engine) ----- */
@@ -558,6 +633,7 @@ const _exports = {
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
   fmt, fmtShort, fmtH, summaryText,
   blankDay, clearPeriodEntries, autofillPattern, aggregate,
+  rotationEntries, totalsError, totalsEntries, mergePeriodFill,
   calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
 };

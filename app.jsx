@@ -1,11 +1,11 @@
-/* app.jsx — main app with bottom taskbar (live total + Quick/Detailed/History), desktop 2-col, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home + live total + Quick/Detailed/History), desktop 2-col, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
 function App() {
   const initial = loadState();
   const [mode, setMode] = useState(initial.mode || "basic");
-  const [view, setView] = useState("calc");
+  const [view, setView] = useState("home");
   const [periodAnchor, setPeriodAnchor] = useState(initial.periodAnchor || ymd(new Date()));
   const [entries, setEntries] = useState(initial.entries || {});
   const [basicDistance, setBasicDistance] = useState(initial.basicDistance || "S");
@@ -203,6 +203,24 @@ function App() {
     showToast("Summary copied");
   };
 
+  /* Home setup: the wizard hands over generated entries; the calculator's own
+     state and engine do the rest. replace clears only this period's days. */
+  const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c }) => {
+    setEntries((prev) => mergePeriodFill(prev, period, fill, replace));
+    setBasePay(bp);
+    setBasicDistance(dist);
+    setDefaultDist(dist);
+    if (replace) setMode("basic");
+    if (c) setCounts(c);
+    setOnboarded(true);
+  };
+
+  const openCalc = (m) => {
+    if (m === "basic" || m === "advanced") setMode(m);
+    setView("calc");
+    window.scrollTo?.(0, 0);
+  };
+
   const applyAutofill = (opts) => {
     const fill = autofillPattern(period, opts);
     setEntries((prev) => {
@@ -228,10 +246,11 @@ function App() {
   /* taskbar interactions */
   const onTab = (id) => {
     if (id === "history") { setView("history"); return; }
+    if (id === "home") { setView("home"); return; }
     setView("calc");
     if (id === "basic" || id === "advanced") setMode(id);
   };
-  const activeTab = view === "history" ? "history" : view === "about" ? "about" : mode;
+  const activeTab = view === "calc" ? mode : view;
 
   /* flash total animation hook */
   const totalChipRef = useRef(null);
@@ -243,14 +262,30 @@ function App() {
   };
 
   return (
-    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : "Calculator"}
+    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : "Calculator"}
          style={{ paddingBottom: `calc(120px + var(--safe-bottom))` }}>
       <Header view={view} mode={mode} onSettings={() => setSettingsOpen(true)} period={period} setPeriodAnchor={setPeriodAnchor} ratesEffective={ratesEffectiveLabel} />
 
-      {!onboarded && (
+      {!onboarded && view !== "home" && (
         <RatesOnboardingBanner
           onOpen={() => { setSettingsOpen(true); setOnboarded(true); }}
           onDismiss={() => setOnboarded(true)}
+        />
+      )}
+
+      {view === "home" && (
+        <HomeView
+          period={period} entries={entries} mode={mode}
+          basePay={basePay} basicDistance={basicDistance} counts={counts}
+          totals={totals} tax={tax} rates={effectiveRates}
+          ratesEffective={ratesEffectiveLabel}
+          onboarded={onboarded}
+          onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
+          onApply={applySimpleSetup}
+          onSaveSnapshot={saveSnapshot}
+          onCopyShare={copySummary}
+          onOpenCalc={openCalc}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
       )}
 
@@ -293,7 +328,7 @@ function App() {
         />
       )}
 
-      {view === "about" && <AboutView onBack={() => setView("calc")} />}
+      {view === "about" && <AboutView onBack={() => setView("home")} />}
 
       <Taskbar
         activeTab={activeTab}
@@ -302,7 +337,7 @@ function App() {
         hasInputs={Object.keys(entries).length > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
-        onAboutToggle={() => setView(view === "about" ? "calc" : "about")}
+        onAboutToggle={() => setView(view === "about" ? "home" : "about")}
       />
 
       {openDay && (
@@ -354,7 +389,7 @@ function App() {
 
 /* ============ Header ============ */
 function Header({ view, mode, onSettings, period, setPeriodAnchor, ratesEffective }) {
-  const subtitle = view === "history" ? "History" : view === "about" ? "About" : mode === "basic" ? "Quick" : "Detailed";
+  const subtitle = view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : mode === "basic" ? "Quick" : "Detailed";
   return (
     <header style={{
       position: "sticky", top: 0, zIndex: 30,
@@ -614,6 +649,7 @@ function AboutView({ onBack }) {
 /* ============ Taskbar (with live total + tabs) ============ */
 function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipRef, onAboutToggle }) {
   const tabs = [
+    { id: "home", label: "Home", icon: HomeIcon },
     { id: "basic", label: "Quick", icon: QuickIcon },
     { id: "advanced", label: "Detailed", icon: DetailedIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
@@ -627,7 +663,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
       pointerEvents: "none",
     }}>
       {/* Total chip — floats above tabs, only on calc view */}
-      {activeTab !== "history" && activeTab !== "about" && (
+      {(activeTab === "basic" || activeTab === "advanced") && (
         <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 6px", pointerEvents: "none" }}>
           <div ref={totalChipRef} className="total-chip" style={{
             background: "var(--surface-translucent)",
@@ -658,7 +694,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
           borderRadius: 18,
           padding: 5,
           display: "grid",
-          gridTemplateColumns: "1fr 1fr 1fr",
+          gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
           gap: 4,
           boxShadow: "0 16px 40px -16px rgba(0,0,0,0.7), 0 2px 0 rgba(255,255,255,0.04) inset",
         }}>
@@ -713,6 +749,11 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
   );
 }
 
+function HomeIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>
+  </svg>;
+}
 function QuickIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h8M8 17h5"/>

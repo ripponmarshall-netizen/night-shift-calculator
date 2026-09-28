@@ -11,6 +11,12 @@ const {
   loadState,
   saveState,
   STORAGE,
+  autofillPattern,
+  rotationEntries,
+  totalsError,
+  totalsEntries,
+  mergePeriodFill,
+  ymd,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -413,5 +419,154 @@ assert.deepStrictEqual(persisted.rates, {
   threshold: 173.33,
 });
 assert.deepStrictEqual(persisted.tax, DEFAULT_TAX);
+
+// ----- Simple (Home) setup: rotation phase, totals placement, merge -----
+// Omitting phase must reproduce the original autofill output exactly.
+const AF_OPTS = {
+  startKey: "2026-05-16",
+  pattern: "rotation",
+  days: "rest",
+  defaultDist: "S",
+};
+assert.deepStrictEqual(
+  autofillPattern(HOL_PERIOD, AF_OPTS),
+  autofillPattern(HOL_PERIOD, { ...AF_OPTS, phase: 0 }),
+);
+const shiftOn = (entries, key) => {
+  const e = entries[key];
+  if (!e) return null;
+  return e.am7 ? "am7" : e.pm3 ? "pm3" : e.pm10 ? "pm10" : null;
+};
+// First 7AM on day k of the period: the days before it are the tail of the
+// previous cycle (k=1: rest; k=2: 10PM, rest; k=3: 3PM, 10PM, rest).
+const expectedStarts = [
+  ["am7", "pm3", "pm10", null, "am7"],
+  [null, "am7", "pm3", "pm10", null],
+  ["pm10", null, "am7", "pm3", "pm10"],
+  ["pm3", "pm10", null, "am7", "pm3"],
+];
+const firstDays = [
+  "2026-05-16",
+  "2026-05-17",
+  "2026-05-18",
+  "2026-05-19",
+  "2026-05-20",
+];
+expectedStarts.forEach((expected, k) => {
+  const rot = rotationEntries(HOL_PERIOD, k, "L");
+  assert.deepStrictEqual(
+    firstDays.map((key) => shiftOn(rot, key)),
+    expected,
+    `rotation with first 7AM on day ${k}`,
+  );
+  for (const e of Object.values(rot)) {
+    assert.strictEqual(e.holiday, null, "rotation keeps real holidays");
+    assert.deepStrictEqual(e.dist, { am7: "L", pm3: "L", pm10: "L" });
+  }
+});
+// Rotation from the wizard == the same rotation from Auto-fill (same engine).
+{
+  const viaWizard = rotationEntries(HOL_PERIOD, 1, "S");
+  const viaAutofill = autofillPattern(HOL_PERIOD, {
+    startKey: "2026-05-17",
+    pattern: "rotation",
+    days: "rest",
+    defaultDist: "S",
+  });
+  assert.deepStrictEqual(
+    viaWizard,
+    Object.assign({}, viaAutofill), // day 0 (16th) is a rest day either way
+  );
+}
+
+// Totals: exact counts land on the calendar, one shift/pair per day.
+{
+  const t = { pm3: 8, pm10: 7, am7: 8, pairs: 0 };
+  assert.strictEqual(totalsError(HOL_PERIOD, t), null);
+  const te = totalsEntries(HOL_PERIOD, t, "S");
+  const r = agg(te);
+  assert.strictEqual(r.cal.pm3, 8);
+  assert.strictEqual(r.cal.pm10, 7);
+  assert.strictEqual(r.cal.am7, 8);
+  assert.strictEqual(r.cal.sameDayPair, 0);
+  assert.strictEqual(r.holidayHours, 0, "totals never guess holiday pay");
+  assert.strictEqual(Object.keys(te).length, 23);
+  // Allowances match the documented Quick contract.
+  holNear(r.sp1, 8 * 66.6);
+  holNear(r.sp2, 7 * 200);
+  holNear(r.meal, 15 * 950);
+  holNear(r.taxi, 15 * 950);
+  // Every placed day is inside the period and marked non-holiday.
+  const inPeriod = new Set(
+    Array.from({ length: 31 }, (_, i) => ymd(new Date(2026, 4, 16 + i))),
+  );
+  for (const [k, e] of Object.entries(te)) {
+    assert.ok(inPeriod.has(k), `${k} inside period`);
+    assert.strictEqual(e.holiday, false);
+  }
+}
+// Totals with back-to-back 3PM+10PM days apply the same-day taxi deduction.
+{
+  const te = totalsEntries(
+    HOL_PERIOD,
+    { pm3: 5, pm10: 5, am7: 0, pairs: 2 },
+    "L",
+  );
+  const r = aggregate(
+    te,
+    HOL_PERIOD,
+    "basic",
+    "L",
+    HOL_COUNTS,
+    HOL_BASEPAY,
+    HOL_RATES,
+  );
+  assert.strictEqual(r.cal.pm3, 5);
+  assert.strictEqual(r.cal.pm10, 5);
+  assert.strictEqual(r.cal.sameDayPair, 2);
+  holNear(r.taxi, (10 - 2 * 2) * 2000);
+}
+// Invalid totals are rejected and produce no entries.
+assert.ok(totalsError(HOL_PERIOD, { pm3: 1, pm10: 3, am7: 0, pairs: 2 }));
+assert.ok(totalsError(HOL_PERIOD, { pm3: 20, pm10: 20, am7: 0, pairs: 0 }));
+assert.deepStrictEqual(
+  totalsEntries(HOL_PERIOD, { pm3: 20, pm10: 20, am7: 0, pairs: 0 }, "S"),
+  {},
+);
+// A full period of single shifts fits exactly (31 days, 31 shifts).
+assert.strictEqual(
+  totalsError(HOL_PERIOD, { pm3: 11, pm10: 10, am7: 10, pairs: 0 }),
+  null,
+);
+assert.strictEqual(
+  Object.keys(
+    totalsEntries(HOL_PERIOD, { pm3: 11, pm10: 10, am7: 10, pairs: 0 }, "S"),
+  ).length,
+  31,
+);
+
+// mergePeriodFill: replace clears only this period; keep fills empty days only.
+{
+  const saved = {
+    "2026-05-15": D({ pm3: 1 }), // previous period — never touched
+    "2026-05-16": D({ pm10: 1 }), // logged day in this period
+    "2026-05-20": D({ am7: 1 }),
+  };
+  const fill = {
+    "2026-05-16": D({ am7: 1 }),
+    "2026-05-17": D({ pm3: 1 }),
+  };
+  assert.deepStrictEqual(mergePeriodFill(saved, HOL_PERIOD, fill, true), {
+    "2026-05-15": saved["2026-05-15"],
+    "2026-05-16": fill["2026-05-16"],
+    "2026-05-17": fill["2026-05-17"],
+  });
+  assert.deepStrictEqual(mergePeriodFill(saved, HOL_PERIOD, fill, false), {
+    "2026-05-15": saved["2026-05-15"],
+    "2026-05-16": saved["2026-05-16"],
+    "2026-05-17": fill["2026-05-17"],
+    "2026-05-20": saved["2026-05-20"],
+  });
+}
 
 console.log("calc tests passed");
