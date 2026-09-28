@@ -4,28 +4,28 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0b0c;
-  --bg-1: #131316;
-  --bg-2: #1a1a1f;
-  --bg-3: #22232a;
-  --line: #2a2b33;
-  --line-soft: #1e1f25;
-  --ink: #f4f4f5;
-  --ink-dim: #a1a1aa;
-  --ink-faint: #6b6b73;
-  --accent: oklch(72% 0.14 70);
-  --accent-ink: #0b0b0c;
-  --sp1: oklch(74% 0.13 220);
-  --sp2: oklch(70% 0.15 290);
-  --am: oklch(76% 0.12 145);
-  --holiday: oklch(70% 0.18 25);
-  --warn: oklch(78% 0.16 80);
-  --ok: oklch(72% 0.14 150);
+  --bg: #0f1013;
+  --bg-1: #17181c;
+  --bg-2: #1f2025;
+  --bg-3: #282a31;
+  --line: #2c2e36;
+  --line-soft: #23252b;
+  --ink: #f2f2f4;
+  --ink-dim: #a4a4ae;
+  --ink-faint: #74747e;
+  --accent: oklch(74% 0.13 70);
+  --accent-ink: #141414;
+  --sp1: oklch(74% 0.12 220);
+  --sp2: oklch(72% 0.13 290);
+  --am: oklch(76% 0.11 145);
+  --holiday: oklch(70% 0.16 25);
+  --warn: oklch(78% 0.14 80);
+  --ok: oklch(72% 0.13 150);
   --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
-  --bg-translucent: rgba(11, 11, 12, 0.85);
-  --surface-translucent: rgba(20, 20, 24, 0.92);
-  --r: 14px;
-  --r-sm: 10px;
+  --bg-translucent: rgba(15, 16, 19, 0.86);
+  --surface-translucent: rgba(26, 27, 32, 0.94);
+  --r: 16px;
+  --r-sm: 12px;
   --r-xs: 6px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -96,6 +96,20 @@ button {
 
 #root {
   min-height: 100vh;
+}
+
+/* Small section label: sentence case, sans, muted. Replaces the old
+   uppercase monospace eyebrows so text is calmer to scan. */
+.label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-dim);
+}
+
+input:focus-visible,
+button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: 2px;
 }
 
 /* ----- shared motion: modal enter/exit, backdrop fade, toast ----- */

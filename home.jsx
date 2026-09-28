@@ -29,7 +29,10 @@ function HomeView(props) {
       {wizard ? (
         <SetupWizard {...props} shiftDays={shiftDays} onDone={() => setWizard(false)} />
       ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) ? (
-        <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
+        <>
+          <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
+          <HomeFooter ratesEffective={props.ratesEffective} onOpenSettings={props.onOpenSettings} onAbout={props.onAbout} />
+        </>
       ) : (
         <HomeSummary {...props} basicDistance={basicDistance} totals={totals} tax={tax} shiftDays={shiftDays} onUpdate={() => setWizard(true)} />
       )}
@@ -42,8 +45,8 @@ function HomePeriod({ period, onShiftPeriod }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.12em" }}>Pay period</div>
-        <div style={{ fontSize: 15, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
+        <div className="label">Pay period</div>
+        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
       </div>
       <button onClick={() => onShiftPeriod(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
       <button onClick={() => onShiftPeriod(1)} style={iconBtn()} aria-label="Next period">›</button>
@@ -72,8 +75,17 @@ function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
   );
 }
 
+function HomeFooter({ ratesEffective, onOpenSettings, onAbout }) {
+  return (
+    <div style={{ fontSize: 12, color: "var(--ink-faint)", textAlign: "center", lineHeight: 1.7 }}>
+      {ratesEffective} · <button onClick={onOpenSettings} style={homeInlineBtn}>Edit rates</button>
+      <br />Estimate only. Check against your pay slip. · <button onClick={onAbout} style={homeInlineBtn}>About</button>
+    </div>
+  );
+}
+
 /* ----- result at a glance ----- */
-function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, ratesEffective }) {
+function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
   const net = calcTax(totals.grand, tax).net;
   const counts = [
     [totals.cal.pm3, "3PM"],
@@ -91,7 +103,7 @@ function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, 
           background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
           border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
         }}>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--accent)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Estimated gross pay</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross pay</div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
             <AnimatedNumber value={totals.grand} format={fmt} />
           </div>
@@ -108,7 +120,7 @@ function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, 
           <HomeLine color="var(--sp2)" label="Extra hours" hint="overtime + holiday" value={totals.extraSubtotal} />
         </div>
 
-        <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
           {shiftDays > 0 ? `${counts.join(" · ")} · ${fmtH(totals.totalHours)}h` : "No shifts logged yet"}
           {totals.holidayHours > 0 && ` · ${fmtH(totals.holidayHours)}h holiday`}
         </div>
@@ -126,17 +138,13 @@ function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, 
           Update my shifts
         </button>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-          <button onClick={() => { onSaveSnapshot(); showToast("Snapshot saved to History"); }} style={ghostBtn()}>Save snapshot</button>
+          <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={ghostBtn()}>Save to History</button>
           <button onClick={onCopyShare} style={ghostBtn()}>Copy summary</button>
         </div>
         <button onClick={() => onOpenCalc()} style={homeLinkBtn}>See the full breakdown and calendar →</button>
       </Card>
 
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textAlign: "center", lineHeight: 1.6 }}>
-        {ratesEffective} ·{" "}
-        <button onClick={onOpenSettings} style={{ ...homeInlineBtn }}>Edit rates</button>
-        <br />Estimate only. Check against your pay slip.
-      </div>
+      <HomeFooter ratesEffective={ratesEffective} onOpenSettings={onOpenSettings} onAbout={onAbout} />
     </>
   );
 }
@@ -147,7 +155,7 @@ function HomeLine({ color, label, hint, value }) {
       <span style={{ width: 6, height: 18, borderRadius: 2, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{hint}</div>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{hint}</div>
       </div>
       <span className="mono" style={{ fontSize: 14.5, fontWeight: 600 }}>{fmt(value)}</span>
     </div>
@@ -201,7 +209,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
   return (
     <Card style={{ padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
+        <div className="label">
           Step {step + 1} of {steps.length} · {steps[step]}
         </div>
         <button onClick={onDone} style={homeInlineBtn}>Cancel</button>
@@ -270,7 +278,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
           border: "1px solid color-mix(in oklab, var(--accent) 28%, transparent)",
           display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
         }}>
-          <span className="mono" style={{ fontSize: 10.5, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.12em" }}>Estimated gross</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross</span>
           <span style={{ fontSize: 20, fontWeight: 700 }}>
             {totalsErr ? <span className="mono">—</span> : <AnimatedNumber value={plan.preview.grand} format={fmt} />}
           </span>
@@ -290,7 +298,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       </div>
 
       {last && (
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
           Rates: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)} ·{" "}
           <button onClick={onOpenSettings} style={homeInlineBtn}>Edit</button>
         </div>
@@ -318,7 +326,7 @@ function ChoiceCard({ active, onClick, title, detail }) {
       transition: "background 0.12s, border-color 0.12s",
     }}>
       <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
-      <span className="mono" style={{ fontSize: 11, color: "var(--ink-dim)" }}>{detail}</span>
+      <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{detail}</span>
     </button>
   );
 }
@@ -441,7 +449,7 @@ function Stepper({ label, hint, color, value, onChange }) {
       {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
-        {hint && <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{hint}</div>}
+        {hint && <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{hint}</div>}
       </div>
       <button onClick={() => bump(-1)} style={btn} aria-label={`Fewer ${label}`}>−</button>
       <input

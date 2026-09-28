@@ -132,7 +132,7 @@ function SnapRow({ snap, delta, onOpen, onDelete }) {
           }}>R</span>}
         </div>
         <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>
-          {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Detailed" : "Quick"}
+          {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Taxi varies" : snap.basicDistance === "L" ? "Long taxi" : "Short taxi"}
         </div>
       </div>
       <div style={{ textAlign: "right" }}>

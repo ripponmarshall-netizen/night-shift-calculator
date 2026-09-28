@@ -1,7 +1,7 @@
 /* calendar.jsx — calendar with hour stripes + warning highlights + autofill button */
 const { useState: useStateCal } = React;
 
-function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight, setHighlight, onAutofill, onTemplates, defaultDist, setDefaultDist, clipboard, copyDay, pasteDay, cancelCopy }) {
+function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight, onAutofill, onTemplates, clipboard, copyDay, pasteDay, cancelCopy }) {
   const days = periodDays(period);
   const leadBlanks = period.start.getDay();
   const headWeek = ["S","M","T","W","T","F","S"];
@@ -11,9 +11,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
     <Card style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px", flexWrap: "wrap", gap: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.12em", color: "var(--ink-faint)", textTransform: "uppercase" }}>Calendar</div>
-          <div style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}>
-            {monthNameLong(period.start.getMonth())} {period.start.getDate()} → {monthNameLong(period.end.getMonth())} {period.end.getDate()}
+          <div className="label">Pay period</div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>
+            {monthName(period.start.getMonth())} {period.start.getDate()} – {monthName(period.end.getMonth())} {period.end.getDate()}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
@@ -43,12 +43,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           </svg>
           Templates
         </button>
-        {mode === "advanced" && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Default</span>
-            <SegToggle small options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={defaultDist} onChange={setDefaultDist} />
-          </div>
-        )}
+        <span style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Tap a day to edit</span>
       </div>
 
       {clipboard && (
@@ -62,8 +57,8 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }}>
             <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
-          <span className="mono" style={{ fontSize: 11.5, color: "var(--ink)", flex: 1 }}>
-            Copy mode: tap empty days to paste
+          <span style={{ fontSize: 13, color: "var(--ink)", flex: 1 }}>
+            Copied. Tap empty days to paste
             <span style={{ color: "var(--ink-faint)" }}> ({[clipboard.entry.am7 && "7AM", clipboard.entry.pm3 && "3PM", clipboard.entry.pm10 && "10PM"].filter(Boolean).join(" + ")})</span>
           </span>
           <button onClick={cancelCopy} style={{ ...ghostBtn(), padding: "4px 10px", fontSize: 11 }}>Done</button>
@@ -72,7 +67,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: "0 12px 4px" }}>
         {headWeek.map((d, i) => (
-          <div key={i} className="mono" style={{ fontSize: 10, color: "var(--ink-faint)", textAlign: "center", padding: "6px 0" }}>{d}</div>
+          <div key={i} style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-faint)", textAlign: "center", padding: "6px 0" }}>{d}</div>
         ))}
       </div>
 
@@ -114,7 +109,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
               style={{
                 position: "relative",
                 aspectRatio: "1 / 1.15",
-                borderRadius: 10,
+                borderRadius: 11,
                 border: `1px solid ${
                   isClipboardSource ? "var(--accent)"
                   : isPasteTarget ? "color-mix(in oklab, var(--accent) 50%, var(--line-soft))"
@@ -162,26 +157,24 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         <Legend color="var(--sp2)" label="10PM (9h)" />
         <Legend color="var(--holiday)" label="Holiday" dot />
         <div style={{ flex: 1 }} />
-        <div className="mono" style={{ fontSize: 11, color: "var(--ink-dim)" }}>
-          7AM {totals.cal.am7} · 3PM {totals.cal.pm3} · 10PM {totals.cal.pm10}
+        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
+          <span className="mono" style={{ color: "var(--ink)" }}>{totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10}</span> shifts · <span className="mono" style={{ color: "var(--ink)" }}>{fmtH(totals.totalHours)}</span>h
         </div>
       </div>
 
       {totals.holidayHours > 0 && (
-        <div className="mono" style={{ fontSize: 10, color: "var(--ink-faint)", padding: "0 16px 12px" }}>
-          * day total includes holiday hours (paid ×2)
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: "0 16px 12px" }}>
+          * includes holiday hours (paid ×2)
         </div>
       )}
 
       {periodHolidays.length > 0 && (
         <div style={{ padding: "10px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
-          <div className="mono" style={{ fontSize: 10, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-            Public holidays this period
-          </div>
+          <div className="label" style={{ marginBottom: 8 }}>Public holidays this period</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {periodHolidays.map((h) => (
-              <span key={h.date.toISOString()} className="mono" style={{
-                fontSize: 11,
+              <span key={h.date.toISOString()} style={{
+                fontSize: 12,
                 padding: "3px 8px",
                 background: "color-mix(in oklab, var(--holiday) 14%, transparent)",
                 border: "1px solid color-mix(in oklab, var(--holiday) 40%, transparent)",
@@ -299,7 +292,7 @@ function Legend({ color, label, dot }) {
       <span style={dot
         ? { width: 8, height: 8, borderRadius: "50%", background: color }
         : { width: 14, height: 4, borderRadius: 2, background: color }} />
-      <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-dim)" }}>{label}</span>
+      <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>{label}</span>
     </div>
   );
 }
