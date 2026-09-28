@@ -200,6 +200,48 @@ function ToastHost() {
   );
 }
 
+/* copyText — copy to the clipboard and toast the real outcome. The async
+   Clipboard API can be missing (non-HTTPS, older WebViews) or reject (denied
+   permission), so fall back to a hidden textarea + execCommand before
+   reporting failure. */
+function copyText(text, okMessage) {
+  const ok = () => showToast(okMessage || "Copied");
+  const fail = () => showToast("Couldn't copy. Your browser blocked the clipboard.");
+  const fallback = () => {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const done = document.execCommand("copy");
+      document.body.removeChild(ta);
+      done ? ok() : fail();
+    } catch { fail(); }
+  };
+  try {
+    const p = navigator.clipboard?.writeText(text);
+    if (p && typeof p.then === "function") p.then(ok, fallback);
+    else fallback();
+  } catch { fallback(); }
+}
+
+/* downloadBlob — save a Blob as a file. Revoking the object URL in the same
+   tick as click() can cancel the download in some browsers (notably Safari),
+   so release it after a short delay, as share.jsx does for images. */
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* sanitizeDecimal — keep digits and a single decimal point */
 function sanitizeDecimal(v) {
   let s = String(v).replace(/[^0-9.]/g, "");
@@ -276,4 +318,5 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
+  copyText, downloadBlob,
 });

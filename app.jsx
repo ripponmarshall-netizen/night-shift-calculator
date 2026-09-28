@@ -2,8 +2,15 @@
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
+/* History-state key for in-app screens, so the phone's Back button returns to
+   Home instead of leaving the app. Only one entry is ever pushed above Home;
+   moves between non-Home screens replace it. */
+const NAV_KEY = "nscView";
+
 function App() {
-  const initial = loadState();
+  // Read storage once on mount, not on every render (each read parses the
+  // whole saved state, snapshots included).
+  const [initial] = useState(loadState);
   const [mode, setMode] = useState(initial.mode || "basic");
   const [view, setView] = useState("home");
   const [periodAnchor, setPeriodAnchor] = useState(initial.periodAnchor || ymd(new Date()));
@@ -130,13 +137,7 @@ function App() {
       return;
     }
     const ics = toICS(periodEntries);
-    const blob = new Blob([ics], { type: "text/calendar" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `night-shift-${periodAnchor}.ics`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(new Blob([ics], { type: "text/calendar" }), `night-shift-${periodAnchor}.ics`);
   };
 
   /* clipboard (long-press to copy day shifts) */
@@ -162,12 +163,7 @@ function App() {
 
   const exportJson = () => {
     const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded }, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `night-shift-${periodAnchor}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
     const inp = document.createElement("input");
@@ -199,8 +195,7 @@ function App() {
 
   const copySummary = () => {
     const net = calcTax(totals.grand, tax).net;
-    navigator.clipboard?.writeText(summaryText(totals, periodLabel(period), net));
-    showToast("Summary copied");
+    copyText(summaryText(totals, periodLabel(period), net), "Summary copied");
   };
 
   /* Home setup: the wizard hands over generated entries; the calculator's own
@@ -215,9 +210,34 @@ function App() {
     setOnboarded(true);
   };
 
+  /* Screen navigation that keeps the phone's Back button inside the app:
+     leaving Home pushes one history entry, moving between other screens
+     replaces it, and returning Home pops it (so Back from Home exits). */
+  const go = (v) => {
+    if (v === view) return;
+    const h = window.history;
+    const onStack = h?.state && h.state[NAV_KEY] && h.state[NAV_KEY] !== "home";
+    if (v === "home") {
+      if (onStack) { h.back(); return; } // popstate below sets the view
+      setView("home");
+      return;
+    }
+    try {
+      if (onStack) h.replaceState({ [NAV_KEY]: v }, "");
+      else h.pushState({ [NAV_KEY]: v }, "");
+    } catch {}
+    setView(v);
+  };
+  useEffect(() => {
+    try { window.history.replaceState({ ...(window.history.state || {}), [NAV_KEY]: "home" }, ""); } catch {}
+    const onPop = (e) => setView((e.state && e.state[NAV_KEY]) || "home");
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
   const openCalc = (m) => {
     if (m === "basic" || m === "advanced") setMode(m);
-    setView("calc");
+    go("calc");
     window.scrollTo?.(0, 0);
   };
 
@@ -245,9 +265,8 @@ function App() {
 
   /* taskbar interactions */
   const onTab = (id) => {
-    if (id === "history") { setView("history"); return; }
-    if (id === "home") { setView("home"); return; }
-    setView("calc");
+    if (id === "history" || id === "home") { go(id); return; }
+    go("calc");
     if (id === "basic" || id === "advanced") setMode(id);
   };
   const activeTab = view === "calc" ? mode : view;
@@ -323,12 +342,12 @@ function App() {
           theme={theme}
           onDelete={deleteSnapshot}
           onClear={clearSnapshots}
-          onBack={() => setView("calc")}
+          onBack={() => go("calc")}
           onReconcile={(snap) => setReconcileTarget(snap)}
         />
       )}
 
-      {view === "about" && <AboutView onBack={() => setView("home")} />}
+      {view === "about" && <AboutView onBack={() => go("home")} />}
 
       <Taskbar
         activeTab={activeTab}
@@ -337,7 +356,7 @@ function App() {
         hasInputs={Object.keys(entries).length > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
-        onAboutToggle={() => setView(view === "about" ? "home" : "about")}
+        onAboutToggle={() => go(view === "about" ? "home" : "about")}
       />
 
       {openDay && (

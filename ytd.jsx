@@ -87,7 +87,7 @@ function YTDDashboard({ snapshots }) {
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Biggest period</div>
             <div style={{ fontSize: 13.5, marginTop: 2 }}>{stats.biggest.period}</div>
           </div>
-          <div className="mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmt(stats.biggest.totals.grand)}</div>
+          <div className="mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmt(Number(stats.biggest.totals?.grand) || 0)}</div>
         </div>
       )}
     </Card>

@@ -2,10 +2,16 @@
 const { useState: useStateSn, useMemo: useMemoSn } = React;
 
 function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcile }) {
-  const [selected, setSelected] = useStateSn(null);
+  // Track the open snapshot by id and look it up live, so a reconciliation
+  // saved while it's open shows immediately instead of a stale copy.
+  const [selectedAt, setSelectedAt] = useStateSn(null);
   const list = snapshots || [];
-  const sortedAsc = useMemoSn(() => [...list].sort((a, b) => new Date(a.at) - new Date(b.at)), [list]);
-  const sortedDesc = useMemoSn(() => [...list].sort((a, b) => new Date(b.at) - new Date(a.at)), [list]);
+  const selected = list.find((s) => s.at === selectedAt) || null;
+  // Order by pay period (not capture time), so "vs previous" and the sparkline
+  // compare consecutive periods even when an older period is saved later.
+  // Legacy snapshots without periodKey fall back to their capture date.
+  const sortedAsc = useMemoSn(() => [...list].sort(snapOrder), [list]);
+  const sortedDesc = useMemoSn(() => [...sortedAsc].reverse(), [sortedAsc]);
 
   // Coerce grand so a legacy/imported snapshot missing the field can't yield NaN.
   const g = (s) => Number(s?.totals?.grand) || 0;
@@ -57,16 +63,22 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
               const prevSnap = sortedDesc[i + 1];
               const d = prevSnap ? g(s) - g(prevSnap) : 0;
               return (
-                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelected(s)} onDelete={() => onDelete(s.at)} />
+                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => onDelete(s.at)} />
               );
             })}
           </div>
         )}
       </Card>
 
-      {selected && <SnapshotDetail snap={selected} theme={theme} onClose={() => setSelected(null)} onReconcile={onReconcile} />}
+      {selected && <SnapshotDetail snap={selected} theme={theme} onClose={() => setSelectedAt(null)} onReconcile={onReconcile} />}
     </main>
   );
+}
+
+function snapOrder(a, b) {
+  const key = (s) => s.periodKey || ymd(new Date(s.at));
+  const k = key(a).localeCompare(key(b));
+  return k !== 0 ? k : new Date(a.at) - new Date(b.at);
 }
 
 function Sparkline({ points, labels, avg }) {
@@ -120,7 +132,7 @@ function SnapRow({ snap, delta, onOpen, onDelete }) {
           }}>R</span>}
         </div>
         <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>
-          {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode}
+          {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Detailed" : "Quick"}
         </div>
       </div>
       <div style={{ textAlign: "right" }}>
@@ -161,8 +173,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
   const t = snap.totals;
   const copy = () => {
     const net = calcTax(snap.totals.grand, snap.tax).net;
-    navigator.clipboard?.writeText(summaryText(snap.totals, snap.period, net));
-    showToast("Summary copied");
+    copyText(summaryText(snap.totals, snap.period, net), "Summary copied");
   };
   const downloadPng = () => { downloadSnapshotImage(snap, theme); showToast("Image downloaded"); };
   const copyPng = async () => {
