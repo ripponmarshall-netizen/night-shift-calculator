@@ -6,8 +6,8 @@ function Card({ children, style, id }) {
     <section id={id} style={{
       background: "var(--bg-1)",
       border: "1px solid var(--line-soft)",
-      borderRadius: 14,
-      padding: 16,
+      borderRadius: 16,
+      padding: 18,
       marginBottom: 14,
       ...style,
     }}>{children}</section>
@@ -19,7 +19,7 @@ function SectionHead({ title, subtitle, right }) {
     <div style={{ marginBottom: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.005em" }}>{title}</div>
-        {subtitle && <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 2 }}>{subtitle}</div>}
+        {subtitle && <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{subtitle}</div>}
       </div>
       {right}
     </div>
@@ -59,18 +59,19 @@ function Sub({ label, value }) {
   );
 }
 
-function SegToggle({ options, value, onChange, small }) {
+function SegToggle({ options, value, onChange, small, full }) {
   return (
-    <div style={{
-      display: "inline-grid",
+    <div role="radiogroup" style={{
+      display: full ? "grid" : "inline-grid",
       gridAutoFlow: "column",
+      gridAutoColumns: full ? "1fr" : undefined,
       background: "var(--bg-2)", border: "1px solid var(--line)",
       borderRadius: 10, padding: 3, gap: 2,
     }}>
       {options.map((o) => {
         const active = o.v === value;
         return (
-          <button key={o.v} onClick={() => onChange(o.v)} style={{
+          <button key={o.v} role="radio" aria-checked={active} onClick={() => onChange(o.v)} style={{
             padding: small ? "5px 10px" : "8px 14px",
             borderRadius: 8, border: "none",
             background: active ? "var(--ink)" : "transparent",

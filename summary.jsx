@@ -23,7 +23,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
         background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
         border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
       }}>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--accent)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Estimated Gross</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross pay</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
             <AnimatedNumber value={est} format={fmt} />
@@ -36,11 +36,6 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
             </button>
           )}
         </div>
-        <div className="mono" style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 8, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <span>Allow {fmtShort(totals.allowanceSubtotal)}</span>
-          <span>Base {fmtShort(totals.baseSubtotal)}</span>
-          <span>Extra {fmtShort(totals.extraSubtotal)}</span>
-        </div>
         {showNet && tax?.enabled && (
           <div style={{
             marginTop: 12, padding: "10px 12px",
@@ -48,9 +43,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
             borderRadius: 10,
             border: "1px solid color-mix(in oklab, var(--accent) 18%, var(--line-soft))",
           }}>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>
-              Estimated deductions
-            </div>
+            <div className="label" style={{ marginBottom: 6 }}>Estimated deductions</div>
             {taxBreak.lines.map((l, i) => (
               <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
                 <span style={{ color: "var(--ink-dim)" }}>{l.label} {l.note && <span style={{ color: "var(--ink-faint)" }}>· {l.note}</span>}</span>
@@ -61,7 +54,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
               <span style={{ fontSize: 13, fontWeight: 600 }}>Estimated net</span>
               <span className="mono" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(net)}</span>
             </div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
               JM brackets: NIS, NHT, Education Tax, PAYE. Verify in Settings.
             </div>
           </div>
@@ -105,9 +98,11 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
         </div>
       </Collapse>
 
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
-        <button onClick={onSaveSnapshot} style={accentBtn()}>Save Snapshot</button>
-        <button onClick={onCopyShare} style={ghostBtn()}>⎘ Copy summary</button>
+      <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "8px 2px 0" }}>Tap a row to see the lines. Tap ƒ to see the math.</div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+        <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={accentBtn()}>Save to History</button>
+        <button onClick={onCopyShare} style={ghostBtn()}>Copy summary</button>
       </div>
 
       {math && <MathPopover {...math} onClose={() => setMath(null)} />}
@@ -122,7 +117,7 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
       width: "100%", padding: "10px 12px",
       background: open ? "var(--bg-2)" : "transparent",
       border: "1px solid var(--line-soft)",
-      borderRadius: 10,
+      borderRadius: 12,
       color: "var(--ink)",
       cursor: "pointer",
       marginBottom: 4,
@@ -158,7 +153,7 @@ function MathPopover({ label, formula, value, onClose }) {
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 14, padding: 18, outline: "none",
       }}>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>How this is calculated</div>
+        <div className="label">How this is calculated</div>
         <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{label}</div>
         <pre className="mono" style={{
           marginTop: 12, padding: 12,
@@ -169,7 +164,7 @@ function MathPopover({ label, formula, value, onClose }) {
           fontFamily: "inherit",
         }}>{formula}</pre>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 12 }}>
-          <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Result</span>
+          <span className="label">Result</span>
           <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{fmt(value)}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>

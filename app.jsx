@@ -1,4 +1,4 @@
-/* app.jsx — main app with bottom taskbar (Home + live total + Quick/Detailed/History), desktop 2-col, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home / Shifts / History + live total), desktop 2-col, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -24,7 +24,7 @@ function App() {
   const [ratesHistory, setRatesHistory] = useState(initial.ratesHistory || []);
   const [templates, setTemplates] = useState(initial.templates || []);
   const [snapshots, setSnapshots] = useState(initial.snapshots || []);
-  const [theme, setTheme] = useState(initial.theme || "dark");
+  const [theme, setTheme] = useState(initial.theme || "auto");
   const [onboarded, setOnboarded] = useState(initial.onboarded ?? false);
   const [openDay, setOpenDay] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -57,7 +57,7 @@ function App() {
       const resolved = theme === "auto" ? (mq?.matches ? "light" : "dark") : theme;
       document.body.setAttribute("data-theme", resolved);
       const meta = document.getElementById("theme-color-meta");
-      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#0b0b0c");
+      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#0f1013");
     };
     apply();
     if (theme === "auto" && mq) {
@@ -263,13 +263,19 @@ function App() {
     if (cal) cal.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  /* taskbar interactions */
-  const onTab = (id) => {
-    if (id === "history" || id === "home") { go(id); return; }
-    go("calc");
-    if (id === "basic" || id === "advanced") setMode(id);
+  /* Taxi distance: "S"/"L" apply one distance to every shift (Quick mode);
+     "mixed" sets it per shift in the day editor (Detailed mode). Switching
+     to mixed seeds new shifts with the distance that was in use. */
+  const setDistanceChoice = (v) => {
+    if (v === "mixed") {
+      if (mode !== "advanced") setDefaultDist(basicDistance);
+      setMode("advanced");
+    } else {
+      setBasicDistance(v);
+      setDefaultDist(v);
+      setMode("basic");
+    }
   };
-  const activeTab = view === "calc" ? mode : view;
 
   /* flash total animation hook */
   const totalChipRef = useRef(null);
@@ -282,8 +288,8 @@ function App() {
 
   return (
     <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : "Calculator"}
-         style={{ paddingBottom: `calc(120px + var(--safe-bottom))` }}>
-      <Header view={view} mode={mode} onSettings={() => setSettingsOpen(true)} period={period} setPeriodAnchor={setPeriodAnchor} ratesEffective={ratesEffectiveLabel} />
+         style={{ paddingBottom: `calc(130px + var(--safe-bottom))` }}>
+      <Header onSettings={() => setSettingsOpen(true)} />
 
       {!onboarded && view !== "home" && (
         <RatesOnboardingBanner
@@ -305,6 +311,7 @@ function App() {
           onCopyShare={copySummary}
           onOpenCalc={openCalc}
           onOpenSettings={() => setSettingsOpen(true)}
+          onAbout={() => go("about")}
         />
       )}
 
@@ -313,8 +320,7 @@ function App() {
           period={period} entries={entries} mode={mode}
           counts={counts} setCounts={setCounts}
           basePay={basePay} setBasePay={setBasePay}
-          basicDistance={basicDistance} setBasicDistance={setBasicDistance}
-          defaultDist={defaultDist} setDefaultDist={setDefaultDist}
+          basicDistance={basicDistance} onDistance={setDistanceChoice}
           totals={totals}
           tax={tax}
           clipboard={clipboard}
@@ -325,10 +331,6 @@ function App() {
           onTemplates={() => setTemplatesOpen(true)}
           onSaveSnapshot={saveSnapshot}
           onCopyShare={copySummary}
-          onExportICS={exportICS}
-          onReset={reset}
-          onExport={exportJson}
-          onImport={importJson}
           onWarningClick={onWarningClick}
           copyDay={copyDay}
           pasteDay={pasteDay}
@@ -350,13 +352,12 @@ function App() {
       {view === "about" && <AboutView onBack={() => go("home")} />}
 
       <Taskbar
-        activeTab={activeTab}
-        onTab={onTab}
+        activeTab={view}
+        onTab={go}
         total={totals.grand}
         hasInputs={Object.keys(entries).length > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
-        onAboutToggle={() => go(view === "about" ? "home" : "about")}
       />
 
       {openDay && (
@@ -377,6 +378,11 @@ function App() {
           tax={tax} setTax={setTax}
           ratesHistory={ratesHistory} setRatesHistory={setRatesHistory}
           theme={theme} setTheme={setTheme}
+          onExportICS={exportICS}
+          onReset={reset}
+          onExport={exportJson}
+          onImport={importJson}
+          onAbout={() => { setSettingsOpen(false); go("about"); }}
           onClose={() => setSettingsOpen(false)}
         />
       )}
@@ -407,8 +413,9 @@ function App() {
 }
 
 /* ============ Header ============ */
-function Header({ view, mode, onSettings, period, setPeriodAnchor, ratesEffective }) {
-  const subtitle = view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : mode === "basic" ? "Quick" : "Detailed";
+/* One quiet line: the app name and Settings. Each screen shows its own pay
+   period, so the header doesn't repeat it. */
+function Header({ onSettings }) {
   return (
     <header style={{
       position: "sticky", top: 0, zIndex: 30,
@@ -416,36 +423,27 @@ function Header({ view, mode, onSettings, period, setPeriodAnchor, ratesEffectiv
       backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       borderBottom: "1px solid var(--line-soft)",
     }}>
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 14px) 20px 10px", display: "flex", alignItems: "center", gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div className="mono" style={{ fontSize: 10.5, letterSpacing: "0.12em", color: "var(--ink-faint)", textTransform: "uppercase" }}>
-            Pay calculator · {subtitle}
-          </div>
-          <h1 style={{ margin: "2px 0 0", fontSize: 19, fontWeight: 600, letterSpacing: "-0.01em" }}>Night Shift Calculator</h1>
-        </div>
-        <button onClick={onSettings} title="Rates settings" aria-label="Settings" style={iconBtn()}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 12px) 20px 12px", display: "flex", alignItems: "center", gap: 12 }}>
+        <img src="icon-192.svg" alt="" width="28" height="28" style={{ borderRadius: 8, flexShrink: 0 }} />
+        <h1 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>Night Shift Calculator</h1>
+        <button onClick={onSettings} title="Settings" aria-label="Settings" style={iconBtn()}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
-      </div>
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "0 20px 10px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div className="mono" style={{ fontSize: 11, color: "var(--ink-dim)", flex: 1, minWidth: 0 }}>
-          Period · <span style={{ color: "var(--ink)" }}>{periodLabel(period)}</span>
-        </div>
-        <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>{ratesEffective}</div>
       </div>
     </header>
   );
 }
 
 /* ============ Calc view (with desktop 2-col layout) ============ */
+/* Order of use: log shifts → confirm distance → read the result. Base pay
+   (set once on Home) and the roster cross-check fold away until needed. */
 function CalcView(props) {
   const {
     period, entries, mode, counts, setCounts, basePay, setBasePay,
-    basicDistance, setBasicDistance, defaultDist, setDefaultDist,
+    basicDistance, onDistance,
     totals, tax, clipboard, highlightDays,
     onShiftPeriod, onOpenDay, onAutofill, onTemplates, onSaveSnapshot, onCopyShare,
-    onExportICS, onReset, onExport, onImport, onWarningClick,
-    copyDay, pasteDay, cancelCopy,
+    onWarningClick, copyDay, pasteDay, cancelCopy,
   } = props;
 
   return (
@@ -461,8 +459,6 @@ function CalcView(props) {
           onOpenDay={onOpenDay}
           onAutofill={onAutofill}
           onTemplates={onTemplates}
-          defaultDist={defaultDist}
-          setDefaultDist={setDefaultDist}
           clipboard={clipboard}
           copyDay={copyDay}
           pasteDay={pasteDay}
@@ -470,17 +466,7 @@ function CalcView(props) {
         />
       </div>
       <div className="calc-right">
-        <ShiftCountsCard
-          mode={mode}
-          counts={counts}
-          setCounts={setCounts}
-          basicDistance={basicDistance}
-          setBasicDistance={setBasicDistance}
-          totals={totals}
-          onWarningClick={onWarningClick}
-        />
-
-        <BasePayCard basePay={basePay} setBasePay={setBasePay} />
+        <DistanceCard mode={mode} basicDistance={basicDistance} onChange={onDistance} totals={totals} />
 
         <LiveSummary
           totals={totals}
@@ -491,80 +477,121 @@ function CalcView(props) {
           onCopyShare={onCopyShare}
         />
 
-        <Card>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button onClick={onExportICS} style={ghostBtn()}>⤓ Export .ics</button>
-            <button onClick={onExport} style={ghostBtn()}>Export JSON</button>
-            <button onClick={onImport} style={ghostBtn()}>Import</button>
-            <button onClick={onReset} style={ghostBtn()}>Reset period</button>
-          </div>
+        <Card style={{ padding: "6px 18px" }}>
+          <BasePayFold basePay={basePay} setBasePay={setBasePay} />
+          <div style={{ height: 1, background: "var(--line-soft)" }} />
+          <CrossCheckFold counts={counts} setCounts={setCounts} totals={totals} onWarningClick={onWarningClick} />
         </Card>
 
-        <div style={{ padding: "8px 4px 0", textAlign: "center" }}>
-          <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>Workflow Coaching and Optimisation Co.</div>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 2 }}>Portland Division · v3.0</div>
+        <div style={{ padding: "8px 4px 0", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
+          Workflow Coaching and Optimisation Co.<br />Portland Division · v3.1
         </div>
       </div>
     </main>
   );
 }
 
-/* ============ Counts card ============ */
-function ShiftCountsCard({ mode, counts, setCounts, basicDistance, setBasicDistance, totals, onWarningClick }) {
-  const setC = (k, v) => setCounts((p) => ({ ...p, [k]: v.replace(/[^0-9]/g, "") }));
+/* ============ Taxi distance ============ */
+function DistanceCard({ mode, basicDistance, onChange, totals }) {
+  const value = mode === "advanced" ? "mixed" : basicDistance;
+  const c = totals.cal;
   return (
     <Card>
-      <SectionHead title="Shift Counts" subtitle="Cross-check vs calendar" />
+      <SectionHead title="Taxi distance" subtitle="Paid on 3PM and 10PM shifts" />
+      <SegToggle
+        full
+        options={[
+          { v: "S", l: "Short" },
+          { v: "L", l: "Long" },
+          { v: "mixed", l: "Varies" },
+        ]}
+        value={value} onChange={onChange}
+      />
+      <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 10, lineHeight: 1.5 }}>
+        {value === "mixed" ? (
+          <>
+            Set Short or Long on each shift when you tap a day. Long shifts show a striped bar.
+            <div className="mono" style={{ marginTop: 6, color: "var(--ink)" }}>
+              Short {c.shortPm3 + c.shortPm10} · Long {c.longPm3 + c.longPm10}
+            </div>
+          </>
+        ) : (
+          <>Every shift this period uses <span className="mono" style={{ color: "var(--ink)" }}>{fmt(value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)}</span>.</>
+        )}
+      </div>
+    </Card>
+  );
+}
 
-      {mode === "basic" ? (
-        <>
-          <div style={{ marginBottom: 12 }}>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Distance</div>
-            <SegToggle
-              options={[
-                { v: "S", l: `Short — ${fmt(totals.rates.taxiShort)}` },
-                { v: "L", l: `Long — ${fmt(totals.rates.taxiLong)}` },
-              ]}
-              value={basicDistance} onChange={setBasicDistance}
-            />
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.cal.pm3} flag={totals.mismatch.pm3} />
-            <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.cal.pm10} flag={totals.mismatch.pm10} />
-            <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.cal.am7} flag={totals.mismatch.am7} />
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>From calendar (S / L)</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 14 }}>
-            <DistCell label="3PM" color="var(--sp1)" s={totals.cal.shortPm3} l={totals.cal.longPm3} />
-            <DistCell label="10PM" color="var(--sp2)" s={totals.cal.shortPm10} l={totals.cal.longPm10} />
-            <DistCell label="7AM" color="var(--am)" s={totals.cal.shortAm7} l={totals.cal.longAm7} />
-          </div>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Cross-check (optional)</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-            <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.cal.pm3} flag={totals.mismatch.pm3} />
-            <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.cal.pm10} flag={totals.mismatch.pm10} />
-            <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.cal.am7} flag={totals.mismatch.am7} />
-          </div>
-        </>
-      )}
+/* ============ Foldable rows (base pay, cross-check) ============ */
+function FoldRow({ title, detail, open, onToggle, warn, children }) {
+  return (
+    <div>
+      <button onClick={onToggle} aria-expanded={open} style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "14px 0",
+        background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer",
+        textAlign: "left", fontFamily: "inherit",
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 500 }}>{title}</div>
+          <div style={{ fontSize: 12.5, color: warn ? "var(--warn)" : "var(--ink-faint)", marginTop: 2 }}>{detail}</div>
+        </div>
+        <span aria-hidden style={{
+          fontSize: 12, color: "var(--ink-faint)", transition: "transform 0.18s",
+          transform: open ? "rotate(180deg)" : "none",
+        }}>▾</span>
+      </button>
+      <Collapse open={open}><div style={{ paddingBottom: 14 }}>{children}</div></Collapse>
+    </div>
+  );
+}
 
+function BasePayFold({ basePay, setBasePay }) {
+  const [open, setOpen] = useState(false);
+  const setP = (k, v) => setBasePay((p) => ({ ...p, [k]: sanitizeDecimal(v) }));
+  const monthly = Number(basePay.monthly) || 0;
+  const detail = monthly > 0
+    ? `${fmt(monthly)} basic · ${fmt(Number(basePay.compulsory) || 0)} compulsory`
+    : "Not set. Needed for base pay and overtime";
+  return (
+    <FoldRow title="Your monthly pay" detail={detail} warn={!(monthly > 0)} open={open} onToggle={() => setOpen((o) => !o)}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <MoneyInput label="Monthly basic" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
+        <MoneyInput label="Compulsory assignment" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
+      </div>
+    </FoldRow>
+  );
+}
+
+/* Optional: type the counts from your roster and the calendar is checked
+   against them. Counts never change the pay math. */
+function CrossCheckFold({ counts, setCounts, totals, onWarningClick }) {
+  const [open, setOpen] = useState(totals.hasMismatch);
+  const setC = (k, v) => setCounts((p) => ({ ...p, [k]: v.replace(/[^0-9]/g, "") }));
+  const entered = counts.pm3 !== "" || counts.pm10 !== "" || counts.am7 !== "";
+  const detail = totals.hasMismatch
+    ? "Your roster counts don't match the calendar"
+    : entered ? "Matches the calendar" : "Optional: compare with your roster";
+  return (
+    <FoldRow title="Check against roster" detail={detail} warn={totals.hasMismatch} open={open} onToggle={() => setOpen((o) => !o)}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.cal.pm3} flag={totals.mismatch.pm3} />
+        <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.cal.pm10} flag={totals.mismatch.pm10} />
+        <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.cal.am7} flag={totals.mismatch.am7} />
+      </div>
       {totals.hasMismatch && (
         <button onClick={onWarningClick} style={{
           marginTop: 12, padding: "10px 12px", borderRadius: 10,
           background: "color-mix(in oklab, var(--warn) 12%, transparent)",
           border: "1px solid color-mix(in oklab, var(--warn) 40%, transparent)",
-          color: "var(--warn)", fontSize: 12.5, display: "flex", alignItems: "center", gap: 8,
+          color: "var(--warn)", fontSize: 13, display: "flex", alignItems: "center", gap: 8,
           width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
         }}>
-          <span aria-hidden>⚠</span>
-          <span style={{ flex: 1 }}>Entered counts don't match the calendar. Tap to review days.</span>
-          <span style={{ fontSize: 11, opacity: 0.8 }}>→</span>
+          <span style={{ flex: 1 }}>Show me the calendar</span>
+          <span aria-hidden>→</span>
         </button>
       )}
-    </Card>
+    </FoldRow>
   );
 }
 
@@ -573,9 +600,9 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-        <span className="mono" style={{ fontSize: 11, color: "var(--ink-dim)" }}>{label}</span>
+        <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{label}</span>
         <span style={{ flex: 1 }} />
-        <span className="mono" style={{ fontSize: 10, color: flag ? "var(--warn)" : "var(--ink-faint)" }}>cal {expected}</span>
+        <span style={{ fontSize: 11.5, color: flag ? "var(--warn)" : "var(--ink-faint)" }}>cal <span className="mono">{expected}</span></span>
       </div>
       <input
         inputMode="numeric"
@@ -585,7 +612,7 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
         aria-label={`${label} shift count`}
         style={{
           width: "100%",
-          background: "var(--bg-1)",
+          background: "var(--bg-2)",
           border: `1px solid ${flag ? "color-mix(in oklab, var(--warn) 50%, var(--line))" : "var(--line)"}`,
           borderRadius: 10, padding: "10px 12px", color: "var(--ink)",
           fontSize: 16, outline: "none", fontFamily: "inherit",
@@ -594,53 +621,24 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
     </div>
   );
 }
-function DistCell({ label, color, s, l }) {
-  return (
-    <div style={{ background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 10, padding: "8px 10px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
-        <span className="mono" style={{ fontSize: 11, color: "var(--ink-dim)" }}>{label}</span>
-      </div>
-      <div className="mono" style={{ fontSize: 12.5 }}>
-        <span style={{ color: "var(--ink)" }}>S {s}</span>
-        <span style={{ color: "var(--ink-faint)" }}> · </span>
-        <span style={{ color: "var(--ink)" }}>L {l}</span>
-      </div>
-    </div>
-  );
-}
 
-/* ============ base pay ============ */
-function BasePayCard({ basePay, setBasePay }) {
-  const setP = (k, v) => setBasePay((p) => ({ ...p, [k]: sanitizeDecimal(v) }));
-  return (
-    <Card>
-      <SectionHead title="Base Pay Inputs" subtitle="Drives hourly rate for OT" />
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <MoneyInput label="Monthly Basic Allowance" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
-        <MoneyInput label="Compulsory Assignment Allowance" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
-      </div>
-    </Card>
-  );
-}
 function MoneyInput({ label, value, onChange }) {
   return (
-    <div>
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+    <label style={{ display: "block" }}>
+      <div className="label" style={{ marginBottom: 6 }}>{label}</div>
       <div style={{ position: "relative" }}>
         <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--ink-faint)", fontSize: 14 }}>$</span>
         <input
           inputMode="decimal" value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0.00"
-          aria-label={label}
           style={{
-            width: "100%", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 10,
+            width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10,
             padding: "10px 12px 10px 24px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit"
           }}
         />
       </div>
-    </div>
+    </label>
   );
 }
 
@@ -652,10 +650,10 @@ function AboutView({ onBack }) {
         <SectionHead title="About" subtitle="Personal productivity tool" />
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
           <p>The Night Shift Calculator combines allowances, base pay, and extra-hours pay in one workflow, with calendar-based shift logging, mismatch cross-checks, snapshot history for sharing, and import/export support.</p>
-          <p style={{ marginTop: 12 }}><strong style={{ color: "var(--ink)" }}>Quick</strong> uses one distance for the whole period. <strong style={{ color: "var(--ink)" }}>Detailed</strong> lets you set Short or Long per shift, per day.</p>
+          <p style={{ marginTop: 12 }}>On the <strong style={{ color: "var(--ink)" }}>Shifts</strong> screen, set <strong style={{ color: "var(--ink)" }}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={{ color: "var(--ink)" }}>Varies</strong> to set it per shift when you tap a day.</p>
           <p style={{ marginTop: 12 }}>Public holidays are auto-marked from the Jamaica calendar — Easter, Good Friday, Easter Monday, Ash Wednesday, Heroes Day, and all fixed-date holidays. Override per day from the day editor.</p>
           <p style={{ marginTop: 12, color: "var(--ink-faint)" }}>Verify all results against official pay records. This is not official payroll advice.</p>
-          <p style={{ marginTop: 12, color: "var(--ink-faint)" }}>Data stays on this device. Use Reset to clear local data.</p>
+          <p style={{ marginTop: 12, color: "var(--ink-faint)" }}>Data stays on this device. Backup, restore and reset are in Settings → Backup.</p>
         </div>
         <div style={{ marginTop: 12 }}>
           <button onClick={onBack} style={primaryBtn()}>← Back</button>
@@ -666,56 +664,55 @@ function AboutView({ onBack }) {
 }
 
 /* ============ Taskbar (with live total + tabs) ============ */
-function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipRef, onAboutToggle }) {
+function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipRef }) {
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
-    { id: "basic", label: "Quick", icon: QuickIcon },
-    { id: "advanced", label: "Detailed", icon: DetailedIcon },
+    { id: "calc", label: "Shifts", icon: ShiftsIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
   ];
 
   return (
-    <nav aria-label="Calculator nav" style={{
+    <nav aria-label="Main" style={{
       position: "fixed", left: 0, right: 0, bottom: 0,
       paddingBottom: "var(--safe-bottom)",
       zIndex: 40,
       pointerEvents: "none",
     }}>
-      {/* Total chip — floats above tabs, only on calc view */}
-      {(activeTab === "basic" || activeTab === "advanced") && (
-        <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 6px", pointerEvents: "none" }}>
+      {/* Live total — floats above the tabs while logging shifts */}
+      {activeTab === "calc" && (
+        <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
           <div ref={totalChipRef} className="total-chip" style={{
             background: "var(--surface-translucent)",
             backdropFilter: "blur(24px) saturate(140%)",
             WebkitBackdropFilter: "blur(24px) saturate(140%)",
             border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
             borderRadius: 999,
-            padding: "8px 14px",
+            padding: "8px 16px",
             display: "inline-flex", alignItems: "center", gap: 10,
-            boxShadow: "0 12px 32px -16px rgba(0,0,0,0.7)",
+            boxShadow: "0 12px 32px -16px rgba(0,0,0,0.6)",
             pointerEvents: "auto",
           }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: hasInputs ? "var(--accent)" : "var(--ink-faint)" }} />
-            <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", letterSpacing: "0.12em", textTransform: "uppercase" }}>Est. Gross</span>
-            <span className="mono" style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.005em" }}>
+            <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>Estimated pay</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.005em" }}>
               <AnimatedNumber value={total} format={fmt} />
             </span>
           </div>
         </div>
       )}
 
-      <div style={{ maxWidth: 540, margin: "0 auto", padding: "0 16px 14px", pointerEvents: "auto" }}>
-        <div style={{
+      <div style={{ maxWidth: 420, margin: "0 auto", padding: "0 16px 12px", pointerEvents: "auto" }}>
+        <div role="tablist" style={{
           background: "var(--surface-translucent)",
           backdropFilter: "blur(24px) saturate(140%)",
           WebkitBackdropFilter: "blur(24px) saturate(140%)",
           border: "1px solid var(--line)",
-          borderRadius: 18,
+          borderRadius: 20,
           padding: 5,
           display: "grid",
           gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
           gap: 4,
-          boxShadow: "0 16px 40px -16px rgba(0,0,0,0.7), 0 2px 0 rgba(255,255,255,0.04) inset",
+          boxShadow: "0 16px 40px -16px rgba(0,0,0,0.6)",
         }}>
           {tabs.map((t) => {
             const Icon = t.icon;
@@ -727,26 +724,23 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
                 aria-selected={active}
                 onClick={() => onTab(t.id)}
                 style={{
-                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
-                  padding: "10px 6px 8px",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+                  padding: "9px 6px 7px",
                   border: "none",
-                  borderRadius: 14,
-                  background: active ? "var(--ink)" : "transparent",
-                  color: active ? "var(--bg)" : "var(--ink-dim)",
+                  borderRadius: 15,
+                  background: active ? "color-mix(in oklab, var(--accent) 16%, transparent)" : "transparent",
+                  color: active ? "var(--accent)" : "var(--ink-dim)",
                   cursor: "pointer",
-                  transition: "background 0.18s, color 0.18s, transform 0.1s",
+                  transition: "background 0.18s, color 0.18s",
                   position: "relative",
                   fontFamily: "inherit",
                 }}
-                onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.97)"}
-                onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
-                onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
               >
                 <Icon />
-                <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500, letterSpacing: "0.01em" }}>{t.label}</span>
+                <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500 }}>{t.label}</span>
                 {t.badge > 0 && !active && (
                   <span className="mono" style={{
-                    position: "absolute", top: 6, right: 8,
+                    position: "absolute", top: 5, right: "calc(50% - 22px)",
                     fontSize: 9, fontWeight: 700,
                     padding: "1px 5px", borderRadius: 999,
                     background: "var(--accent)", color: "var(--accent-ink)",
@@ -755,13 +749,6 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
               </button>
             );
           })}
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-          <button onClick={onAboutToggle} style={{
-            background: "transparent", border: "none", color: "var(--ink-faint)",
-            fontSize: 10.5, padding: "4px 8px", cursor: "pointer", fontFamily: "inherit",
-            textDecoration: "underline", textUnderlineOffset: 3,
-          }}>About & disclaimers</button>
         </div>
       </div>
     </nav>
@@ -773,14 +760,9 @@ function HomeIcon() {
     <path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>
   </svg>;
 }
-function QuickIcon() {
+function ShiftsIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h8M8 13h8M8 17h5"/>
-  </svg>;
-}
-function DetailedIcon() {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 6h16M4 12h10M4 18h7"/><circle cx="19" cy="12" r="2"/><circle cx="16" cy="18" r="2"/>
+    <rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/>
   </svg>;
 }
 function HistoryIcon() {

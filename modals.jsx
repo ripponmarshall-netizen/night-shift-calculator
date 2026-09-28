@@ -44,7 +44,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Edit day</div>
+            <div className="label">Edit day</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>
               {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </div>
@@ -72,7 +72,7 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
         }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, fontWeight: 500 }}>Public holiday</div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>
+            <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>
               {entry.holiday === null ? (isAutoHoliday ? "Auto · holiday" : "Auto · regular") : (isHol ? "Override · holiday" : "Override · regular")}
             </div>
           </div>
@@ -116,7 +116,7 @@ function DayToggle({ label, hours, color, active, onClick }) {
       </span>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
-        <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>{hours}</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{hours}</div>
       </div>
     </button>
   );
@@ -124,7 +124,8 @@ function DayToggle({ label, hours, color, active, onClick }) {
 
 function DistRow({ value, onChange }) {
   return (
-    <div style={{ display: "flex", justifyContent: "flex-end", margin: "-4px 0 8px 38px" }}>
+    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, margin: "-4px 0 8px 38px" }}>
+      <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>Taxi</span>
       <SegToggle small options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={value} onChange={onChange} />
     </div>
   );
@@ -153,31 +154,62 @@ function HoursRow({ keyName, entry, onChange, hint }) {
 }
 
 /* ============ Settings ============ */
-function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onClose }) {
+function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
   const [tab, setTab] = useStateM("rates");
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   return (
     <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18, outline: "none" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Settings</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Configuration</div>
-          </div>
-          <button onClick={close} style={iconBtn()}>✕</button>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>Settings</div>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 16, overflowX: "auto" }}>
           <SegToggle options={[
             { v: "rates", l: "Rates" },
             { v: "tax", l: "Tax" },
-            { v: "history", l: "Rate history" },
+            { v: "history", l: "Past rates" },
             { v: "theme", l: "Theme" },
+            { v: "data", l: "Backup" },
           ]} value={tab} onChange={setTab} small />
         </div>
         <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} /></div>
         <div style={{ display: tab === "tax" ? "block" : "none" }}><TaxTab tax={tax} setTax={setTax} /></div>
         <div style={{ display: tab === "history" ? "block" : "none" }}><RateHistoryTab ratesHistory={ratesHistory} setRatesHistory={setRatesHistory} currentRates={rates} /></div>
         <div style={{ display: tab === "theme" ? "block" : "none" }}><ThemeTab theme={theme} setTheme={setTheme} /></div>
+        <div style={{ display: tab === "data" ? "block" : "none" }}>
+          <DataTab onExport={onExport} onImport={onImport} onExportICS={onExportICS} onReset={onReset} />
+        </div>
+        <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 16, paddingTop: 12, textAlign: "center" }}>
+          <button onClick={onAbout} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>
+            About & disclaimers
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Backup and housekeeping, kept out of the everyday screens. */
+function DataTab({ onExport, onImport, onExportICS, onReset }) {
+  const item = (title, detail, onClick, danger) => (
+    <button onClick={onClick} style={{
+      display: "block", width: "100%", textAlign: "left", padding: "12px 14px", marginBottom: 8,
+      background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 12,
+      color: danger ? "var(--holiday)" : "var(--ink)", cursor: "pointer", fontFamily: "inherit",
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 500 }}>{title}</div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{detail}</div>
+    </button>
+  );
+  return (
+    <div>
+      {item("Save a backup", "Download everything as a JSON file", onExport)}
+      {item("Restore a backup", "Load a JSON file you saved before", onImport)}
+      {item("Add shifts to my calendar", "Download this period as an .ics file", onExportICS)}
+      {item("Reset this period", "Clears this period's shifts and pay. Rates and history are kept.", onReset, true)}
+      <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, marginTop: 6 }}>
+        Your data stays on this device. Save a backup before changing phones or clearing your browser.
       </div>
     </div>
   );
@@ -533,7 +565,7 @@ function RatesOnboardingBanner({ onOpen, onDismiss }) {
     }}>
       <div style={{ flex: 1, minWidth: 200 }}>
         <div style={{ fontSize: 13.5, fontWeight: 600, color: "var(--ink)" }}>Set your pay rates first</div>
-        <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginTop: 2, lineHeight: 1.45 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, lineHeight: 1.45 }}>
           SP1, SP2, and Meal are placeholders. Open Settings to set them to your actual entitlements.
         </div>
       </div>
