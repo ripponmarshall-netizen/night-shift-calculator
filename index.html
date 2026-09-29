@@ -24,18 +24,47 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Apply the saved theme before first paint, so the loading screen and
+      // app don't flash dark for light-theme users.
+      (function () {
+        try {
+          var t =
+            (JSON.parse(localStorage.getItem("nsc:v3") || "{}") || {}).theme ||
+            "auto";
+          if (t === "auto") {
+            t =
+              window.matchMedia &&
+              matchMedia("(prefers-color-scheme: light)").matches
+                ? "light"
+                : "dark";
+          }
+          document.documentElement.setAttribute("data-theme", t);
+          var m = document.getElementById("theme-color-meta");
+          if (m)
+            m.setAttribute("content", t === "light" ? "#faf9f7" : "#0f1013");
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Shown while the app's scripts load and compile; React replaces it. -->
+    <div id="root">
+      <div class="nsc-splash" role="status" aria-live="polite">
+        <img src="icon-192.svg" alt="" width="56" height="56" />
+        <div class="nsc-splash-title">Night Shift Calculator</div>
+        <div class="nsc-splash-sub">Loading…</div>
+      </div>
+    </div>
 
     <script
-      src="https://unpkg.com/react@18.3.1/umd/react.development.js"
-      integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L"
+      src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"
+      integrity="sha384-DGyLxAyjq0f9SPpVevD6IgztCFlnMF6oW/XQGmfe+IsZ8TqEiDrcHkMLKI6fiB/Z"
       crossorigin="anonymous"
     ></script>
     <script
-      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js"
-      integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm"
+      src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"
+      integrity="sha384-gTGxhz21lVGYNMcdJOyq01Edg0jhn/c22nsx0kyqP0TxaV5WVdsSH1fSDUf5YJj1"
       crossorigin="anonymous"
     ></script>
     <script

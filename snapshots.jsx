@@ -63,7 +63,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
               const prevSnap = sortedDesc[i + 1];
               const d = prevSnap ? g(s) - g(prevSnap) : 0;
               return (
-                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => { if (confirm(`Delete the saved result for ${s.period}?`)) onDelete(s.at); }} />
+                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => onDelete(s.at)} />
               );
             })}
           </div>
@@ -112,43 +112,47 @@ function Sparkline({ points, labels, avg }) {
   );
 }
 
+/* The whole row opens the saved result; delete sits apart with an Undo toast
+   (in the app), so no confirm step is needed. */
 function SnapRow({ snap, delta, onOpen, onDelete }) {
   const t = snap.totals || {};
   const reconciled = !!snap.reconcile;
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: "8px 12px", flexWrap: "wrap",
-      padding: "12px 14px",
+      display: "flex", alignItems: "center", gap: 4,
       background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 12,
     }}>
-      {/* On a narrow phone the amount and buttons wrap under the period
-          instead of squeezing it to one word per line. */}
-      <div style={{ flex: "1 1 150px", minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>{snap.period}</span>
-          {reconciled && <span title="Reconciled vs pay slip" className="mono" style={{
-            fontSize: 9.5, padding: "1px 6px", borderRadius: 999,
-            background: "color-mix(in oklab, var(--ok) 18%, transparent)",
-            color: "var(--ok)", border: "1px solid color-mix(in oklab, var(--ok) 40%, transparent)",
-            letterSpacing: "0.06em", textTransform: "uppercase",
-          }}>R</span>}
-        </div>
-        <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>
-          {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Taxi varies" : snap.basicDistance === "L" ? "Long taxi" : "Short taxi"}
-        </div>
-      </div>
-      <div style={{ textAlign: "right", marginLeft: "auto" }}>
-        <div className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{fmt(t.grand)}</div>
-        {delta !== 0 && (
-          <div className="mono" style={{ fontSize: 11, color: delta > 0 ? "var(--ok)" : "var(--holiday)", marginTop: 2 }}>
-            {delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))}
+      <button onClick={onOpen} aria-label={`Open ${snap.period}`} style={{
+        flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "8px 12px", flexWrap: "wrap",
+        padding: "12px 6px 12px 14px", background: "transparent", border: "none", borderRadius: 12,
+        color: "var(--ink)", cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+      }}>
+        {/* On a narrow phone the amount wraps under the period instead of
+            squeezing it to one word per line. */}
+        <div style={{ flex: "1 1 150px", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 500 }}>{snap.period}</span>
+            {reconciled && <span title="Checked against your pay slip" style={{
+              fontSize: 11, padding: "1px 7px", borderRadius: 999, fontWeight: 500,
+              background: "color-mix(in oklab, var(--ok) 18%, transparent)",
+              color: "var(--ok)", border: "1px solid color-mix(in oklab, var(--ok) 40%, transparent)",
+            }}>Pay slip ✓</span>}
           </div>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 4 }}>
-        <button onClick={onOpen} style={iconBtn()} aria-label="Open" title="Open">→</button>
-        <button onClick={onDelete} style={iconBtn()} aria-label="Delete" title="Delete">✕</button>
-      </div>
+          <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2 }}>
+            Saved {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Taxi varies" : snap.basicDistance === "L" ? "Long taxi" : "Short taxi"}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", marginLeft: "auto" }}>
+          <div className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{fmt(t.grand)}</div>
+          {delta !== 0 && (
+            <div className="mono" style={{ fontSize: 11, color: delta > 0 ? "var(--ok)" : "var(--holiday)", marginTop: 2 }}>
+              {delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))}
+            </div>
+          )}
+        </div>
+        <span aria-hidden style={{ color: "var(--ink-faint)", fontSize: 18, paddingLeft: 2 }}>›</span>
+      </button>
+      <button onClick={onDelete} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", marginRight: 4, flexShrink: 0 }} aria-label={`Delete ${snap.period}`} title="Delete">✕</button>
     </div>
   );
 }
@@ -160,7 +164,9 @@ function EmptyState({ onBack }) {
       border: "1px dashed var(--line)", borderRadius: 12,
       color: "var(--ink-dim)",
     }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
+      <svg aria-hidden width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
+        <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3.5 2"/>
+      </svg>
       <div style={{ fontSize: 14, marginBottom: 6, color: "var(--ink)" }}>Nothing saved yet</div>
       <div style={{ fontSize: 12.5, color: "var(--ink-faint)", maxWidth: 320, margin: "0 auto 14px", lineHeight: 1.5 }}>
         Tap <strong>Save to History</strong> on Home or Shifts to keep this period's result. Then you can compare periods and check it against your pay slip.
@@ -201,11 +207,11 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div className="label" style={{  }}>Snapshot</div>
+            <div className="label">Saved result</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>{snap.period}</div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Captured {new Date(snap.at).toLocaleString()}</div>
+            <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString()}</div>
           </div>
-          <button onClick={close} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
         <Row label="Allowance" muted />
@@ -217,7 +223,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
 
         <Row label="Base Pay" muted top />
         <Row label="Monthly Basic" value={fmt(t.monthlyBasic)} />
-        <Row label="Compulsory Allowance" value={fmt(t.compulsory)} />
+        <Row label="Compulsory assignment" value={fmt(t.compulsory)} />
         <Sub label="Base Pay subtotal" value={fmt(t.baseSubtotal)} />
 
         <Row label="Extra Hours" muted top />
@@ -232,15 +238,15 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
           marginTop: 14, padding: "16px",
           borderRadius: 12,
           background: "var(--ink)", color: "var(--bg)",
-          display: "flex", alignItems: "baseline", justifyContent: "space-between"
+          display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
         }}>
-          <span style={{ fontSize: 13, fontWeight: 500, letterSpacing: "0.04em", textTransform: "uppercase" }}>Grand Total</span>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>{totalLabel(t)}</span>
           <span className="mono" style={{ fontSize: 26, fontWeight: 700 }}>{fmt(t.grand)}</span>
         </div>
 
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button style={accentBtn()} onClick={() => onReconcile(snap)}>
-            {recon ? "Edit reconciliation" : "Reconcile vs pay slip"}
+            {recon ? "Edit pay slip check" : "Check against pay slip"}
           </button>
           <button style={ghostBtn()} onClick={downloadPng}>⤓ Download PNG</button>
           <button style={ghostBtn()} onClick={copyPng}>⎘ Copy image</button>
@@ -254,7 +260,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
             border: "1px solid color-mix(in oklab, var(--ok) 30%, var(--line))",
             borderRadius: 12,
           }}>
-            <div className="label" style={{ marginBottom: 6 }}>Reconciliation</div>
+            <div className="label" style={{ marginBottom: 6 }}>Pay slip check</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontSize: 13.5 }}>Pay slip total</span>
               <span className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{recon.grand ? fmt(Number(recon.grand)) : "—"}</span>

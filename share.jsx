@@ -99,7 +99,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   y = drawSection(ctx, "Base Pay", snap.totals.baseSubtotal, pad + 50, y, W - 2 * pad - 100, colors.am, colors);
   drawLine(ctx, "Monthly Basic", fmt(snap.totals.monthlyBasic), pad + 70, y, W - 2 * pad - 140, colors); y += 38;
-  drawLine(ctx, "Compulsory Allowance", fmt(snap.totals.compulsory), pad + 70, y, W - 2 * pad - 140, colors); y += 50;
+  drawLine(ctx, "Compulsory assignment", fmt(snap.totals.compulsory), pad + 70, y, W - 2 * pad - 140, colors); y += 50;
 
   y = drawSection(ctx, "Extra Hours", snap.totals.extraSubtotal, pad + 50, y, W - 2 * pad - 100, colors.sp2, colors);
   drawLine(ctx, `Holiday hours · ${fmtH(snap.totals.holidayHours)}h`, fmt(snap.totals.holidayPay), pad + 70, y, W - 2 * pad - 140, colors); y += 38;

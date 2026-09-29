@@ -25,7 +25,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
     { k: "meal", label: "Meal", expected: t.meal },
     { k: "taxi", label: "Taxi", expected: t.taxi },
     { k: "monthlyBasic", label: "Monthly Basic", expected: t.monthlyBasic },
-    { k: "compulsory", label: "Compulsory Allow.", expected: t.compulsory },
+    { k: "compulsory", label: "Compulsory assign.", expected: t.compulsory },
     { k: "holidayPay", label: "Holiday pay (×2)", expected: t.holidayPay },
     { k: "overtimePay", label: "Overtime (×1.5)", expected: t.overtimePay },
   ];
@@ -59,11 +59,11 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <div className="label" style={{  }}>Reconcile</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>vs pay slip</div>
+            <div className="label">Pay slip check</div>
+            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>What were you actually paid?</div>
             <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
           </div>
-          <button onClick={close} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
         <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>

@@ -87,9 +87,10 @@ function SegToggle({ options, value, onChange, small, full, wrap }) {
   );
 }
 
+/* 44px: Apple's minimum comfortable tap target. */
 function iconBtn() {
   return {
-    width: 36, height: 36, borderRadius: 10,
+    width: 44, height: 44, borderRadius: 12,
     background: "var(--bg-2)", border: "1px solid var(--line)",
     color: "var(--ink)", cursor: "pointer",
     display: "inline-flex", alignItems: "center", justifyContent: "center",
@@ -165,10 +166,12 @@ function Collapse({ open, children }) {
 }
 
 /* Toast — decoupled: any module calls showToast(); ToastHost (mounted once)
-   renders an animated, auto-dismissing toast above the taskbar. */
-function showToast(message) {
+   renders an animated, auto-dismissing toast above the taskbar. Pass
+   { action: { label, onClick } } for an Undo-style button; those toasts stay
+   up longer so there's time to reach them. */
+function showToast(message, opts) {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("nsc-toast", { detail: message }));
+    window.dispatchEvent(new CustomEvent("nsc-toast", { detail: { message, action: opts?.action || null } }));
   }
 }
 function ToastHost() {
@@ -176,9 +179,10 @@ function ToastHost() {
   const timerRef = useRefC(null);
   useEffectC(() => {
     const onToast = (e) => {
-      setToast({ id: Date.now(), message: String(e.detail || "") });
+      const d = e.detail || {};
+      setToast({ id: Date.now(), message: String(d.message || ""), action: d.action });
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setToast(null), 2200);
+      timerRef.current = setTimeout(() => setToast(null), d.action ? 6000 : 2200);
     };
     window.addEventListener("nsc-toast", onToast);
     return () => {
@@ -187,18 +191,112 @@ function ToastHost() {
     };
   }, []);
   if (!toast) return null;
+  const act = () => {
+    toast.action?.onClick?.();
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setToast(null);
+  };
   return (
     <div aria-live="polite" style={{
       position: "fixed", left: 0, right: 0, bottom: "calc(120px + var(--safe-bottom))",
       display: "flex", justifyContent: "center", zIndex: 90, pointerEvents: "none", padding: "0 16px",
     }}>
-      <div key={toast.id} className="nsc-toast mono" style={{
+      <div key={toast.id} className="nsc-toast" style={{
         background: "var(--surface-translucent)",
         backdropFilter: "blur(24px) saturate(140%)", WebkitBackdropFilter: "blur(24px) saturate(140%)",
         border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
-        color: "var(--ink)", borderRadius: 999, padding: "10px 16px", fontSize: 12.5,
+        color: "var(--ink)", borderRadius: 999, padding: toast.action ? "6px 6px 6px 16px" : "10px 16px", fontSize: 13,
         boxShadow: "0 12px 32px -16px rgba(0,0,0,0.7)", maxWidth: 420,
-      }}>{toast.message}</div>
+        display: "flex", alignItems: "center", gap: 12,
+        pointerEvents: toast.action ? "auto" : "none",
+      }}>
+        <span>{toast.message}</span>
+        {toast.action && (
+          <button onClick={act} style={{
+            border: "none", borderRadius: 999, padding: "8px 14px", minHeight: 36,
+            background: "var(--accent)", color: "var(--accent-ink)",
+            fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+          }}>{toast.action.label}</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* askConfirm — in-app replacement for window.confirm(). Resolves true when the
+   person confirms, false on cancel / Escape / backdrop. ConfirmHost (mounted
+   once) renders the dialog above any open modal. */
+function askConfirm(opts) {
+  return new Promise((resolve) => {
+    window.dispatchEvent(new CustomEvent("nsc-confirm", { detail: { opts: opts || {}, resolve } }));
+  });
+}
+function ConfirmHost() {
+  const [req, setReq] = useStateC(null);
+  useEffectC(() => {
+    const onReq = (e) => setReq({ id: Date.now(), ...e.detail });
+    window.addEventListener("nsc-confirm", onReq);
+    return () => window.removeEventListener("nsc-confirm", onReq);
+  }, []);
+  if (!req) return null;
+  return <ConfirmDialog key={req.id} {...req.opts} onDone={(ok) => { req.resolve(ok); setReq(null); }} />;
+}
+function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
+  const resultRef = useRefC(false);
+  const { ref: dialogRef, closing, close } = useModalDismiss(() => onDone(resultRef.current));
+  const answer = (ok) => { resultRef.current = ok; close(); };
+  return (
+    <div onClick={() => answer(false)} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
+      position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,0.55)",
+      backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
+    }}>
+      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-label={title}
+        className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
+          width: "100%", maxWidth: 380, background: "var(--bg-1)", border: "1px solid var(--line)",
+          borderRadius: 16, padding: 18, outline: "none",
+        }}>
+        <div style={{ fontSize: 17, fontWeight: 600 }}>{title}</div>
+        {body && <div style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.5, marginTop: 6 }}>{body}</div>}
+        <div style={{ display: "flex", gap: 8, marginTop: 18, justifyContent: "flex-end" }}>
+          <button onClick={() => answer(false)} style={ghostBtn()}>Cancel</button>
+          <button onClick={() => answer(true)} style={danger
+            ? { ...primaryBtn(), background: "var(--holiday)", color: "#fff" }
+            : primaryBtn()}>{confirmLabel || "OK"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* totalLabel — what the big number actually is. Without a monthly basic
+   there's no base pay or overtime, so calling it "gross pay" would mislead. */
+function totalLabel(t) {
+  if (Number(t?.monthlyBasic) > 0) return "Estimated gross pay";
+  if (Number(t?.compulsory) > 0) return "Estimated pay (basic not set)";
+  return "Estimated allowances";
+}
+
+/* SaveRow — Save to History + Copy summary, with whether this period is
+   already saved. status: { state: "none" | "saved" | "changed", at } */
+function SaveRow({ status, onSave, onCopy }) {
+  const state = status?.state || "none";
+  const when = status?.at ? new Date(status.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+  const save = () => {
+    onSave();
+    showToast(state === "none" ? "Saved to History" : "Saved result updated");
+  };
+  const label = state === "saved" ? "Saved ✓" : state === "changed" ? "Save changes" : "Save to History";
+  return (
+    <div style={{ marginTop: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <button onClick={save} style={state === "saved" ? { ...ghostBtn(), color: "var(--ok)", fontWeight: 600 } : accentBtn()}>{label}</button>
+        <button onClick={onCopy} style={ghostBtn()}>Copy summary</button>
+      </div>
+      {state !== "none" && (
+        <div style={{ fontSize: 12, marginTop: 8, color: state === "changed" ? "var(--warn)" : "var(--ink-faint)" }}>
+          {state === "changed" ? `Changed since you saved it on ${when}.` : `Saved to History on ${when}.`}
+        </div>
+      )}
     </div>
   );
 }
@@ -329,5 +427,6 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
+  askConfirm, ConfirmHost, totalLabel, SaveRow,
   copyText, downloadBlob,
 });

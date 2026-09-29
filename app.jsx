@@ -37,6 +37,8 @@ function App() {
   const [reconcileTarget, setReconcileTarget] = useState(null);
   const [highlightDays, setHighlightDays] = useState(null);
   const [clipboard, setClipboard] = useState(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [heroVisible, setHeroVisible] = useState(false);
 
   const period = useMemo(() => periodFor(fromYmd(periodAnchor)), [periodAnchor]);
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
@@ -60,6 +62,9 @@ function App() {
     const apply = () => {
       const resolved = theme === "auto" ? (mq?.matches ? "light" : "dark") : theme;
       document.body.setAttribute("data-theme", resolved);
+      // index.html sets it on <html> before the app loads (no flash of the
+      // wrong theme); keep the two in step.
+      document.documentElement.setAttribute("data-theme", resolved);
       const meta = document.getElementById("theme-color-meta");
       if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#0f1013");
     };
@@ -108,8 +113,34 @@ function App() {
     flashTotal();
   };
 
-  const deleteSnapshot = (at) => setSnapshots((prev) => prev.filter((s) => s.at !== at));
-  const clearSnapshots = () => { if (confirm("Delete all snapshots?")) setSnapshots([]); };
+  /* Is this period already in History, and does it still match? Compared on
+     the result, so moving a shift to another day with the same pay isn't a
+     change. */
+  const saveStatus = useMemo(() => {
+    const saved = snapshots.find((s) => s.periodKey === periodKey(period));
+    if (!saved) return { state: "none" };
+    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours"];
+    const same = keys.every((k) => Math.abs((Number(saved.totals?.[k]) || 0) - (Number(totals[k]) || 0)) < 0.005);
+    return { state: same ? "saved" : "changed", at: saved.at };
+  }, [snapshots, period, totals]);
+
+  const deleteSnapshot = (at) => {
+    const prev = snapshots;
+    const gone = prev.find((s) => s.at === at);
+    setSnapshots(prev.filter((s) => s.at !== at));
+    showToast(`Deleted ${gone?.period || "saved result"}`, { action: { label: "Undo", onClick: () => setSnapshots(prev) } });
+  };
+  const clearSnapshots = async () => {
+    const ok = await askConfirm({
+      title: "Delete all of History?",
+      body: `This removes all ${snapshots.length} saved result${snapshots.length === 1 ? "" : "s"}, including any pay slip checks.`,
+      confirmLabel: "Delete all", danger: true,
+    });
+    if (!ok) return;
+    const prev = snapshots;
+    setSnapshots([]);
+    showToast("History cleared", { action: { label: "Undo", onClick: () => setSnapshots(prev) } });
+  };
 
   /* templates */
   const saveTemplate = (tpl) => setTemplates((prev) => [...prev, tpl]);
@@ -139,7 +170,7 @@ function App() {
       if (entries[k]) periodEntries[k] = entries[k];
     }
     if (Object.keys(periodEntries).length === 0) {
-      alert("No shifts logged for this period.");
+      showToast("No shifts logged for this period yet");
       return;
     }
     const ics = toICS(periodEntries);
@@ -160,11 +191,20 @@ function App() {
   };
   const cancelCopy = () => setClipboard(null);
 
-  const reset = () => {
-    if (!confirm("Reset current period inputs (calendar, counts, base pay)? Rates and snapshots are kept.")) return;
+  const reset = async () => {
+    const ok = await askConfirm({
+      title: `Reset ${periodLabel(period)}?`,
+      body: "Clears this period's shifts, roster counts and monthly pay. Rates and History are kept.",
+      confirmLabel: "Reset period", danger: true,
+    });
+    if (!ok) return;
+    const before = { entries, counts, basePay };
     setEntries((prev) => clearPeriodEntries(prev, period));
     setCounts({ pm3: "", pm10: "", am7: "" });
     setBasePay({ monthly: "", compulsory: "" });
+    showToast("Period reset", { action: { label: "Undo", onClick: () => {
+      setEntries(before.entries); setCounts(before.counts); setBasePay(before.basePay);
+    } } });
   };
 
   const exportJson = () => {
@@ -179,7 +219,13 @@ function App() {
       try {
         const obj = JSON.parse(await f.text());
         const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
-        if (!isObj(obj)) { alert("Could not import file."); return; }
+        if (!isObj(obj)) { showToast("That file isn't a Night Shift backup"); return; }
+        const ok = await askConfirm({
+          title: "Restore this backup?",
+          body: "It replaces what's on this device now: shifts, pay, rates and History. Save a backup first if you might want today's data back.",
+          confirmLabel: "Restore", danger: true,
+        });
+        if (!ok) return;
         if (obj.mode) setMode(obj.mode);
         if (obj.periodAnchor) setPeriodAnchor(obj.periodAnchor);
         if (isObj(obj.entries)) setEntries(obj.entries);
@@ -196,7 +242,7 @@ function App() {
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
         showToast("Backup restored");
-      } catch (e) { alert("Could not import file."); }
+      } catch (e) { showToast("Couldn't read that file. Pick a backup .json file."); }
     };
     inp.click();
   };
@@ -252,12 +298,12 @@ function App() {
   };
 
   const applyAutofill = (opts) => {
-    const fill = autofillPattern(period, opts);
-    if (opts.pattern === "rotation") {
-      // The chosen start day sits at `phase` in the cycle; the 7AM is that
-      // many days earlier.
-      setRotationAnchor(ymd(addDays(fromYmd(opts.startKey), -(Number(opts.phase) || 0))));
-    }
+    // Rotation: the tapped 7AM day anchors the cycle across the whole period
+    // and is saved, just as the Home setup does.
+    const fill = opts.pattern === "rotation"
+      ? rotationEntries(period, opts.am7Key, opts.defaultDist)
+      : autofillPattern(period, opts);
+    if (opts.pattern === "rotation") setRotationAnchor(opts.am7Key);
     setEntries((prev) => {
       const next = { ...prev };
       for (const [k, v] of Object.entries(fill)) {
@@ -306,13 +352,6 @@ function App() {
          style={{ paddingBottom: `calc(130px + var(--safe-bottom))` }}>
       <Header onSettings={() => setSettingsOpen(true)} />
 
-      {!onboarded && view !== "home" && (
-        <RatesOnboardingBanner
-          onOpen={() => { setSettingsOpen(true); setOnboarded(true); }}
-          onDismiss={() => setOnboarded(true)}
-        />
-      )}
-
       {view === "home" && (
         <HomeView
           period={period} entries={entries} mode={mode}
@@ -321,6 +360,8 @@ function App() {
           ratesEffective={ratesEffectiveLabel}
           onboarded={onboarded}
           rotationAnchor={rotationAnchor}
+          saveStatus={saveStatus}
+          onWizardChange={setWizardOpen}
           onOpenDay={(d) => setOpenDay(ymd(d))}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
           onApply={applySimpleSetup}
@@ -343,7 +384,13 @@ function App() {
           clipboard={clipboard}
           highlightDays={highlightDays}
           rotationAnchor={rotationAnchor}
-          onClearRotation={() => { if (confirm("Stop tracking your rotation? Off days and extra shifts will no longer be marked. Your shifts stay as they are.")) setRotationAnchor(null); }}
+          saveStatus={saveStatus}
+          onHeroVisible={setHeroVisible}
+          onClearRotation={() => {
+            const prev = rotationAnchor;
+            setRotationAnchor(null);
+            showToast("Rotation stopped. Your shifts are unchanged.", { action: { label: "Undo", onClick: () => setRotationAnchor(prev) } });
+          }}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
           onOpenDay={(d) => setOpenDay(ymd(d))}
           onAutofill={() => setAutofillOpen(true)}
@@ -370,14 +417,16 @@ function App() {
 
       {view === "about" && <AboutView onBack={() => go("home")} />}
 
-      <Taskbar
+      {!(view === "home" && wizardOpen) && <Taskbar
         activeTab={view}
         onTab={go}
         total={totals.grand}
+        totalShort={Number(totals.monthlyBasic) > 0 ? "Est. gross" : "Allowances"}
+        showTotal={view === "calc" && !heroVisible}
         hasInputs={Object.keys(entries).length > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
-      />
+      />}
 
       {openDay && (
         <DayModal
@@ -429,6 +478,7 @@ function App() {
 
       <GlobalStyle />
       <ToastHost />
+      <ConfirmHost />
     </div>
   );
 }
@@ -462,7 +512,7 @@ function CalcView(props) {
   const {
     period, entries, mode, counts, setCounts, basePay, setBasePay,
     basicDistance, onDistance,
-    totals, tax, clipboard, highlightDays, rotationAnchor, onClearRotation,
+    totals, tax, clipboard, highlightDays, rotationAnchor, onClearRotation, saveStatus, onHeroVisible,
     onShiftPeriod, onOpenDay, onAutofill, onTemplates, onSaveSnapshot, onCopyShare,
     onWarningClick, copyDay, pasteDay, cancelCopy,
   } = props;
@@ -496,6 +546,8 @@ function CalcView(props) {
           mode={mode}
           basicDistance={basicDistance}
           tax={tax}
+          saveStatus={saveStatus}
+          onHeroVisible={onHeroVisible}
           onSaveSnapshot={onSaveSnapshot}
           onCopyShare={onCopyShare}
         />
@@ -507,7 +559,7 @@ function CalcView(props) {
         </Card>
 
         <div style={{ padding: "8px 4px 0", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
-          Workflow Coaching and Optimisation Co.<br />Portland Division · v3.1
+          Workflow Coaching and Optimisation Co.<br />Portland Division · v{APP_VERSION}
         </div>
       </div>
     </main>
@@ -539,7 +591,7 @@ function DistanceCard({ mode, basicDistance, onChange, totals }) {
             </div>
           </>
         ) : (
-          <>Every shift this period uses <span className="mono" style={{ color: "var(--ink)" }}>{fmt(value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)}</span>.</>
+          <>Each 3PM and 10PM shift pays <span className="mono" style={{ color: "var(--ink)" }}>{fmt(value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)}</span> taxi this period.</>
         )}
       </div>
     </Card>
@@ -687,7 +739,7 @@ function AboutView({ onBack }) {
 }
 
 /* ============ Taskbar (with live total + tabs) ============ */
-function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipRef }) {
+function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, snapshotCount, totalChipRef }) {
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "calc", label: "Shifts", icon: ShiftsIcon },
@@ -702,7 +754,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
       pointerEvents: "none",
     }}>
       {/* Live total — floats above the tabs while logging shifts */}
-      {activeTab === "calc" && (
+      {showTotal && (
         <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
           <div ref={totalChipRef} className="total-chip" style={{
             background: "var(--surface-translucent)",
@@ -716,7 +768,7 @@ function Taskbar({ activeTab, onTab, total, hasInputs, snapshotCount, totalChipR
             pointerEvents: "auto",
           }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: hasInputs ? "var(--accent)" : "var(--ink-faint)" }} />
-            <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>Estimated pay</span>
+            <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{totalShort}</span>
             <span style={{ fontSize: 16, fontWeight: 700, color: "var(--ink)", letterSpacing: "-0.005em" }}>
               <AnimatedNumber value={total} format={fmt} />
             </span>
