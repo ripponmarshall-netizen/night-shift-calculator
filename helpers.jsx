@@ -22,6 +22,8 @@ const DEFAULT_RATES = {
   threshold: 173.33,
 };
 const STORAGE = "nsc:v3";
+// Shown in the Shifts footer. Bump with each release (see README).
+const APP_VERSION = "3.2";
 const MIGRATION = "nsc-rates-2026-05b";
 
 /* JM tax defaults — TAJ 2025/26 (threshold effective 1 April 2026). */
@@ -692,7 +694,7 @@ function toICS(entries, periodKeyOrAll) {
 }
 
 const _exports = {
-  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE,
+  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,

@@ -1,7 +1,7 @@
 /* summary.jsx — collapsible Live Summary with math popovers */
-const { useState: useStateS } = React;
+const { useState: useStateS, useRef: useRefS, useEffect: useEffectS } = React;
 
-function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyShare }) {
+function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnapshot, onCopyShare, onHeroVisible }) {
   const [openSec, setOpenSec] = useStateS({ allow: false, base: false, extra: false });
   const [math, setMath] = useStateS(null);
   const [showNet, setShowNet] = useStateS(false);
@@ -12,18 +12,30 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
   const showMath = (label, formula, value) => setMath({ label, formula, value });
   const toggle = (k) => setOpenSec((p) => ({ ...p, [k]: !p[k] }));
 
+  // Tell the app when this total is on screen, so the floating total pill
+  // above the tabs doesn't show the same number twice.
+  const heroRef = useRefS(null);
+  useEffectS(() => {
+    const el = heroRef.current;
+    if (!el || !onHeroVisible || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => onHeroVisible(e.isIntersecting), { threshold: 0.4 });
+    io.observe(el);
+    return () => { io.disconnect(); onHeroVisible(false); };
+  }, []);
+  const noBasic = !(Number(totals.monthlyBasic) > 0);
+
   const distLabel = mode === "basic" ? (basicDistance === "L" ? "Long" : "Short") : "Per-shift";
 
   return (
     <Card>
       {/* Hero total */}
-      <div style={{
+      <div ref={heroRef} style={{
         marginBottom: 14, padding: "18px 16px",
         borderRadius: 14,
         background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
         border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
       }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross pay</div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
             <AnimatedNumber value={est} format={fmt} />
@@ -36,6 +48,11 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
             </button>
           )}
         </div>
+        {noBasic && (
+          <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
+            Base pay and overtime aren't included. Add your monthly basic under <strong style={{ color: "var(--ink)" }}>Your monthly pay</strong> below.
+          </div>
+        )}
         {showNet && tax?.enabled && (
           <div style={{
             marginTop: 12, padding: "10px 12px",
@@ -81,7 +98,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
       <Collapse open={openSec.base}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
           <Row label="Monthly Basic" value={fmt(totals.monthlyBasic)} />
-          <Row label="Compulsory Allowance" value={fmt(totals.compulsory)} />
+          <Row label="Compulsory assignment" value={fmt(totals.compulsory)} />
           <Row label="Hourly rate" value={fmt(totals.hourlyRate)} formula onClick={() => showMath("Hourly rate", `Monthly Basic ÷ ${totals.rates.threshold}\n${fmt(totals.monthlyBasic)} ÷ ${totals.rates.threshold}`, totals.hourlyRate)} />
         </div>
       </Collapse>
@@ -100,10 +117,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, onSaveSnapshot, onCopyS
 
       <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "8px 2px 0" }}>Tap a row to see the lines. Tap ƒ to see the math.</div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-        <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={accentBtn()}>Save to History</button>
-        <button onClick={onCopyShare} style={ghostBtn()}>Copy summary</button>
-      </div>
+      <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />
 
       {math && <MathPopover {...math} onClose={() => setMath(null)} />}
     </Card>

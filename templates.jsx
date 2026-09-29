@@ -15,7 +15,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
   const saveCurrent = () => {
     const dows = extractTemplateFromWeek(currentEntries, period);
     if (Object.keys(dows).length === 0) {
-      alert("Add some shifts to the calendar first, then save them as a template.");
+      showToast("Add some shifts to the calendar first, then save them as a template");
       return;
     }
     const tpl = {
@@ -134,8 +134,11 @@ function TemplateRow({ t, active, onSelect, onDelete }) {
           {active && <span style={{ position: "absolute", inset: 3, borderRadius: "50%", background: "var(--bg-1)" }} />}
         </span>
         <span style={{ fontSize: 14, fontWeight: 600, flex: 1 }}>{t.name}</span>
-        <button onClick={(e) => { e.stopPropagation(); if (confirm(`Delete template "${t.name}"?`)) onDelete(); }}
-          style={{ ...iconBtn(), width: 28, height: 28, fontSize: 13 }}
+        <button onClick={async (e) => {
+          e.stopPropagation();
+          if (await askConfirm({ title: `Delete "${t.name}"?`, body: "Shifts already on your calendar aren't affected.", confirmLabel: "Delete", danger: true })) onDelete();
+        }}
+          style={{ ...iconBtn(), width: 36, height: 36, fontSize: 13 }}
           aria-label="Delete template">✕</button>
       </div>
       <TemplatePreview dows={t.days} small />

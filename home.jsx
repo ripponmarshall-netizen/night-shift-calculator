@@ -2,7 +2,7 @@
    and a one-glance result. It never computes pay itself: answers become
    ordinary calendar entries (see rotationEntries / totalsEntries in helpers)
    and the preview runs the same aggregate() the calculator uses. */
-const { useState: useStateH, useMemo: useMemoH } = React;
+const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH } = React;
 
 const HOME_SHIFTS = {
   am7: { label: "7AM", color: "var(--am)" },
@@ -20,8 +20,14 @@ function periodShiftDays(entries, period) {
 }
 
 function HomeView(props) {
-  const { period, entries, basePay, basicDistance, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply } = props;
+  const { period, entries, basePay, basicDistance, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply, onWizardChange } = props;
   const [wizard, setWizard] = useStateH(false);
+  // The app hides the tab bar while setup is open, so the wizard's own
+  // Back / See my pay bar can sit at the bottom of the screen.
+  useEffectH(() => {
+    onWizardChange?.(wizard);
+    return () => onWizardChange?.(false);
+  }, [wizard]);
   const shiftDays = periodShiftDays(entries, period);
   // A saved rotation runs on into every period, so an empty new period can be
   // filled in one tap with the same pay and distance answers.
@@ -107,7 +113,7 @@ function HomeFooter({ ratesEffective, onOpenSettings, onAbout }) {
 }
 
 /* ----- result at a glance ----- */
-function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
+function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
   const net = calcTax(totals.grand, tax).net;
   const extra = rotationStats(entries, period, rotationAnchor).extra;
   const counts = [
@@ -126,13 +132,19 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
           border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
         }}>
-          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross pay</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
             <AnimatedNumber value={totals.grand} format={fmt} />
           </div>
           {tax?.enabled && Math.round(net) !== Math.round(totals.grand) && (
             <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 2 }}>
               About <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmt(net)}</span> after tax
+            </div>
+          )}
+          {!(Number(totals.monthlyBasic) > 0) && (
+            <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
+              Base pay and overtime aren't included.{" "}
+              <button onClick={onUpdate} style={{ ...homeInlineBtn, color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
             </div>
           )}
         </div>
@@ -158,10 +170,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           }}>⚠ Your shift counts don't match the calendar. Review →</button>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16 }}>
-          <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={accentBtn()}>Save to History</button>
-          <button onClick={onCopyShare} style={ghostBtn()}>Copy summary</button>
-        </div>
+        <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />
       </Card>
 
       <Card style={{ padding: 18 }}>
@@ -197,7 +206,7 @@ function HomeLine({ color, label, hint, value }) {
 /* ============ Setup wizard ============ */
 const blankTotals = { pm3: "", pm10: "", am7: "", pairs: "" };
 
-function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
+function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, ratesEffective, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
   const [step, setStep] = useStateH(0);
   const [draft, setDraft] = useStateH(() => ({
     monthly: basePay.monthly || "",
@@ -269,8 +278,8 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
         <>
           <WizardTitle title="How far is your commute?" sub="Sets the taxi allowance for your 3PM and 10PM shifts." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <ChoiceCard active={draft.dist === "S"} onClick={() => set({ dist: "S" })} title="Short" detail={`${fmt(rates.taxiShort)} per shift`} />
-            <ChoiceCard active={draft.dist === "L"} onClick={() => set({ dist: "L" })} title="Long" detail={`${fmt(rates.taxiLong)} per shift`} />
+            <ChoiceCard active={draft.dist === "S"} onClick={() => set({ dist: "S" })} title="Short" detail={`${fmt(rates.taxiShort)} per 3PM or 10PM shift`} />
+            <ChoiceCard active={draft.dist === "L"} onClick={() => set({ dist: "L" })} title="Long" detail={`${fmt(rates.taxiLong)} per 3PM or 10PM shift`} />
           </div>
         </>
       )}
@@ -307,37 +316,40 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       )}
 
       {last && (
-        <div style={{
-          marginTop: 16, padding: "12px 14px", borderRadius: 12,
-          background: "color-mix(in oklab, var(--accent) 10%, transparent)",
-          border: "1px solid color-mix(in oklab, var(--accent) 28%, transparent)",
-          display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10,
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>Estimated gross</span>
-          <span style={{ fontSize: 20, fontWeight: 700 }}>
-            {totalsErr ? <span className="mono">—</span> : <AnimatedNumber value={plan.preview.grand} format={fmt} />}
-          </span>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-        {step > 0 && <button onClick={() => setStep(step - 1)} style={ghostBtn()}>Back</button>}
-        <div style={{ flex: 1 }} />
-        {last ? (
-          <button onClick={finish} disabled={!!totalsErr} style={{ ...accentBtn(), padding: "12px 18px", opacity: totalsErr ? 0.5 : 1, cursor: totalsErr ? "not-allowed" : "pointer" }}>
-            See my pay
-          </button>
-        ) : (
-          <button onClick={() => setStep(step + 1)} style={{ ...primaryBtn(), padding: "12px 18px" }}>Next</button>
-        )}
-      </div>
-
-      {last && (
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
-          Rates: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)} ·{" "}
-          <button onClick={onOpenSettings} style={homeInlineBtn}>Edit</button>
+          {ratesEffective === "Current rates" ? "Using the current JFB rates" : `Using ${ratesEffective.toLowerCase()}`}: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)}.{" "}
+          <button onClick={onOpenSettings} style={homeInlineBtn}>Check rates</button>
         </div>
       )}
+
+      {/* Sticks to the bottom of the screen, so the next step and the live
+          estimate are always in reach, even under the tall rotation calendar. */}
+      <div style={{
+        position: "sticky", bottom: 0, zIndex: 2,
+        margin: "16px -20px -20px", padding: "12px 20px calc(12px + var(--safe-bottom))",
+        background: "var(--bg-1)", borderTop: "1px solid var(--line-soft)",
+        borderRadius: "0 0 16px 16px",
+      }}>
+        {last && (
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(plan.preview)}</span>
+            <span style={{ fontSize: 20, fontWeight: 700 }}>
+              {totalsErr ? <span className="mono">—</span> : <AnimatedNumber value={plan.preview.grand} format={fmt} />}
+            </span>
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 8 }}>
+          {step > 0 && <button onClick={() => setStep(step - 1)} style={ghostBtn()}>Back</button>}
+          <div style={{ flex: 1 }} />
+          {last ? (
+            <button onClick={finish} disabled={!!totalsErr} style={{ ...accentBtn(), padding: "12px 18px", opacity: totalsErr ? 0.5 : 1, cursor: totalsErr ? "not-allowed" : "pointer" }}>
+              See my pay
+            </button>
+          ) : (
+            <button onClick={() => setStep(step + 1)} style={{ ...primaryBtn(), padding: "12px 18px" }}>Next</button>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }
@@ -397,6 +409,7 @@ function RotationPicker({ period, value, onChange }) {
   const days = periodDays(period);
   const preview = rotationEntries(period, value, "S");
   const lead = period.start.getDay();
+  const todayKey = ymd(new Date());
   return (
     <>
       <div style={{ fontSize: 14, fontWeight: 500 }}>Tap any day you work a 7AM</div>
@@ -405,7 +418,7 @@ function RotationPicker({ period, value, onChange }) {
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }} role="group" aria-label="Rotation calendar">
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
-          <div key={"h" + i} className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)", textAlign: "center", padding: "2px 0" }}>{w}</div>
+          <div key={"h" + i} className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", textAlign: "center", padding: "2px 0" }}>{w}</div>
         ))}
         {Array.from({ length: lead }).map((_, i) => <div key={"b" + i} />)}
         {days.map((d) => {
@@ -420,7 +433,7 @@ function RotationPicker({ period, value, onChange }) {
               key={key}
               onClick={() => onChange(key)}
               aria-pressed={anchor}
-              aria-label={`${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${sh ? sh.label : "off"}${hol ? `, ${hol}` : ""}${anchor ? ", chosen 7AM" : ""}`}
+              aria-label={`${key === todayKey ? "Today, " : ""}${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${sh ? sh.label : "off"}${hol ? `, ${hol}` : ""}${anchor ? ", chosen 7AM" : ""}`}
               style={{
                 position: "relative", padding: "5px 0 4px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
                 textAlign: "center", minWidth: 0,
@@ -429,8 +442,12 @@ function RotationPicker({ period, value, onChange }) {
                 color: "var(--ink)",
               }}
             >
-              <div className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>{d.getDate()}</div>
-              <div className="mono" style={{ fontSize: 10, fontWeight: 600, color: sh ? "var(--ink)" : "var(--ink-faint)" }}>{sh ? sh.label : "Off"}</div>
+              <div style={{ display: "flex", justifyContent: "center" }}>
+                {key === todayKey
+                  ? <TodayDate date={d} today size={11} />
+                  : <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>{d.getDate()}</span>}
+              </div>
+              <div className="mono" style={{ fontSize: 12, fontWeight: 600, color: sh ? "var(--ink)" : "var(--ink-faint)" }}>{sh ? sh.label : "Off"}</div>
               {hol && <span style={{ position: "absolute", top: 3, right: 3, width: 5, height: 5, borderRadius: "50%", background: "var(--holiday)" }} />}
             </button>
           );
@@ -443,7 +460,7 @@ function RotationPicker({ period, value, onChange }) {
             Public holiday, applied automatically.{" "}
           </>
         )}
-        Took leave or worked an extra shift? Tap that day on Home afterwards. Extra shifts show in <span style={{ color: "var(--extra)", fontWeight: 600 }}>pink</span> with a +.
+        Took leave or worked an extra shift? Tap that day on the calendar afterwards. Extra shifts show in <span style={{ color: "var(--extra)", fontWeight: 600 }}>pink</span> with a +.
       </div>
     </>
   );
@@ -512,4 +529,4 @@ const homeInlineBtn = {
   textDecoration: "underline", textUnderlineOffset: 3,
 };
 
-Object.assign(window, { HomeView });
+Object.assign(window, { HomeView, RotationPicker });

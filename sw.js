@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v20";
+const CACHE = "ns-calculator-v21";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
@@ -29,8 +29,8 @@ const ASSETS = [
 // React + Babel load from a CDN at pinned versions (see index.html). Without
 // caching them the app can't start offline, so they are precached too.
 const CDN_ASSETS = [
-  "https://unpkg.com/react@18.3.1/umd/react.development.js",
-  "https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js",
+  "https://unpkg.com/react@18.3.1/umd/react.production.min.js",
+  "https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js",
   "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js",
 ];
 const CDN_HOSTS = new Set(["unpkg.com"]);

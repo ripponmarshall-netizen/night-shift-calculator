@@ -20,15 +20,15 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 
 ## App Architecture
 
-The app is a single-page PWA. UI is built with React 18 + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place.
+The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` shows a loading screen until the app mounts, and applies the saved theme before first paint.
 
 | File             | Purpose                                                                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `index.html`     | App shell, script loaders, service-worker registration                                                                       |
 | `styles.css`     | Theme tokens (dark + light), typography, base reset                                                                          |
 | `helpers.jsx`    | Date utilities, JM holidays (Easter computus), aggregate engine, JM tax model, rate history, templates, iCal export, storage |
-| `components.jsx` | Shared primitives (Card, SectionHead, SegToggle, button styles, AnimatedNumber)                                              |
-| `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup), Autofill rotation, Onboarding banner                               |
+| `components.jsx` | Shared primitives (Card, SegToggle, buttons, AnimatedNumber), toasts with Undo, in-app confirm dialog, Save to History row   |
+| `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup, saved as you type), Auto-fill                                       |
 | `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                 |
 | `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips       |
 | `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                             |
@@ -60,9 +60,11 @@ The app opens on **Home**. Tap **Start** and answer three questions:
 
    - Choosing **My rotation** saves it. The 4-day cycle (7AM → 3PM → 10PM → **Off**) runs on across pay periods, so the calendar marks your off days and shows any shift outside the rotation as an **extra** shift in pink with a `+` (e.g. `+3PM`). **My totals** doesn't follow a rotation, so it clears the saved one.
 
-The live estimate updates as you answer. **See my pay** saves the answers into the same calendar and inputs the **Shifts** screen uses, so both screens always show the same numbers. Use **Update my shifts** to redo it, or **See the full breakdown** to fine-tune individual days.
+The live estimate updates as you answer and stays pinned to the bottom of the screen with the **Next** / **See my pay** buttons (the tab bar hides during setup). **See my pay** saves the answers into the same calendar and inputs the **Shifts** screen uses, so both screens always show the same numbers. Use **Redo my setup** to change them, or **Full breakdown** to fine-tune individual days.
 
-After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
+If you leave your monthly pay blank, the big number is labelled **Estimated allowances** (not gross pay), with a link to add your pay.
+
+After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
 
 The phone's **Back** button returns to Home from any other screen. The app always opens on today's pay period.
 
@@ -70,19 +72,19 @@ The phone's **Back** button returns to Home from any other screen. The app alway
 
 The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**.
 
-1. **Set your rates** the first time from Settings. The onboarding banner will prompt you.
+1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
 2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured bands show shift type; bar height scales with hours.
 3. **Pick a taxi distance** under the calendar:
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.
 4. **Use shortcuts when you can.**
-   - **Auto-fill**: rotation fill (7AM → 3PM → 10PM → Off; say which shift the start day is), single-shift patterns, partial periods, preserve existing. A rotation fill saves the rotation.
+   - **Auto-fill**: rotation fill (tap any day you work a 7AM, as in the Home setup), single-shift patterns, partial periods, keep existing days. A rotation fill saves the rotation.
    - **Templates**: save the current week pattern and apply it to any period with one tap.
    - **Long-press a day** with shifts to copy it, then tap empty days to paste.
 5. **Read the result.** The live total floats above the bar while you tap. The summary card breaks down Allowance / Base Pay / Extra Hours; tap a row to expand it and `ƒ` to see the math.
 6. **Your monthly pay** and **Check against roster** fold away below the summary. Open them to edit base pay, or to type your roster counts and have the calendar checked against them (counts never change the math).
-7. **Save to History** when you're done. Snapshots de-dupe per period, show ▲/▼ delta vs the previous period, and can be exported as a shareable PNG. **Reconcile** against your pay slip from any snapshot.
-8. **Backup** (Settings): save/restore a JSON backup, download the period's shifts as `.ics`, or reset the period.
+7. **Save to History** when you're done. The button shows whether this period is already saved, or has **changed** since you saved it (**Save changes**). Saving again replaces that period's saved result. History shows ▲/▼ vs the previous period, exports a shareable PNG, and lets you **Check against pay slip** for any saved period. Deleting a saved result can be undone from the toast.
+8. **Backup** (Settings): save/restore a JSON backup (restoring asks first), download the period's shifts as `.ics`, or reset the period (asks first, and can be undone).
 
 ---
 
@@ -140,6 +142,7 @@ Validates `manifest.json` formatting, ensures core app files exist and are non-e
 ## Release Checklist
 
 1. Confirm default rates in `helpers.jsx` (`DEFAULT_RATES`, `DEFAULT_TAX`) and the "Rates effective" label in `app.jsx`.
-2. Run `./check.sh`.
-3. Bump the service worker cache version in `sw.js` (`const CACHE`).
-4. Verify install / offline behaviour and the snapshot share-as-PNG output manually.
+2. Bump `APP_VERSION` in `helpers.jsx` (shown in the Shifts footer).
+3. Run `./check.sh`.
+4. Bump the service worker cache version in `sw.js` (`const CACHE`).
+5. Verify install / offline behaviour and the snapshot share-as-PNG output manually.

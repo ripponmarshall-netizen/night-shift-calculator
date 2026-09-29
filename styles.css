@@ -102,6 +102,39 @@ button {
   min-height: 100vh;
 }
 
+/* Loading screen in index.html, shown until React mounts. */
+.nsc-splash {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+}
+.nsc-splash img {
+  border-radius: 14px;
+  animation: nscPulse 1.4s ease-in-out infinite;
+}
+.nsc-splash-title {
+  font-size: 17px;
+  font-weight: 600;
+}
+.nsc-splash-sub {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+@keyframes nscPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 /* Small section label: sentence case, sans, muted. Replaces the old
    uppercase monospace eyebrows so text is calmer to scan. */
 .label {
