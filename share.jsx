@@ -1,6 +1,8 @@
 /* share.jsx — render snapshot as PNG image for sharing */
 
 function renderSnapshotCanvas(snap, theme = "dark") {
+  // Legacy/imported snapshots may lack totals; draw zeros rather than throw.
+  snap = { ...snap, totals: snap.totals || {} };
   if (theme === "auto") {
     const prefersLight = typeof window !== "undefined" && window.matchMedia
       && window.matchMedia("(prefers-color-scheme: light)").matches;
@@ -14,8 +16,8 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   const isDark = theme !== "light";
   const colors = isDark ? {
-    bg: "#0b0b0c",
-    card: "#131316",
+    bg: "#0f1013",
+    card: "#17181c",
     line: "#2a2b33",
     ink: "#f4f4f5",
     dim: "#a1a1aa",

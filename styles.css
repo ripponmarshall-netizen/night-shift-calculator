@@ -21,6 +21,8 @@
   --holiday: oklch(70% 0.16 25);
   --warn: oklch(78% 0.14 80);
   --ok: oklch(72% 0.13 150);
+  --extra: oklch(70% 0.19 340);
+  --chip-ink: #111216;
   --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
   --bg-translucent: rgba(15, 16, 19, 0.86);
   --surface-translucent: rgba(26, 27, 32, 0.94);
@@ -50,6 +52,8 @@
   --holiday: oklch(56% 0.2 25);
   --warn: oklch(60% 0.17 70);
   --ok: oklch(54% 0.15 150);
+  --extra: oklch(56% 0.21 340);
+  --chip-ink: #ffffff;
   --shadow: 0 16px 40px -20px rgba(36, 28, 12, 0.18);
   --bg-translucent: rgba(250, 249, 247, 0.88);
   --surface-translucent: rgba(255, 255, 255, 0.94);
@@ -200,6 +204,20 @@ button:focus-visible {
 }
 .nsc-toast {
   animation: nscToastIn 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Calendar days flagged by the roster cross-check. */
+.pulse-day {
+  animation: pulseDay 1.4s ease-out 2;
+}
+@keyframes pulseDay {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--warn) 0%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--warn) 30%, transparent);
+  }
 }
 
 /* Respect the OS "reduce motion" setting across the whole app. */

@@ -13,7 +13,9 @@ function App() {
   const [initial] = useState(loadState);
   const [mode, setMode] = useState(initial.mode || "basic");
   const [view, setView] = useState("home");
-  const [periodAnchor, setPeriodAnchor] = useState(initial.periodAnchor || ymd(new Date()));
+  // Always open on today's pay period; the last-viewed one is not restored,
+  // so a new month never opens on stale shifts.
+  const [periodAnchor, setPeriodAnchor] = useState(() => ymd(new Date()));
   const [entries, setEntries] = useState(initial.entries || {});
   const [basicDistance, setBasicDistance] = useState(initial.basicDistance || "S");
   const [defaultDist, setDefaultDist] = useState(initial.defaultDist || "S");
@@ -26,6 +28,8 @@ function App() {
   const [snapshots, setSnapshots] = useState(initial.snapshots || []);
   const [theme, setTheme] = useState(initial.theme || "auto");
   const [onboarded, setOnboarded] = useState(initial.onboarded ?? false);
+  // Any date the person works a 7AM; drives Off days and extra-shift colour.
+  const [rotationAnchor, setRotationAnchor] = useState(initial.rotationAnchor || null);
   const [openDay, setOpenDay] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autofillOpen, setAutofillOpen] = useState(false);
@@ -48,8 +52,8 @@ function App() {
   }, [ratesHistory, period]);
 
   useEffect(() => {
-    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded });
-  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded]);
+    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor });
+  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor]);
 
   useEffect(() => {
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -76,7 +80,7 @@ function App() {
       const next = { ...prev };
       const cur = prev[key] ? { ...prev[key], dist: { ...prev[key].dist } } : blankDay();
       const updated = updater(cur);
-      const empty = !updated.am7 && !updated.pm3 && !updated.pm10 && updated.holiday === null;
+      const empty = !updated.am7 && !updated.pm3 && !updated.pm10 && updated.holiday == null;
       if (empty) delete next[key]; else next[key] = updated;
       return next;
     });
@@ -162,7 +166,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor }, null, 2)], { type: "application/json" });
     downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
@@ -188,6 +192,8 @@ function App() {
         if (obj.theme) setTheme(obj.theme);
         if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
+        if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
+        showToast("Backup restored");
       } catch (e) { alert("Could not import file."); }
     };
     inp.click();
@@ -200,8 +206,10 @@ function App() {
 
   /* Home setup: the wizard hands over generated entries; the calculator's own
      state and engine do the rest. replace clears only this period's days. */
-  const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c }) => {
+  const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c, anchor }) => {
     setEntries((prev) => mergePeriodFill(prev, period, fill, replace));
+    // Rotation answers save the rotation; totals don't follow one, so clear it.
+    if (anchor !== undefined) setRotationAnchor(anchor);
     setBasePay(bp);
     setBasicDistance(dist);
     setDefaultDist(dist);
@@ -243,6 +251,11 @@ function App() {
 
   const applyAutofill = (opts) => {
     const fill = autofillPattern(period, opts);
+    if (opts.pattern === "rotation") {
+      // The chosen start day sits at `phase` in the cycle; the 7AM is that
+      // many days earlier.
+      setRotationAnchor(ymd(addDays(fromYmd(opts.startKey), -(Number(opts.phase) || 0))));
+    }
     setEntries((prev) => {
       const next = { ...prev };
       for (const [k, v] of Object.entries(fill)) {
@@ -305,6 +318,8 @@ function App() {
           totals={totals} tax={tax} rates={effectiveRates}
           ratesEffective={ratesEffectiveLabel}
           onboarded={onboarded}
+          rotationAnchor={rotationAnchor}
+          onOpenDay={(d) => setOpenDay(ymd(d))}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
           onApply={applySimpleSetup}
           onSaveSnapshot={saveSnapshot}
@@ -325,6 +340,8 @@ function App() {
           tax={tax}
           clipboard={clipboard}
           highlightDays={highlightDays}
+          rotationAnchor={rotationAnchor}
+          onClearRotation={() => { if (confirm("Stop tracking your rotation? Off days and extra shifts will no longer be marked. Your shifts stay as they are.")) setRotationAnchor(null); }}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
           onOpenDay={(d) => setOpenDay(ymd(d))}
           onAutofill={() => setAutofillOpen(true)}
@@ -365,7 +382,8 @@ function App() {
           dayKey={openDay}
           entry={entries[openDay] || blankDay()}
           mode={mode}
-          defaultDist={defaultDist}
+          slot={rotationSlot(openDay, rotationAnchor)}
+          defaultDist={mode === "advanced" ? defaultDist : basicDistance}
           onClose={() => setOpenDay(null)}
           onChange={(updater) => setEntry(openDay, updater)}
           onClear={() => { setEntries((p) => { const n = { ...p }; delete n[openDay]; return n; }); setOpenDay(null); }}
@@ -378,6 +396,7 @@ function App() {
           tax={tax} setTax={setTax}
           ratesHistory={ratesHistory} setRatesHistory={setRatesHistory}
           theme={theme} setTheme={setTheme}
+          ratesEffective={ratesEffectiveLabel}
           onExportICS={exportICS}
           onReset={reset}
           onExport={exportJson}
@@ -386,7 +405,7 @@ function App() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {autofillOpen && <AutofillModal period={period} defaultDist={defaultDist} existing={entries} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
+      {autofillOpen && <AutofillModal period={period} mode={mode} defaultDist={mode === "advanced" ? defaultDist : basicDistance} rotationAnchor={rotationAnchor} existing={entries} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
       {templatesOpen && (
         <TemplatesModal
           templates={templates}
@@ -441,7 +460,7 @@ function CalcView(props) {
   const {
     period, entries, mode, counts, setCounts, basePay, setBasePay,
     basicDistance, onDistance,
-    totals, tax, clipboard, highlightDays,
+    totals, tax, clipboard, highlightDays, rotationAnchor, onClearRotation,
     onShiftPeriod, onOpenDay, onAutofill, onTemplates, onSaveSnapshot, onCopyShare,
     onWarningClick, copyDay, pasteDay, cancelCopy,
   } = props;
@@ -455,6 +474,8 @@ function CalcView(props) {
           mode={mode}
           totals={totals}
           highlight={highlightDays}
+          rotationAnchor={rotationAnchor}
+          onClearRotation={onClearRotation}
           onShift={onShiftPeriod}
           onOpenDay={onOpenDay}
           onAutofill={onAutofill}

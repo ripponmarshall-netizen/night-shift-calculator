@@ -3,7 +3,7 @@ const { useState: useStateR, useMemo: useMemoR } = React;
 
 function ReconcileModal({ snapshot, onSave, onClose }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
-  const t = snapshot.totals;
+  const t = snapshot.totals || {};
   const existing = snapshot.reconcile || {};
   const [actual, setActual] = useStateR({
     sp1: existing.sp1 ?? "",
@@ -43,7 +43,8 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
       ...actual,
       at: new Date().toISOString(),
     });
-    onClose();
+    showToast("Pay slip check saved");
+    close();
   };
 
   return (
@@ -58,7 +59,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Reconcile</div>
+            <div className="label" style={{  }}>Reconcile</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>vs pay slip</div>
             <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
           </div>
@@ -144,7 +145,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             </div>
           </div>
 
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Notes</div>
+          <div className="label" style={{ marginBottom: 6 }}>Notes</div>
           <textarea
             value={actual.notes}
             onChange={(e) => set("notes", e.target.value)}

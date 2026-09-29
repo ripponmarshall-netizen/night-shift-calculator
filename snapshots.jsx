@@ -26,7 +26,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       {list.length > 0 && <YTDDashboard snapshots={list} />}
       <Card>
-        <SectionHead title="Snapshot history" subtitle={`${list.length} saved`} right={
+        <SectionHead title="Saved periods" subtitle={`${list.length} saved`} right={
           list.length > 0 && <button onClick={onClear} style={ghostBtn()}>Clear all</button>
         } />
 
@@ -35,11 +35,11 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Latest</div>
+                <div className="label" style={{  }}>Latest</div>
                 <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{fmt(g(latest))}</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>vs previous</div>
+                <div className="label" style={{  }}>vs previous</div>
                 <div className="mono" style={{
                   fontSize: 14, fontWeight: 600, marginTop: 2,
                   color: delta >= 0 ? "var(--ok)" : "var(--holiday)",
@@ -63,7 +63,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
               const prevSnap = sortedDesc[i + 1];
               const d = prevSnap ? g(s) - g(prevSnap) : 0;
               return (
-                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => onDelete(s.at)} />
+                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => { if (confirm(`Delete the saved result for ${s.period}?`)) onDelete(s.at); }} />
               );
             })}
           </div>
@@ -113,7 +113,7 @@ function Sparkline({ points, labels, avg }) {
 }
 
 function SnapRow({ snap, delta, onOpen, onDelete }) {
-  const t = snap.totals;
+  const t = snap.totals || {};
   const reconciled = !!snap.reconcile;
   return (
     <div style={{
@@ -159,21 +159,21 @@ function EmptyState({ onBack }) {
       color: "var(--ink-dim)",
     }}>
       <div style={{ fontSize: 28, marginBottom: 8 }}>📸</div>
-      <div style={{ fontSize: 14, marginBottom: 6, color: "var(--ink)" }}>No snapshots yet</div>
-      <div style={{ fontSize: 12.5, marginBottom: 14, color: "var(--ink-faint)", maxWidth: 320, margin: "0 auto" }}>
-        Save a snapshot from the calculator screen to capture this period's results. Each snapshot is timestamped so you can compare across pay periods.
+      <div style={{ fontSize: 14, marginBottom: 6, color: "var(--ink)" }}>Nothing saved yet</div>
+      <div style={{ fontSize: 12.5, color: "var(--ink-faint)", maxWidth: 320, margin: "0 auto 14px", lineHeight: 1.5 }}>
+        Tap <strong>Save to History</strong> on Home or Shifts to keep this period's result. Then you can compare periods and check it against your pay slip.
       </div>
-      <button onClick={onBack} style={primaryBtn()}>Open calculator</button>
+      <button onClick={onBack} style={primaryBtn()}>Go to my shifts</button>
     </div>
   );
 }
 
 function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
-  const t = snap.totals;
+  const t = snap.totals || {};
   const copy = () => {
-    const net = calcTax(snap.totals.grand, snap.tax).net;
-    copyText(summaryText(snap.totals, snap.period, net), "Summary copied");
+    const net = calcTax(t.grand, snap.tax).net;
+    copyText(summaryText(t, snap.period, net), "Summary copied");
   };
   const downloadPng = () => { downloadSnapshotImage(snap, theme); showToast("Image downloaded"); };
   const copyPng = async () => {
@@ -199,7 +199,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Snapshot</div>
+            <div className="label" style={{  }}>Snapshot</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>{snap.period}</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Captured {new Date(snap.at).toLocaleString()}</div>
           </div>
@@ -252,7 +252,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
             border: "1px solid color-mix(in oklab, var(--ok) 30%, var(--line))",
             borderRadius: 12,
           }}>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Reconciliation</div>
+            <div className="label" style={{ marginBottom: 6 }}>Reconciliation</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <span style={{ fontSize: 13.5 }}>Pay slip total</span>
               <span className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{recon.grand ? fmt(Number(recon.grand)) : "—"}</span>

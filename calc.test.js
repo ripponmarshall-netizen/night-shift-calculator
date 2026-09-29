@@ -17,6 +17,11 @@ const {
   totalsEntries,
   mergePeriodFill,
   ymd,
+  fmt,
+  rotationSlot,
+  extraShiftKeys,
+  rotationStats,
+  am7InPeriod,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -628,5 +633,67 @@ assert.deepStrictEqual(
   assert.strictEqual(r2.mismatch.pm3, true);
   assert.strictEqual(r2.mismatch.pm10, false);
 }
+
+// Saved rotation: slot for any date from one 7AM anchor, both directions and
+// across pay periods; it matches what rotationEntries generates.
+{
+  const A = "2026-05-22"; // a 7AM
+  assert.strictEqual(rotationSlot("2026-05-22", A), "am7");
+  assert.strictEqual(rotationSlot("2026-05-23", A), "pm3");
+  assert.strictEqual(rotationSlot("2026-05-24", A), "pm10");
+  assert.strictEqual(rotationSlot("2026-05-25", A), "off");
+  assert.strictEqual(rotationSlot("2026-05-21", A), "off");
+  assert.strictEqual(rotationSlot("2026-05-18", A), "am7");
+  assert.strictEqual(rotationSlot("2026-07-01", A), "am7"); // 40 days on
+  assert.strictEqual(
+    rotationSlot("2026-06-29", A),
+    rotationSlot("2026-06-29", "2026-06-27"),
+  );
+  assert.strictEqual(rotationSlot("2026-05-22", null), null);
+
+  const rot = rotationEntries(HOL_PERIOD, A, "S");
+  for (const [k, e] of Object.entries(rot)) {
+    const on = ["am7", "pm3", "pm10"].filter((x) => e[x]);
+    assert.deepStrictEqual(
+      on,
+      [rotationSlot(k, A)],
+      `rotation matches slot on ${k}`,
+    );
+  }
+  // every day the generator leaves empty is an off day
+  for (
+    let d = new Date(HOL_PERIOD.start);
+    d <= HOL_PERIOD.end;
+    d.setDate(d.getDate() + 1)
+  ) {
+    if (!rot[ymd(d)]) assert.strictEqual(rotationSlot(ymd(d), A), "off");
+  }
+
+  // extras: a shift on an off day, and a second shift on a working day
+  assert.deepStrictEqual(extraShiftKeys({ pm3: true }, "off"), ["pm3"]);
+  assert.deepStrictEqual(extraShiftKeys({ pm3: true, pm10: true }, "pm3"), [
+    "pm10",
+  ]);
+  assert.deepStrictEqual(extraShiftKeys({ am7: true }, "am7"), []);
+  assert.deepStrictEqual(extraShiftKeys({ am7: true }, null), []);
+
+  const withExtra = { ...rot, "2026-05-25": D({ am7: 1 }) };
+  withExtra["2026-05-23"] = D({ pm3: 1, pm10: 1 });
+  const st = rotationStats(withExtra, HOL_PERIOD, A);
+  assert.strictEqual(st.extra, 2);
+  assert.strictEqual(st.off, 31 - Object.keys(rot).length);
+  assert.deepStrictEqual(rotationStats(withExtra, HOL_PERIOD, null), {
+    extra: 0,
+    off: 0,
+  });
+
+  assert.strictEqual(am7InPeriod(HOL_PERIOD, "2026-07-01"), "2026-05-18");
+  assert.strictEqual(am7InPeriod(HOL_PERIOD, null), null);
+}
+
+// Money formatting: negatives get a leading minus, no "-0.00".
+assert.strictEqual(fmt(-500), "−$500.00");
+assert.strictEqual(fmt(1234.5), "$1,234.50");
+assert.strictEqual(fmt(-0.001), "$0.00");
 
 console.log("calc tests passed");

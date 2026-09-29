@@ -37,7 +37,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Templates</div>
+            <div className="label" style={{  }}>Templates</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Weekly patterns</div>
           </div>
           <button onClick={close} style={iconBtn()}>✕</button>
@@ -90,9 +90,9 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
           </>
         ) : (
           <>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Preview (Sun → Sat from this period)</div>
+            <div className="label" style={{ marginBottom: 6 }}>Preview (Sun → Sat from this period)</div>
             <TemplatePreview dows={extractTemplateFromWeek(currentEntries, period)} />
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "14px 0 6px" }}>Name</div>
+            <div className="label" style={{ margin: "14px 0 6px" }}>Name</div>
             <input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}

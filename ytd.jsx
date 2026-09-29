@@ -46,11 +46,11 @@ function YTDDashboard({ snapshots }) {
       </div>
 
       {/* Composition bar */}
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Composition</div>
+      <div className="label" style={{ marginBottom: 6 }}>Composition</div>
       <Composition allow={stats.sumAllow} base={stats.sumBase} extra={stats.sumExtra} total={stats.total} />
 
       {/* Monthly bars */}
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "16px 0 8px" }}>Monthly</div>
+      <div className="label" style={{ margin: "16px 0 8px" }}>Monthly</div>
       <div style={{
         display: "grid",
         gridTemplateColumns: "repeat(12, 1fr)",
@@ -84,7 +84,7 @@ function YTDDashboard({ snapshots }) {
           display: "flex", justifyContent: "space-between", alignItems: "baseline",
         }}>
           <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Biggest period</div>
+            <div className="label" style={{  }}>Biggest period</div>
             <div style={{ fontSize: 13.5, marginTop: 2 }}>{stats.biggest.period}</div>
           </div>
           <div className="mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmt(Number(stats.biggest.totals?.grand) || 0)}</div>
@@ -102,7 +102,7 @@ function KpiTile({ label, value, accent, small }) {
       border: "1px solid var(--line-soft)",
       borderRadius: 12,
     }}>
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{label}</div>
+      <div className="label" style={{  }}>{label}</div>
       <div className="mono" style={{ fontSize: small ? 16 : 22, fontWeight: 700, marginTop: 4, color: accent || "var(--ink)" }}>{value}</div>
     </div>
   );

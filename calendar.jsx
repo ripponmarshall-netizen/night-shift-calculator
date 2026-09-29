@@ -1,11 +1,131 @@
-/* calendar.jsx — calendar with hour stripes + warning highlights + autofill button */
+/* calendar.jsx — period calendar with labelled shift chips, rotation off days / extras, warning highlights */
 const { useState: useStateCal } = React;
 
-function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight, onAutofill, onTemplates, clipboard, copyDay, pasteDay, cancelCopy }) {
+const CAL_SHIFTS = [
+  { k: "am7", label: "7AM", color: "var(--am)" },
+  { k: "pm3", label: "3PM", color: "var(--sp1)" },
+  { k: "pm10", label: "10PM", color: "var(--sp2)" },
+];
+
+/* compact: Home's version — no tools, period nav or copy/paste; tap a day to
+   edit it. The full version adds Auto-fill, Templates and long-press copy. */
+function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight, onAutofill, onTemplates, clipboard, copyDay, pasteDay, cancelCopy, rotationAnchor, onClearRotation, compact }) {
   const days = periodDays(period);
   const leadBlanks = period.start.getDay();
   const headWeek = ["S","M","T","W","T","F","S"];
   const periodHolidays = holidaysInPeriod(period);
+  const stats = rotationStats(entries, period, rotationAnchor);
+  const shiftCount = totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10;
+
+  const grid = (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: compact ? "0 0 4px" : "0 12px 4px" }}>
+        {headWeek.map((d, i) => (
+          <div key={i} style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-faint)", textAlign: "center", padding: "6px 0" }}>{d}</div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: compact ? "0 0 12px" : "0 12px 14px" }}>
+        {Array.from({ length: leadBlanks }).map((_, i) => <div key={"b" + i} />)}
+        {days.map((d) => {
+          const key = ymd(d);
+          const e = entries[key];
+          const isHol = e?.holiday == null ? isJamaicaHoliday(d) : e.holiday;
+          const has = !!e && (e.am7 || e.pm3 || e.pm10);
+          const slot = rotationSlot(key, rotationAnchor);
+          const extras = extraShiftKeys(e, slot);
+          const isOff = slot === "off" && !has;
+          const hours = totals.dayHours[key] || 0;
+          const holidayHrs = totals.dayHolidayHours[key] || 0;
+          const partial = has && CAL_SHIFTS.some((s) => e[s.k] && effHours(e, s.k) !== stdHours(s.k));
+          const isHighlighted = highlight && highlight.has(key);
+          const canCopy = !compact && !!copyDay;
+          const isClipboardSource = canCopy && clipboard && clipboard.srcKey === key;
+          const isPasteTarget = canCopy && !!clipboard && !has;
+          const dateStr = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+          const shiftList = CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (extras.includes(s.k) ? "extra " : "") + s.label);
+          const ariaLabel = has
+            ? `${dateStr}: ${shiftList.join(", ")}, ${hours} hours${isHol ? ", holiday" : ""}`
+            : `${dateStr}: ${isOff ? "off day" : "no shifts"}${isHol ? ", holiday" : ""}`;
+          return (
+            <DayButton
+              key={key}
+              ariaLabel={ariaLabel}
+              hasShifts={has}
+              isClipboardActive={canCopy && !!clipboard}
+              onTap={() => {
+                if (isPasteTarget) pasteDay(key);
+                else onOpenDay(d);
+              }}
+              onLongPress={() => { if (canCopy && has && !clipboard) copyDay(key); }}
+              className={isHighlighted ? "pulse-day" : ""}
+              style={{
+                position: "relative",
+                minHeight: 54,
+                borderRadius: 11,
+                border: `1px solid ${
+                  isClipboardSource ? "var(--accent)"
+                  : isPasteTarget ? "color-mix(in oklab, var(--accent) 50%, var(--line-soft))"
+                  : isHighlighted ? "var(--warn)"
+                  : has ? "var(--line)" : "var(--line-soft)"
+                }`,
+                background: isClipboardSource ? "color-mix(in oklab, var(--accent) 18%, transparent)"
+                  : has ? "var(--bg-2)" : "transparent",
+                color: "var(--ink)",
+                padding: "4px 3px 4px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                gap: 3,
+                cursor: "pointer",
+                transition: "background 0.12s, border-color 0.12s",
+                overflow: "hidden",
+                fontFamily: "inherit",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
+                <span className="mono" style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{d.getDate()}</span>
+                {isHol && <span title={holidayName(d) || "Holiday"} style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--holiday)" }} />}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, justifyContent: "center" }}>
+                {CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (
+                  <ShiftChip key={s.k} label={s.label} color={s.color} extra={extras.includes(s.k)} long={mode === "advanced" && e.dist?.[s.k] === "L"} />
+                ))}
+                {isOff && <span style={{ fontSize: 10.5, color: "var(--ink-faint)", textAlign: "center" }}>Off</span>}
+              </div>
+              {(partial || holidayHrs > 0) && (
+                <div className="mono" style={{ fontSize: 9, color: "var(--ink-faint)", textAlign: "right", paddingRight: 2 }}>
+                  {fmtH0(hours)}h{holidayHrs > 0 ? "*" : ""}
+                </div>
+              )}
+            </DayButton>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 14px", padding: compact ? "10px 0 0" : "10px 16px 14px", borderTop: "1px solid var(--line-soft)", alignItems: "center" }}>
+        <Legend color="var(--am)" label="7AM" />
+        <Legend color="var(--sp1)" label="3PM" />
+        <Legend color="var(--sp2)" label="10PM" />
+        {rotationAnchor && <Legend color="var(--extra)" label="Extra" />}
+        <Legend color="var(--holiday)" label="Holiday" dot />
+        <div style={{ flex: 1 }} />
+        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
+          <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
+          {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra</>}
+          {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(totals.totalHours)}</span>h
+        </div>
+      </div>
+
+      {totals.holidayHours > 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: compact ? "6px 0 0" : "0 16px 12px" }}>
+          * includes holiday hours (paid ×2)
+        </div>
+      )}
+    </>
+  );
+
+  if (compact) return grid;
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
@@ -23,27 +143,19 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
       </div>
 
       <div style={{ padding: "0 16px 10px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <button onClick={onAutofill} style={{
-          ...ghostBtn(),
-          padding: "7px 11px", fontSize: 12,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}>
+        <button onClick={onAutofill} style={{ ...ghostBtn(), padding: "7px 11px", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>
           </svg>
           Auto-fill
         </button>
-        <button onClick={onTemplates} style={{
-          ...ghostBtn(),
-          padding: "7px 11px", fontSize: 12,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}>
+        <button onClick={onTemplates} style={{ ...ghostBtn(), padding: "7px 11px", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>
           </svg>
           Templates
         </button>
-        <span style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Tap a day to edit</span>
+        <span style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Hold a day to copy it</span>
       </div>
 
       {clipboard && (
@@ -54,117 +166,20 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           borderRadius: 10,
           display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
         }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }}>
-            <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>
           <span style={{ fontSize: 13, color: "var(--ink)", flex: 1 }}>
             Copied. Tap empty days to paste
-            <span style={{ color: "var(--ink-faint)" }}> ({[clipboard.entry.am7 && "7AM", clipboard.entry.pm3 && "3PM", clipboard.entry.pm10 && "10PM"].filter(Boolean).join(" + ")})</span>
+            <span style={{ color: "var(--ink-faint)" }}> ({CAL_SHIFTS.filter((s) => clipboard.entry[s.k]).map((s) => s.label).join(" + ")})</span>
           </span>
-          <button onClick={cancelCopy} style={{ ...ghostBtn(), padding: "4px 10px", fontSize: 11 }}>Done</button>
+          <button onClick={cancelCopy} style={{ ...ghostBtn(), padding: "4px 10px", fontSize: 12 }}>Done</button>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: "0 12px 4px" }}>
-        {headWeek.map((d, i) => (
-          <div key={i} style={{ fontSize: 11, fontWeight: 500, color: "var(--ink-faint)", textAlign: "center", padding: "6px 0" }}>{d}</div>
-        ))}
-      </div>
+      {grid}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: "0 12px 14px" }}>
-        {Array.from({ length: leadBlanks }).map((_, i) => <div key={"b" + i} />)}
-        {days.map((d) => {
-          const key = ymd(d);
-          const e = entries[key];
-          const isHol = e?.holiday === null || e?.holiday === undefined ? isJamaicaHoliday(d) : e.holiday;
-          const has = !!e && (e.am7 || e.pm3 || e.pm10);
-          const hours = totals.dayHours[key] || 0;
-          const holidayHrs = totals.dayHolidayHours[key] || 0;
-          const isHighlighted = highlight && highlight.has(key);
-          const isClipboardSource = clipboard && clipboard.srcKey === key;
-          const isPasteTarget = !!clipboard && !has;
-          const dateStr = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-          const shiftList = [e?.am7 && "7AM", e?.pm3 && "3PM", e?.pm10 && "10PM"].filter(Boolean);
-          const ariaLabel = has
-            ? `${dateStr} — ${shiftList.join(", ")} shift${shiftList.length > 1 ? "s" : ""}, ${hours} hours${isHol ? ", holiday" : ""}`
-            : `${dateStr}, no shifts${isHol ? ", holiday" : ""}`;
-          return (
-            <DayButton
-              key={key}
-              d={d}
-              ariaLabel={ariaLabel}
-              hasShifts={has}
-              isClipboardActive={!!clipboard}
-              onTap={() => {
-                if (clipboard && !has) {
-                  pasteDay(key);
-                } else {
-                  onOpenDay(d);
-                }
-              }}
-              onLongPress={() => {
-                if (has && !clipboard) copyDay(key);
-              }}
-              className={isHighlighted ? "pulse-day" : ""}
-              style={{
-                position: "relative",
-                aspectRatio: "1 / 1.15",
-                borderRadius: 11,
-                border: `1px solid ${
-                  isClipboardSource ? "var(--accent)"
-                  : isPasteTarget ? "color-mix(in oklab, var(--accent) 50%, var(--line-soft))"
-                  : isHighlighted ? "var(--warn)"
-                  : has ? "var(--line)" : "var(--line-soft)"
-                }`,
-                background: isClipboardSource ? "color-mix(in oklab, var(--accent) 18%, transparent)"
-                  : has ? "var(--bg-2)" : "transparent",
-                color: "var(--ink)",
-                padding: "5px 5px 4px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "stretch",
-                justifyContent: "space-between",
-                cursor: "pointer",
-                transition: "background 0.12s, border-color 0.12s",
-                overflow: "hidden",
-                fontFamily: "inherit",
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span className="mono" style={{ fontSize: 11, fontWeight: 500, opacity: 0.85 }}>{d.getDate()}</span>
-                {isHol && <span title={holidayName(d) || "Holiday"} style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--holiday)" }} />}
-              </div>
-
-              <div style={{ display: "flex", gap: 2, alignItems: "flex-end", flex: 1, marginTop: 4 }}>
-                {e?.am7 && <ShiftBand color="var(--am)" hours={effHours(e, "am7")} dist={e.dist?.am7} mode={mode} />}
-                {e?.pm3 && <ShiftBand color="var(--sp1)" hours={effHours(e, "pm3")} dist={e.dist?.pm3} mode={mode} />}
-                {e?.pm10 && <ShiftBand color="var(--sp2)" hours={effHours(e, "pm10")} dist={e.dist?.pm10} mode={mode} />}
-              </div>
-
-              {has && (
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-faint)", textAlign: "right", marginTop: 2 }}>
-                  {hours}h{holidayHrs > 0 ? "*" : ""}
-                </div>
-              )}
-            </DayButton>
-          );
-        })}
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 14, padding: "10px 16px 14px", borderTop: "1px solid var(--line-soft)", alignItems: "center" }}>
-        <Legend color="var(--am)" label="7AM (8h)" />
-        <Legend color="var(--sp1)" label="3PM (7h)" />
-        <Legend color="var(--sp2)" label="10PM (9h)" />
-        <Legend color="var(--holiday)" label="Holiday" dot />
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
-          <span className="mono" style={{ color: "var(--ink)" }}>{totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10}</span> shifts · <span className="mono" style={{ color: "var(--ink)" }}>{fmtH(totals.totalHours)}</span>h
-        </div>
-      </div>
-
-      {totals.holidayHours > 0 && (
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: "0 16px 12px" }}>
-          * includes holiday hours (paid ×2)
+      {rotationAnchor && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>
+          <span style={{ flex: 1 }}>Rotation saved: 7AM → 3PM → 10PM → Off. Shifts outside it show as <span style={{ color: "var(--extra)", fontWeight: 600 }}>extra</span>.</span>
+          <button onClick={onClearRotation} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0, whiteSpace: "nowrap" }}>Stop</button>
         </div>
       )}
 
@@ -187,22 +202,33 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           </div>
         </div>
       )}
-
-      <style>{`
-        .pulse-day { animation: pulseDay 1.4s ease-out 2; }
-        @keyframes pulseDay {
-          0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--warn) 0%, transparent); }
-          50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--warn) 30%, transparent); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .pulse-day { animation: none; }
-        }
-      `}</style>
     </Card>
   );
 }
 
-function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive, children, style, className }) {
+/* Hours without trailing zeros: 183, 7.5, 183.33. */
+function fmtH0(n) {
+  return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("en-JM", { maximumFractionDigits: 2 });
+}
+
+/* One shift on a calendar day: a labelled chip, so colour is never the only
+   cue. Extra shifts (outside the rotation) use the extra colour and a "+". */
+function ShiftChip({ label, color, extra, long }) {
+  const bg = extra ? "var(--extra)" : color;
+  return (
+    <span className="mono" style={{
+      position: "relative", display: "block", textAlign: "center",
+      fontSize: 9.5, fontWeight: 700, lineHeight: "15px", letterSpacing: "-0.02em",
+      borderRadius: 4, background: bg, color: "var(--chip-ink)",
+      overflow: "hidden", whiteSpace: "nowrap",
+    }}>
+      {long && <span aria-hidden style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4.5px)" }} />}
+      <span style={{ position: "relative" }}>{extra ? "+" : ""}{label}</span>
+    </span>
+  );
+}
+
+function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive, children, style, className }) {
   const timerRef = React.useRef(null);
   const movedRef = React.useRef(false);
   const longPressedRef = React.useRef(false);
@@ -262,30 +288,6 @@ function DayButton({ d, ariaLabel, onTap, onLongPress, hasShifts, isClipboardAct
   );
 }
 
-function ShiftBand({ color, hours, dist, mode }) {
-  const pct = Math.min(100, (hours / 9) * 100);
-  return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "flex-end", minWidth: 0 }}>
-      <div style={{
-        height: `${pct}%`,
-        background: color,
-        borderRadius: 2,
-        minHeight: 6,
-        opacity: 0.85,
-        position: "relative",
-      }}>
-        {mode === "advanced" && dist === "L" && (
-          <span style={{
-            position: "absolute", top: 0, right: 0, bottom: 0, left: 0,
-            background: `repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.25) 3px 4px)`,
-            borderRadius: 2,
-          }} />
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Legend({ color, label, dot }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -297,4 +299,4 @@ function Legend({ color, label, dot }) {
   );
 }
 
-Object.assign(window, { Calendar });
+Object.assign(window, { Calendar, ShiftChip, fmtH0 });
