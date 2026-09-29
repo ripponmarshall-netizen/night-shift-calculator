@@ -81,9 +81,9 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             : variance > 0 ? "var(--ok)"
             : "var(--holiday)";
           return (
-            <div key={l.k} style={{
+            <div key={l.k} className="recon-row" style={{
               padding: "10px 0", borderBottom: "1px dashed var(--line-soft)",
-              display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: 8, alignItems: "center",
+              gap: 8, alignItems: "center",
             }}>
               <div>
                 <div style={{ fontSize: 13.5, color: "var(--ink)" }}>{l.label}</div>
@@ -103,7 +103,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                   }}
                 />
               </div>
-              <div className="mono" style={{
+              <div className="mono recon-var" style={{
                 textAlign: "right", fontSize: 12, color: varianceColor, fontWeight: 600,
               }}>
                 {hasActual ? (Math.abs(variance) < 0.01 ? "✓ match" : `${variance >= 0 ? "+" : ""}${fmt(variance)}`) : "—"}
@@ -113,10 +113,10 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
         })}
 
         <div style={{ borderTop: "1px solid var(--line)", marginTop: 8, paddingTop: 12 }}>
-          <div style={{
+          <div className="recon-row" style={{
             padding: "10px 12px", marginBottom: 10,
             background: "var(--bg-2)", borderRadius: 10,
-            display: "grid", gridTemplateColumns: "1fr 110px 110px", gap: 8, alignItems: "center",
+            gap: 8, alignItems: "center",
           }}>
             <div style={{ fontSize: 13.5, fontWeight: 600 }}>Pay slip total</div>
             <div style={{ position: "relative" }}>
@@ -133,7 +133,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                 }}
               />
             </div>
-            <div className="mono" style={{
+            <div className="mono recon-var" style={{
               textAlign: "right", fontSize: 13, fontWeight: 700,
               color: !hasTotal ? "var(--ink-faint)" :
                      Math.abs(totalVariance) < 0.01 ? "var(--ok)" :

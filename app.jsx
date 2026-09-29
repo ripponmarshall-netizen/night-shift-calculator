@@ -99,9 +99,11 @@ function App() {
       tax: { ...tax },
     };
     setSnapshots((prev) => {
-      // de-dupe by periodKey: replace existing
+      // de-dupe by periodKey: replace existing, but keep its pay-slip
+      // reconciliation so re-saving a period doesn't throw that work away.
+      const old = prev.find((s) => s.periodKey === snap.periodKey);
       const filtered = prev.filter((s) => s.periodKey !== snap.periodKey);
-      return [...filtered, snap];
+      return [...filtered, old?.reconcile ? { ...snap, reconcile: old.reconcile } : snap];
     });
     flashTotal();
   };

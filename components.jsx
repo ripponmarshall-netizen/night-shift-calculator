@@ -59,12 +59,14 @@ function Sub({ label, value }) {
   );
 }
 
-function SegToggle({ options, value, onChange, small, full }) {
+/* wrap: lay options out as a wrapping row, so a long set (Settings tabs)
+   never hides options off-screen on a narrow phone. */
+function SegToggle({ options, value, onChange, small, full, wrap }) {
   return (
     <div role="radiogroup" style={{
-      display: full ? "grid" : "inline-grid",
-      gridAutoFlow: "column",
-      gridAutoColumns: full ? "1fr" : undefined,
+      ...(wrap
+        ? { display: "inline-flex", flexWrap: "wrap", maxWidth: "100%" }
+        : { display: full ? "grid" : "inline-grid", gridAutoFlow: "column", gridAutoColumns: full ? "1fr" : undefined }),
       background: "var(--bg-2)", border: "1px solid var(--line)",
       borderRadius: 10, padding: 3, gap: 2,
     }}>
@@ -257,8 +259,12 @@ function sanitizeDecimal(v) {
    - call `close()` from the backdrop/close buttons; it plays the exit animation
      (toggling `closing`) and then unmounts via onClose after MODAL_EXIT_MS
      (immediately when reduced-motion is on)
-   Focus is always restored to the opener on unmount. */
+   Focus is always restored to the opener on unmount.
+   Modals can stack (Reconcile opens over a snapshot's detail), so only the
+   topmost one handles keys. Otherwise one Escape closes both, and the two
+   Tab focus-traps pull focus back and forth. */
 const MODAL_EXIT_MS = 180;
+const modalStack = [];
 function useModalDismiss(onClose) {
   const cbRef = useRefC(onClose);
   cbRef.current = onClose;
@@ -278,6 +284,8 @@ function useModalDismiss(onClose) {
 
   useEffectC(() => {
     const prevFocus = document.activeElement;
+    const token = {};
+    modalStack.push(token);
     const focusables = () => {
       const root = dialogRef.current;
       if (!root) return [];
@@ -290,6 +298,7 @@ function useModalDismiss(onClose) {
       (f[0] || dialogRef.current).focus?.();
     }
     const onKey = (e) => {
+      if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === "Escape") { closeRef.current?.(); return; }
       if (e.key === "Tab" && dialogRef.current) {
         const f = focusables();
@@ -306,6 +315,7 @@ function useModalDismiss(onClose) {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      modalStack.splice(modalStack.indexOf(token), 1);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
       prevFocus?.focus?.();

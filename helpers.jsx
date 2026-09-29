@@ -590,8 +590,12 @@ function calcTax(grossMonthly, tx) {
 function ratesAt(period, ratesHistory, currentRates) {
   if (!ratesHistory || ratesHistory.length === 0) return currentRates;
   const target = period.start;
-  const sorted = [...ratesHistory].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
-  for (const entry of sorted) {
+  // Newest date first; on a date tie the entry saved last wins (an older
+  // backup can still hold two entries for one date).
+  const sorted = ratesHistory
+    .map((entry, i) => ({ entry, i }))
+    .sort((a, b) => effDate(b.entry.effectiveFrom) - effDate(a.entry.effectiveFrom) || b.i - a.i);
+  for (const { entry } of sorted) {
     if (effDate(entry.effectiveFrom) <= target) return entry.rates;
   }
   return currentRates;

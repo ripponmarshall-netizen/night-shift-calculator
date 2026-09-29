@@ -18,6 +18,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   const colors = isDark ? {
     bg: "#0f1013",
     card: "#17181c",
+    section: "#1f2025",
     line: "#2a2b33",
     ink: "#f4f4f5",
     dim: "#a1a1aa",
@@ -30,6 +31,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   } : {
     bg: "#faf9f7",
     card: "#ffffff",
+    section: "#f3f1ec",
     line: "#d8d4cb",
     ink: "#1a1815",
     dim: "#6a665f",
@@ -115,7 +117,9 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
 function drawSection(ctx, label, subtotal, x, y, w, accent, colors) {
   drawRoundedRect(ctx, x, y, w, 56, 12);
-  ctx.fillStyle = colors.card === "#131316" ? "#1a1a1f" : "#f3f1ec";
+  // Its own palette entry: the old check compared against a stale dark card
+  // colour, so dark images got a light bar under white text (unreadable).
+  ctx.fillStyle = colors.section;
   ctx.fill();
   ctx.fillStyle = accent;
   ctx.fillRect(x + 12, y + 16, 8, 24);
@@ -163,13 +167,7 @@ function hexA(hex, a) {
 function downloadSnapshotImage(snap, theme) {
   const canvas = renderSnapshotCanvas(snap, theme);
   canvas.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `night-shift-${snap.periodKey || "snapshot"}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (blob) downloadBlob(blob, `night-shift-${snap.periodKey || "snapshot"}.png`);
   }, "image/png");
 }
 

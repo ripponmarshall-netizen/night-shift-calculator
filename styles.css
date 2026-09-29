@@ -196,6 +196,15 @@ button:focus-visible {
 .nsc-modal.nsc-sheet.is-closing {
   animation: nscSheetOut 0.18s ease-in forwards;
 }
+/* Bottom sheets sit above the taskbar (margin-bottom 96px), so cap their
+   height to what's left of the screen and scroll inside, or the top of a
+   tall sheet (all three shifts, per-shift taxi) goes off-screen on phones. */
+.nsc-sheet {
+  max-height: calc(100vh - 120px - var(--safe-top) - var(--safe-bottom));
+  max-height: calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .nsc-modal.nsc-center {
   animation: nscCenterIn 0.18s ease-out;
 }
@@ -229,5 +238,20 @@ button:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Reconcile rows: label · amount paid · variance. On a narrow phone there
+   isn't room for three columns, so the variance drops under the amount. */
+.recon-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 110px;
+}
+@media (max-width: 420px) {
+  .recon-row {
+    grid-template-columns: minmax(0, 1fr) 118px;
+  }
+  .recon-var {
+    grid-column: 2;
   }
 }
