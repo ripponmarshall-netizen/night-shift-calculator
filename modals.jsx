@@ -2,16 +2,18 @@
 const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
-function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear }) {
+function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, onClear }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
-  const isHol = entry.holiday === null ? isAutoHoliday : entry.holiday;
+  const isHol = entry.holiday == null ? isAutoHoliday : entry.holiday;
+  const [showHol, setShowHol] = useStateM(entry.holiday != null);
   const toggle = (k) => onChange((e) => {
     const next = { ...e, [k]: !e[k], dist: { ...e.dist } };
-    // first-time turning on: apply default distance for advanced
-    if (!e[k] && mode === "advanced") next.dist[k] = defaultDist || "S";
+    // Turning on: use the distance in effect, in every mode, so a later switch
+    // to "Varies" keeps a Long commuter's shifts Long.
+    if (!e[k]) next.dist[k] = defaultDist || "S";
     // turning off: drop any stale hours override so it can't silently re-apply
     if (e[k] && e.hours && e.hours[k] != null) {
       const hours = { ...e.hours };
@@ -48,40 +50,51 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>
               {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </div>
-            {autoHolName && <div className="mono" style={{ fontSize: 11, color: "var(--holiday)", marginTop: 2 }}>● {autoHolName}</div>}
+            {autoHolName && <div style={{ fontSize: 12.5, color: "var(--holiday)", marginTop: 2 }}>● {autoHolName}</div>}
+            {slot && (
+              <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 4 }}>
+                Rotation: <span style={{ color: "var(--ink)", fontWeight: 600 }}>{slot === "off" ? "Off day" : `${ROTATION_LABEL[slot]} day`}</span>
+                {slot === "off" ? " · any shift here is extra" : ""}
+              </div>
+            )}
           </div>
           <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
-        <DayToggle label="7AM shift" hours="8h" color="var(--am)" active={entry.am7} onClick={() => toggle("am7")} />
+        <DayToggle label="7AM shift" hours="8h" color="var(--am)" active={entry.am7} extra={!!slot && slot !== "am7"} onClick={() => toggle("am7")} />
         {entry.am7 && <HoursRow keyName="am7" entry={entry} onChange={setHours} />}
         {mode === "advanced" && entry.am7 && <DistRow value={entry.dist.am7} onChange={(v) => setDist("am7", v)} />}
-        <DayToggle label="3PM shift" hours="7h" color="var(--sp1)" active={entry.pm3} onClick={() => toggle("pm3")} />
+        <DayToggle label="3PM shift" hours="7h" color="var(--sp1)" active={entry.pm3} extra={!!slot && slot !== "pm3"} onClick={() => toggle("pm3")} />
         {entry.pm3 && <HoursRow keyName="pm3" entry={entry} onChange={setHours} />}
         {mode === "advanced" && entry.pm3 && <DistRow value={entry.dist.pm3} onChange={(v) => setDist("pm3", v)} />}
-        <DayToggle label="10PM shift" hours="9h · crosses midnight" color="var(--sp2)" active={entry.pm10} onClick={() => toggle("pm10")} />
+        <DayToggle label="10PM shift" hours="9h · crosses midnight" color="var(--sp2)" active={entry.pm10} extra={!!slot && slot !== "pm10"} onClick={() => toggle("pm10")} />
         {entry.pm10 && <HoursRow keyName="pm10" entry={entry} onChange={setHours} hint="total · crosses midnight" />}
         {mode === "advanced" && entry.pm10 && <DistRow value={entry.dist.pm10} onChange={(v) => setDist("pm10", v)} />}
 
         <div style={{ height: 1, background: "var(--line-soft)", margin: "12px 0" }} />
 
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 12px", gap: 8,
-          background: "var(--bg-2)", borderRadius: 10,
-        }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>Public holiday</div>
-            <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>
-              {entry.holiday === null ? (isAutoHoliday ? "Auto · holiday" : "Auto · regular") : (isHol ? "Override · holiday" : "Override · regular")}
+        {/* Holidays are set automatically; the override stays folded away
+            unless it's in use. */}
+        <div style={{ padding: "10px 12px", background: "var(--bg-2)", borderRadius: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ fontSize: 14 }}>
+              Public holiday: <span style={{ fontWeight: 600 }}>{isHol ? "Yes" : "No"}</span>
+              <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{entry.holiday == null ? " · automatic" : " · set by you"}</span>
             </div>
+            {!showHol && (
+              <button onClick={() => setShowHol(true)} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}>Change</button>
+            )}
           </div>
-          <SegToggle
-            small
-            options={[{ v: "auto", l: "Auto" }, { v: "off", l: "Regular" }, { v: "on", l: "Holiday" }]}
-            value={entry.holiday === null ? "auto" : entry.holiday ? "on" : "off"}
-            onChange={(v) => setHoliday(v === "auto" ? null : v === "on")}
-          />
+          {showHol && (
+            <div style={{ marginTop: 10 }}>
+              <SegToggle
+                small full
+                options={[{ v: "auto", l: "Automatic" }, { v: "off", l: "Not a holiday" }, { v: "on", l: "Holiday" }]}
+                value={entry.holiday == null ? "auto" : entry.holiday ? "on" : "off"}
+                onChange={(v) => setHoliday(v === "auto" ? null : v === "on")}
+              />
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
@@ -94,9 +107,14 @@ function DayModal({ dayKey, entry, mode, defaultDist, onClose, onChange, onClear
   );
 }
 
-function DayToggle({ label, hours, color, active, onClick }) {
+const ROTATION_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM" };
+
+/* extra: this shift isn't on the rotation for the day, so ticking it marks
+   an extra shift (shown in the extra colour). */
+function DayToggle({ label, hours, color, active, extra, onClick }) {
+  if (extra) color = "var(--extra)";
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} aria-pressed={active} style={{
       display: "flex", alignItems: "center", gap: 12,
       width: "100%", padding: "12px 12px",
       background: active ? "color-mix(in oklab, " + color + " 14%, transparent)" : "var(--bg-2)",
@@ -115,7 +133,10 @@ function DayToggle({ label, hours, color, active, onClick }) {
         {active && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6.5L4.8 9L10 3.5" stroke="var(--bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
       </span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
+        <div style={{ fontSize: 14, fontWeight: 500 }}>
+          {label}
+          {extra && active && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "var(--extra)" }}>EXTRA</span>}
+        </div>
         <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{hours}</div>
       </div>
     </button>
@@ -139,7 +160,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
   const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, margin: "-4px 0 8px 38px" }}>
-      <span className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)" }}>
+      <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
         Hours worked{hint ? ` · ${hint}` : ""}
       </span>
       <input
@@ -154,7 +175,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
 }
 
 /* ============ Settings ============ */
-function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
+function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, ratesEffective, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
   const [tab, setTab] = useStateM("rates");
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   return (
@@ -173,7 +194,7 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
             { v: "data", l: "Backup" },
           ]} value={tab} onChange={setTab} small />
         </div>
-        <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} /></div>
+        <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} ratesEffective={ratesEffective} /></div>
         <div style={{ display: tab === "tax" ? "block" : "none" }}><TaxTab tax={tax} setTax={setTax} /></div>
         <div style={{ display: tab === "history" ? "block" : "none" }}><RateHistoryTab ratesHistory={ratesHistory} setRatesHistory={setRatesHistory} currentRates={rates} /></div>
         <div style={{ display: tab === "theme" ? "block" : "none" }}><ThemeTab theme={theme} setTheme={setTheme} /></div>
@@ -221,7 +242,7 @@ const ratesToDraft = (r) => {
   return out;
 };
 
-function RatesTab({ rates, setRates }) {
+function RatesTab({ rates, setRates, ratesEffective }) {
   const [draft, setDraft] = useStateM(() => ratesToDraft(rates));
   const [saved, setSaved] = useStateM(false);
   const [errors, setErrors] = useStateM({});
@@ -245,8 +266,15 @@ function RatesTab({ rates, setRates }) {
     setSaved(true);
   };
   const hasErrors = Object.keys(errors).length > 0;
+  // A Past rates entry covering the open period takes precedence over these.
+  const overridden = ratesEffective && ratesEffective !== "Current rates";
   return (
     <div>
+      {overridden && (
+        <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, fontSize: 12.5, lineHeight: 1.5, color: "var(--warn)", background: "color-mix(in oklab, var(--warn) 10%, transparent)", border: "1px solid color-mix(in oklab, var(--warn) 35%, transparent)" }}>
+          The period you're viewing uses a saved rate from Past rates ({ratesEffective.replace("Rates effective ", "from ")}). Changes here only apply to periods before your first saved rate. To change this period, save a new entry in Past rates.
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <RateInput label="SP1 (3PM, per shift)" value={draft.sp1} onChange={(v) => set("sp1", v)} error={errors.sp1} />
         <RateInput label="SP2 (10PM, per shift)" value={draft.sp2} onChange={(v) => set("sp2", v)} error={errors.sp2} />
@@ -256,8 +284,8 @@ function RatesTab({ rates, setRates }) {
         <RateInput label="Taxi — Long" value={draft.taxiLong} onChange={(v) => set("taxiLong", v)} error={errors.taxiLong} />
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
-        {hasErrors ? <span className="mono" style={{ fontSize: 11.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
-          : saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        {hasErrors ? <span style={{ fontSize: 12.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
+          : saved && <span style={{ fontSize: 12.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
         <button onClick={() => { setDraft(ratesToDraft(DEFAULT_RATES)); setSaved(false); setErrors({}); }} style={ghostBtn()}>Defaults</button>
         <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
@@ -317,14 +345,14 @@ function TaxTab({ tax, setTax }) {
             <RateInput label="PAYE rate (upper) %" value={draft.payeRate2} onChange={(v) => set("payeRate2", v)} error={errors.payeRate2} />
             <RateInput label="Pension % (if any)" value={draft.pension} onChange={(v) => set("pension", v)} error={errors.pension} />
           </div>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
-            Defaults follow Jamaica's 2024/2025 brackets. Verify against your most recent pay slip. Estimates only.
+          <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
+            Defaults follow TAJ 2025/26 rates (tax-free threshold from 1 April 2026). Check against your latest pay slip. Estimates only.
           </div>
         </>
       )}
       <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end", alignItems: "center" }}>
-        {hasErrors ? <span className="mono" style={{ fontSize: 11.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
-          : saved && <span className="mono" style={{ fontSize: 11.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
+        {hasErrors ? <span style={{ fontSize: 12.5, color: "var(--warn)", marginRight: "auto" }}>Fix highlighted fields</span>
+          : saved && <span style={{ fontSize: 12.5, color: "var(--ok)", marginRight: "auto" }}>Saved ✓</span>}
         <button onClick={() => { setDraft(taxToDraft(DEFAULT_TAX)); setSaved(false); setErrors({}); }} style={ghostBtn()}>Defaults</button>
         <button onClick={save} style={primaryBtn()}>Save</button>
       </div>
@@ -343,7 +371,7 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
   };
   return (
     <div>
-      <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
         Save the current rates with an effective-from date. Past periods use the rates active at the time, so historic snapshots stay correct when rates change.
       </div>
       {list.length === 0 ? (
@@ -388,14 +416,14 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
 function ThemeTab({ theme, setTheme }) {
   return (
     <div>
-      <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12 }}>Appearance</div>
+      <div className="label" style={{ marginBottom: 12 }}>Appearance</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#0b0b0c", ink: "#f4f4f5", accent: "#e8a661" }} />
+        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#0f1013", ink: "#f2f2f4", accent: "#e8a661" }} />
         <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#faf9f7", ink: "#1a1815", accent: "#a06226" }} />
-        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #0b0b0c 0%, #0b0b0c 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#a1a1aa", accent: "#c98a44" }} />
+        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #0f1013 0%, #0f1013 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#a1a1aa", accent: "#c98a44" }} />
       </div>
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10 }}>
-        Auto follows your device's system appearance.
+      <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 10 }}>
+        Auto follows your phone's light or dark setting.
       </div>
     </div>
   );
@@ -427,7 +455,7 @@ function ThemeCard({ active, onClick, label, preview }) {
 function RateInput({ label, value, onChange, error }) {
   return (
     <div>
-      <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+      <div className="label" style={{ marginBottom: 6 }}>{label}</div>
       <input
         inputMode="decimal" value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -435,22 +463,33 @@ function RateInput({ label, value, onChange, error }) {
         aria-invalid={error ? "true" : undefined}
         style={{ width: "100%", background: "var(--bg-2)", border: `1px solid ${error ? "color-mix(in oklab, var(--warn) 55%, var(--line))" : "var(--line)"}`, borderRadius: 10, padding: "9px 12px", color: "var(--ink)", fontSize: 15, outline: "none", fontFamily: "inherit" }}
       />
-      {error && <div className="mono" style={{ fontSize: 10, color: "var(--warn)", marginTop: 4 }}>{error}</div>}
+      {error && <div style={{ fontSize: 11.5, color: "var(--warn)", marginTop: 4 }}>{error}</div>}
     </div>
   );
 }
 
 /* ============ Autofill ============ */
-function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
+function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, onApply, onClose }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const days = periodDays(period);
   const [startKey, setStartKey] = useStateM(ymd(period.start));
+  // Where the start day falls in the cycle (0 = 7AM … 3 = Off). Starts from
+  // the saved rotation when there is one, so a repeat fill just continues it.
+  const [phase, setPhase] = useStateM(() => {
+    const slot = rotationSlot(ymd(period.start), rotationAnchor);
+    return slot ? ROTATION_SLOTS.indexOf(slot) : 0;
+  });
+  const pickStart = (k) => {
+    setStartKey(k);
+    const slot = rotationSlot(k, rotationAnchor);
+    if (slot) setPhase(ROTATION_SLOTS.indexOf(slot));
+  };
   const [pattern, setPattern] = useStateM("rotation");
   const [span, setSpan] = useStateM("rest");
   const [dist, setDist] = useStateM(defaultDist || "S");
   const [preserve, setPreserve] = useStateM(true);
 
-  const preview = autofillPattern(period, { startKey, pattern, days: span, defaultDist: dist });
+  const preview = autofillPattern(period, { startKey, pattern, days: span, defaultDist: dist, phase });
   const hasShifts = (e) => !!e && (e.am7 || e.pm3 || e.pm10);
   const fillCount = Object.keys(preview).filter(
     (k) => !(preserve && hasShifts(existing?.[k]))
@@ -467,38 +506,50 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
         borderRadius: 18, padding: 18, outline: "none",
       }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em" }}>Auto-fill</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Pattern</div>
-          </div>
-          <button onClick={close} style={iconBtn()}>✕</button>
+          <div style={{ fontSize: 18, fontWeight: 600 }}>Auto-fill shifts</div>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
         <FieldLabel>Pattern</FieldLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
           <PatternCard active={pattern === "rotation"} onClick={() => setPattern("rotation")}
-            title="Standard rotation" desc="7AM → 3PM → 10PM → rest, repeating" />
+            title="Standard rotation" desc="7AM → 3PM → 10PM → Off, repeating" />
           <PatternCard active={pattern === "am7"} onClick={() => setPattern("am7")} title="7AM only" desc="8h shifts" color="var(--am)" />
           <PatternCard active={pattern === "pm3"} onClick={() => setPattern("pm3")} title="3PM only" desc="7h shifts" color="var(--sp1)" />
           <PatternCard active={pattern === "pm10"} onClick={() => setPattern("pm10")} title="10PM only" desc="9h, crosses midnight" color="var(--sp2)" />
         </div>
 
         <FieldLabel>Start</FieldLabel>
-        <select value={startKey} onChange={(e) => setStartKey(e.target.value)} style={selectStyle}>
+        <select value={startKey} onChange={(e) => pickStart(e.target.value)} style={selectStyle} aria-label="Start day">
           {days.map((d) => <option key={ymd(d)} value={ymd(d)}>
             {d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
           </option>)}
         </select>
 
+        {pattern === "rotation" && (
+          <>
+            <FieldLabel>On that day I work</FieldLabel>
+            <SegToggle full options={[
+              { v: 0, l: "7AM" }, { v: 1, l: "3PM" }, { v: 2, l: "10PM" }, { v: 3, l: "Off" },
+            ]} value={phase} onChange={setPhase} />
+          </>
+        )}
+
         <FieldLabel>Fill</FieldLabel>
-        <SegToggle options={[
-          { v: 7, l: "Next 7 days" },
+        <SegToggle full options={[
+          { v: 7, l: "7 days" },
           { v: 14, l: "14 days" },
           { v: "rest", l: "Rest of period" },
         ]} value={span} onChange={setSpan} />
 
-        <FieldLabel>Distance default</FieldLabel>
-        <SegToggle options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={dist} onChange={setDist} />
+        {/* Only matters when distance varies per shift; otherwise the
+            period-wide Short/Long applies. */}
+        {mode === "advanced" && (
+          <>
+            <FieldLabel>Taxi distance</FieldLabel>
+            <SegToggle options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={dist} onChange={setDist} />
+          </>
+        )}
 
         <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, cursor: "pointer", padding: "8px 0" }}>
           <input type="checkbox" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
@@ -511,11 +562,12 @@ function AutofillModal({ period, defaultDist, existing, onApply, onClose }) {
         }}>
           Will create <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fillCount}</span> day{fillCount === 1 ? "" : "s"} of shifts.
           {preserve && " Existing days won't be overwritten."}
+          {pattern === "rotation" && " Your rotation is saved, so off days and extra shifts show on the calendar."}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
           <button onClick={close} style={ghostBtn()}>Cancel</button>
-          <button onClick={() => onApply({ startKey, pattern, days: span, defaultDist: dist, preserve })} style={accentBtn()}>
+          <button onClick={() => onApply({ startKey, pattern, days: span, defaultDist: dist, preserve, phase })} style={accentBtn()}>
             Apply
           </button>
         </div>
@@ -538,13 +590,13 @@ function PatternCard({ active, onClick, title, desc, color }) {
         {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />}
         <span style={{ fontSize: 13.5, fontWeight: 600 }}>{title}</span>
       </div>
-      <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>{desc}</span>
+      <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{desc}</span>
     </button>
   );
 }
 
 function FieldLabel({ children }) {
-  return <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", margin: "10px 0 6px" }}>{children}</div>;
+  return <div className="label" style={{ margin: "12px 0 6px" }}>{children}</div>;
 }
 
 const selectStyle = {

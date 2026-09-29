@@ -20,15 +20,37 @@ function periodShiftDays(entries, period) {
 }
 
 function HomeView(props) {
-  const { period, entries, basePay, basicDistance, totals, tax, onboarded, onShiftPeriod, onOpenCalc } = props;
+  const { period, entries, basePay, basicDistance, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply } = props;
   const [wizard, setWizard] = useStateH(false);
   const shiftDays = periodShiftDays(entries, period);
+  // A saved rotation runs on into every period, so an empty new period can be
+  // filled in one tap with the same pay and distance answers.
+  const fillRotation = () => {
+    onApply({
+      fill: rotationEntries(period, rotationAnchor, basicDistance),
+      replace: true, basePay, dist: basicDistance,
+      counts: { pm3: "", pm10: "", am7: "" }, anchor: rotationAnchor,
+    });
+    showToast("Rotation filled for this period");
+  };
+  const canQuickFill = !wizard && shiftDays === 0 && !!rotationAnchor;
 
   return (
     <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 20px 0" }}>
+      {canQuickFill && (
+        <Card style={{ padding: 18, border: "1px solid color-mix(in oklab, var(--accent) 40%, var(--line-soft))" }}>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>New pay period</div>
+          <div style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.5, marginTop: 4 }}>
+            Your rotation carries on into {periodLabel(period)}. Fill it in, then fix any days that were different.
+          </div>
+          <button onClick={fillRotation} style={{ ...accentBtn(), width: "100%", padding: "13px 16px", fontSize: 15, marginTop: 14 }}>
+            Fill my rotation
+          </button>
+        </Card>
+      )}
       {wizard ? (
         <SetupWizard {...props} shiftDays={shiftDays} onDone={() => setWizard(false)} />
-      ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) ? (
+      ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor ? (
         <>
           <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
           <HomeFooter ratesEffective={props.ratesEffective} onOpenSettings={props.onOpenSettings} onAbout={props.onAbout} />
@@ -85,8 +107,9 @@ function HomeFooter({ ratesEffective, onOpenSettings, onAbout }) {
 }
 
 /* ----- result at a glance ----- */
-function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
+function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
   const net = calcTax(totals.grand, tax).net;
+  const extra = rotationStats(entries, period, rotationAnchor).extra;
   const counts = [
     [totals.cal.pm3, "3PM"],
     [totals.cal.pm10, "10PM"],
@@ -121,8 +144,9 @@ function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, 
         </div>
 
         <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
-          {shiftDays > 0 ? `${counts.join(" · ")} · ${fmtH(totals.totalHours)}h` : "No shifts logged yet"}
-          {totals.holidayHours > 0 && ` · ${fmtH(totals.holidayHours)}h holiday`}
+          {shiftDays > 0 ? `${counts.join(" · ")} · ${fmtH0(totals.totalHours)}h` : "No shifts logged yet"}
+          {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra</span></>}
+          {totals.holidayHours > 0 && ` · ${fmtH0(totals.holidayHours)}h holiday`}
         </div>
 
         {totals.hasMismatch && (
@@ -134,14 +158,22 @@ function HomeSummary({ period, totals, tax, shiftDays, onShiftPeriod, onUpdate, 
           }}>⚠ Your shift counts don't match the calendar. Review →</button>
         )}
 
-        <button onClick={onUpdate} style={{ ...accentBtn(), width: "100%", padding: "13px 16px", fontSize: 14.5, marginTop: 16 }}>
-          Update my shifts
-        </button>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
-          <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={ghostBtn()}>Save to History</button>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 16 }}>
+          <button onClick={() => { onSaveSnapshot(); showToast("Saved to History"); }} style={accentBtn()}>Save to History</button>
           <button onClick={onCopyShare} style={ghostBtn()}>Copy summary</button>
         </div>
-        <button onClick={() => onOpenCalc()} style={homeLinkBtn}>See the full breakdown and calendar →</button>
+      </Card>
+
+      <Card style={{ padding: 18 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Your shifts</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Tap a day to change it</div>
+        </div>
+        <Calendar compact period={period} entries={entries} mode={mode} totals={totals} rotationAnchor={rotationAnchor} onOpenDay={onOpenDay} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
+          <button onClick={onUpdate} style={ghostBtn()}>Redo my setup</button>
+          <button onClick={() => onOpenCalc()} style={ghostBtn()}>Full breakdown</button>
+        </div>
       </Card>
 
       <HomeFooter ratesEffective={ratesEffective} onOpenSettings={onOpenSettings} onAbout={onAbout} />
@@ -165,7 +197,7 @@ function HomeLine({ color, label, hint, value }) {
 /* ============ Setup wizard ============ */
 const blankTotals = { pm3: "", pm10: "", am7: "", pairs: "" };
 
-function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, shiftDays, onApply, onOpenCalc, onOpenSettings, onDone }) {
+function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
   const [step, setStep] = useStateH(0);
   const [draft, setDraft] = useStateH(() => ({
     monthly: basePay.monthly || "",
@@ -174,7 +206,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
     method: "rotation",
     // Any day the person works a 7AM. Start from a 7AM already on this
     // period's calendar if there is one, else the period's first day.
-    am7Key: firstAm7Key(entries, period) || ymd(period.start),
+    am7Key: am7InPeriod(period, rotationAnchor) || firstAm7Key(entries, period) || ymd(period.start),
     // Prefill totals with what's already on the calendar for this period.
     totals: shiftDays > 0
       ? { pm3: String(totals.cal.pm3), pm10: String(totals.cal.pm10), am7: String(totals.cal.am7), pairs: String(totals.cal.sameDayPair) }
@@ -202,7 +234,10 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
   const last = step === steps.length - 1;
   const finish = () => {
     if (totalsErr) return;
-    onApply({ fill: plan.fill, replace, basePay: plan.bp, dist: draft.dist, counts: plan.nextCounts });
+    onApply({
+      fill: plan.fill, replace, basePay: plan.bp, dist: draft.dist, counts: plan.nextCounts,
+      anchor: draft.method === "rotation" ? draft.am7Key : null,
+    });
     onDone();
   };
 
@@ -366,7 +401,7 @@ function RotationPicker({ period, value, onChange }) {
     <>
       <div style={{ fontSize: 14, fontWeight: 500 }}>Tap any day you work a 7AM</div>
       <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 3, marginBottom: 10, lineHeight: 1.45 }}>
-        Your rotation fills the whole period from that day, before and after it. Check the days below match your roster.
+        Your rotation (7AM → 3PM → 10PM → Off) fills the whole period from that day, before and after it. Check the days below match your roster. It's saved for next period too.
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }} role="group" aria-label="Rotation calendar">
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
@@ -408,7 +443,7 @@ function RotationPicker({ period, value, onChange }) {
             Public holiday, applied automatically.{" "}
           </>
         )}
-        Took leave or swapped a shift? Adjust those days on the calendar afterwards.
+        Took leave or worked an extra shift? Tap that day on Home afterwards. Extra shifts show in <span style={{ color: "var(--extra)", fontWeight: 600 }}>pink</span> with a +.
       </div>
     </>
   );

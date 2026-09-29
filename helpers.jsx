@@ -133,7 +133,12 @@ function holidaysInPeriod(period) {
 }
 
 /* ----- format ----- */
-const fmt = (n) => "$" + (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// Negative amounts read "−$500.00" (not "$-500.00"), e.g. pay-slip variances.
+const fmt = (n) => {
+  const v = Number(n) || 0;
+  const s = "$" + Math.abs(v).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return v < 0 && s !== "$0.00" ? "−" + s : s;
+};
 const fmtShort = (n) => {
   const v = Number(n) || 0;
   if (Math.abs(v) >= 1000) return "$" + (v / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k";
@@ -263,6 +268,47 @@ function rotationEntries(period, am7Anchor, dist) {
     startKey: ymd(period.start), pattern: "rotation", days: "rest",
     defaultDist: dist || "S", phase: ((-off % 4) + 4) % 4,
   });
+}
+
+/* ----- saved rotation -----
+   The person's rotation is stored as one anchor: any "YYYY-MM-DD" they work a
+   7AM. The 4-day cycle runs unbroken across pay periods, so the same anchor
+   gives the slot for any date. Display only; pay is never derived from it. */
+const ROTATION_SLOTS = ["am7", "pm3", "pm10", "off"];
+
+/* The rotation slot for a date key: "am7" | "pm3" | "pm10" | "off", or null
+   when no rotation is saved. */
+function rotationSlot(key, anchor) {
+  if (!anchor) return null;
+  const i = dayOffset(fromYmd(anchor), fromYmd(key));
+  return ROTATION_SLOTS[((i % 4) + 4) % 4];
+}
+
+/* Shifts on a day that the rotation doesn't call for (an off day's shift,
+   or a second shift on a working day). Empty when no rotation is saved. */
+function extraShiftKeys(entry, slot) {
+  if (!slot || !entry) return [];
+  return ["am7", "pm3", "pm10"].filter((k) => entry[k] && k !== slot);
+}
+
+/* Per-period rotation facts for the UI: extra shift count and off days. */
+function rotationStats(entries, period, anchor) {
+  let extra = 0, off = 0;
+  if (!anchor) return { extra, off };
+  for (const d of periodDays(period)) {
+    const k = ymd(d);
+    const slot = rotationSlot(k, anchor);
+    extra += extraShiftKeys(entries[k], slot).length;
+    if (slot === "off") off++;
+  }
+  return { extra, off };
+}
+
+/* The first day in the period the rotation puts on a 7AM (for pickers). */
+function am7InPeriod(period, anchor) {
+  if (!anchor) return null;
+  const d = periodDays(period).find((x) => rotationSlot(ymd(x), anchor) === "am7");
+  return d ? ymd(d) : null;
 }
 
 /* Days the totals path may place shifts on: every day that isn't a public
@@ -649,6 +695,7 @@ const _exports = {
   fmt, fmtShort, fmtH, summaryText,
   blankDay, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, mergePeriodFill,
+  ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
   calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
 };

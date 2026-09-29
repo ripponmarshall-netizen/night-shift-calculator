@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v18";
+const CACHE = "ns-calculator-v19";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
@@ -26,11 +26,36 @@ const ASSETS = [
   "./icon-512.svg",
 ];
 
+// React + Babel load from a CDN at pinned versions (see index.html). Without
+// caching them the app can't start offline, so they are precached too.
+const CDN_ASSETS = [
+  "https://unpkg.com/react@18.3.1/umd/react.development.js",
+  "https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js",
+  "https://unpkg.com/@babel/standalone@7.29.0/babel.min.js",
+];
+const CDN_HOSTS = new Set(["unpkg.com"]);
+
+// Cache each file on its own: cache.addAll() is all-or-nothing, so one
+// failed download would otherwise leave nothing cached at all.
+const precache = (cache, urls, init) =>
+  Promise.all(
+    urls.map((u) =>
+      fetch(new Request(u, init))
+        .then((res) => (res.ok ? cache.put(u, res) : null))
+        .catch(() => null),
+    ),
+  );
+
 self.addEventListener("install", (e) => {
   e.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(ASSETS).catch(() => {}))
+      .then((cache) =>
+        Promise.all([
+          precache(cache, ASSETS),
+          precache(cache, CDN_ASSETS, { mode: "cors", credentials: "omit" }),
+        ]),
+      )
       .then(() => self.skipWaiting()),
   );
 });
@@ -97,16 +122,17 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // App assets: cache-first, falling back to network
+  // App assets and pinned CDN scripts: cache-first, falling back to network
+  const isCdn = CDN_HOSTS.has(url.hostname);
   e.respondWith(
-    caches.match(e.request).then((cached) => {
+    caches.match(e.request, { ignoreVary: true }).then((cached) => {
       if (cached) return cached;
       return fetch(e.request)
         .then((res) => {
           if (
             res &&
             res.status === 200 &&
-            url.origin === self.location.origin
+            (url.origin === self.location.origin || isCdn)
           ) {
             const clone = res.clone();
             caches.open(CACHE).then((c) => c.put(e.request, clone));

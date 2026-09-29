@@ -30,15 +30,15 @@ The app is a single-page PWA. UI is built with React 18 + Babel-standalone loade
 | `components.jsx` | Shared primitives (Card, SectionHead, SegToggle, button styles, AnimatedNumber)                                              |
 | `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup), Autofill rotation, Onboarding banner                               |
 | `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                 |
-| `calendar.jsx`   | Period calendar with shift bands, long-press copy/paste, holiday chips                                                       |
+| `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips       |
 | `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                             |
 | `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                               |
 | `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                 |
 | `ytd.jsx`        | Year-to-date dashboard (totals, hours, OT, composition bar, monthly bars)                                                    |
 | `snapshots.jsx`  | Snapshot history list, sparkline, deltas, detail view                                                                        |
-| `home.jsx`       | Home page: 3-step setup (pay → commute → shifts by rotation or totals) and an at-a-glance result                             |
+| `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                    |
 | `app.jsx`        | Root component — state, persistence, 3-tab taskbar, header, taxi-distance card, two-column desktop layout                    |
-| `sw.js`          | Cache-first service worker (offline support)                                                                                 |
+| `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline             |
 | `manifest.json`  | PWA manifest                                                                                                                 |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                   |
 
@@ -58,9 +58,13 @@ The app opens on **Home**. Tap **Start** and answer three questions:
    - **My rotation:** tap any day you work a 7AM on the period calendar. The standard 7AM → 3PM → 10PM → off cycle fills the whole period from that day, including the days before it, and public holidays apply automatically.
    - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the period's regular (non-holiday) days for the math; holiday pay isn't included from totals.
 
+   - Choosing **My rotation** saves it. The 4-day cycle (7AM → 3PM → 10PM → **Off**) runs on across pay periods, so the calendar marks your off days and shows any shift outside the rotation as an **extra** shift in pink with a `+` (e.g. `+3PM`). **My totals** doesn't follow a rotation, so it clears the saved one.
+
 The live estimate updates as you answer. **See my pay** saves the answers into the same calendar and inputs the **Shifts** screen uses, so both screens always show the same numbers. Use **Update my shifts** to redo it, or **See the full breakdown** to fine-tune individual days.
 
-The phone's **Back** button returns to Home from any other screen.
+After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
+
+The phone's **Back** button returns to Home from any other screen. The app always opens on today's pay period.
 
 ### The detailed way (Shifts)
 
@@ -72,7 +76,7 @@ The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (g
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.
 4. **Use shortcuts when you can.**
-   - **Auto-fill**: rotation fill (7AM → 3PM → 10PM, single-shift, partial periods, skip Sundays, preserve existing).
+   - **Auto-fill**: rotation fill (7AM → 3PM → 10PM → Off; say which shift the start day is), single-shift patterns, partial periods, preserve existing. A rotation fill saves the rotation.
    - **Templates**: save the current week pattern and apply it to any period with one tap.
    - **Long-press a day** with shifts to copy it, then tap empty days to paste.
 5. **Read the result.** The live total floats above the bar while you tap. The summary card breaks down Allowance / Base Pay / Extra Hours; tap a row to expand it and `ƒ` to see the math.
