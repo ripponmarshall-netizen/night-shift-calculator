@@ -38,11 +38,13 @@ function YTDDashboard({ snapshots }) {
     <Card>
       <SectionHead title={`${year} Year to date`} subtitle={`${thisYear.length} pay period${thisYear.length === 1 ? "" : "s"}`} />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
-        <KpiTile label="Earned YTD" value={fmt(stats.total)} accent="var(--accent)" />
-        <KpiTile label="Hours worked" value={fmtH(stats.hours) + "h"} accent="var(--am)" />
-        <KpiTile label="Holiday hours" value={fmtH(stats.holHours) + "h"} small />
-        <KpiTile label="OT hours" value={fmtH(stats.otHours) + "h"} small />
+      {/* Earned YTD gets its own row: a six-figure amount beside another tile
+          overflows the card on a 320px phone. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 14 }}>
+        <KpiTile label="Earned YTD" value={fmt(stats.total)} accent="var(--accent)" wide />
+        <KpiTile label="Hours worked" value={hrs1(stats.hours)} accent="var(--am)" small />
+        <KpiTile label="Holiday hours" value={hrs1(stats.holHours)} small />
+        <KpiTile label="OT hours" value={hrs1(stats.otHours)} small />
       </div>
 
       {/* Composition bar */}
@@ -94,16 +96,21 @@ function YTDDashboard({ snapshots }) {
   );
 }
 
-function KpiTile({ label, value, accent, small }) {
+/* Year totals to one decimal ("25.7h"), short enough for a third-width tile. */
+const hrs1 = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString("en-JM", { maximumFractionDigits: 1 }) + "h";
+
+function KpiTile({ label, value, accent, small, wide }) {
   return (
     <div style={{
-      padding: "12px 14px",
+      padding: small ? "10px 10px" : "12px 14px",
       background: "var(--bg-2)",
       border: "1px solid var(--line-soft)",
       borderRadius: 12,
+      minWidth: 0,
+      gridColumn: wide ? "1 / -1" : undefined,
     }}>
-      <div className="label" style={{  }}>{label}</div>
-      <div className="mono" style={{ fontSize: small ? 16 : 22, fontWeight: 700, marginTop: 4, color: accent || "var(--ink)" }}>{value}</div>
+      <div className="label">{label}</div>
+      <div className="mono" style={{ fontSize: small ? 15 : 22, fontWeight: 700, marginTop: 4, color: accent || "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
     </div>
   );
 }

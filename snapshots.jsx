@@ -117,11 +117,13 @@ function SnapRow({ snap, delta, onOpen, onDelete }) {
   const reconciled = !!snap.reconcile;
   return (
     <div style={{
-      display: "flex", alignItems: "center", gap: 12,
+      display: "flex", alignItems: "center", gap: "8px 12px", flexWrap: "wrap",
       padding: "12px 14px",
       background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 12,
     }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      {/* On a narrow phone the amount and buttons wrap under the period
+          instead of squeezing it to one word per line. */}
+      <div style={{ flex: "1 1 150px", minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>{snap.period}</span>
           {reconciled && <span title="Reconciled vs pay slip" className="mono" style={{
@@ -135,7 +137,7 @@ function SnapRow({ snap, delta, onOpen, onDelete }) {
           {new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} · {snap.mode === "advanced" ? "Taxi varies" : snap.basicDistance === "L" ? "Long taxi" : "Short taxi"}
         </div>
       </div>
-      <div style={{ textAlign: "right" }}>
+      <div style={{ textAlign: "right", marginLeft: "auto" }}>
         <div className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{fmt(t.grand)}</div>
         {delta !== 0 && (
           <div className="mono" style={{ fontSize: 11, color: delta > 0 ? "var(--ok)" : "var(--holiday)", marginTop: 2 }}>
@@ -191,7 +193,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
       backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 12px 12px",
     }}>
       <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-sheet" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 540, maxHeight: "82vh", overflow: "auto",
+        width: "100%", maxWidth: 540,
         background: "var(--bg-1)", border: "1px solid var(--line)",
         borderRadius: 18, padding: 18,
         marginBottom: `calc(96px + var(--safe-bottom))`,

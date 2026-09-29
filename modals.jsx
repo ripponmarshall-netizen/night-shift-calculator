@@ -166,7 +166,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
       <input
         inputMode="decimal" value={raw} placeholder={String(std)}
         onChange={(e) => onChange(keyName, e.target.value)}
-        aria-label={`Hours worked for ${keyName}`}
+        aria-label={`Hours worked for ${ROTATION_LABEL[keyName]} shift`}
         style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 14, outline: "none", fontFamily: "inherit", textAlign: "right" }}
       />
       <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
@@ -185,8 +185,8 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
           <div style={{ fontSize: 18, fontWeight: 600 }}>Settings</div>
           <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
-        <div style={{ marginBottom: 16, overflowX: "auto" }}>
-          <SegToggle options={[
+        <div style={{ marginBottom: 16 }}>
+          <SegToggle wrap options={[
             { v: "rates", l: "Rates" },
             { v: "tax", l: "Tax" },
             { v: "history", l: "Past rates" },
@@ -366,7 +366,10 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
   const addEntry = () => {
     if (!date) { alert("Pick an effective-from date."); return; }
     const entry = { effectiveFrom: date, rates: { ...currentRates } };
-    setRatesHistory([...(ratesHistory || []), entry]);
+    // One entry per date: saving the same date again replaces it. Two entries
+    // with one date would tie in ratesAt(), and the older one would win.
+    const others = (ratesHistory || []).filter((x) => String(x.effectiveFrom).slice(0, 10) !== date);
+    setRatesHistory([...others, entry]);
     setDate("");
   };
   return (

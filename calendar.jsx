@@ -45,7 +45,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const dateStr = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
           const shiftList = CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (extras.includes(s.k) ? "extra " : "") + s.label);
           const ariaLabel = has
-            ? `${dateStr}: ${shiftList.join(", ")}, ${hours} hours${isHol ? ", holiday" : ""}`
+            ? `${dateStr}: ${shiftList.join(", ")}, ${fmtH0(hours)} hours${isHol ? ", holiday" : ""}`
             : `${dateStr}: ${isOff ? "off day" : "no shifts"}${isHol ? ", holiday" : ""}`;
           return (
             <DayButton
@@ -81,6 +81,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 transition: "background 0.12s, border-color 0.12s",
                 overflow: "hidden",
                 fontFamily: "inherit",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                userSelect: "none",
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 2px" }}>
@@ -238,6 +241,7 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
   };
   const start = (e) => {
+    if (e.button !== 0) return; // right-click / pen barrel: not a press
     movedRef.current = false;
     longPressedRef.current = false;
     startPosRef.current = { x: e.clientX, y: e.clientY };
@@ -281,6 +285,9 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
       onPointerMove={move}
       onPointerCancel={clearTimer}
       onPointerLeave={clearTimer}
+      // A held finger also opens the phone's context menu / text callout,
+      // which covers the calendar just as the day is copied.
+      onContextMenu={(e) => { if (timerRef.current || longPressedRef.current) e.preventDefault(); }}
       onClick={onClick}
     >
       {children}

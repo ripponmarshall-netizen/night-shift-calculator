@@ -691,6 +691,21 @@ assert.deepStrictEqual(
   assert.strictEqual(am7InPeriod(HOL_PERIOD, null), null);
 }
 
+// ratesAt: two Past rates entries with the same date — the one saved last
+// wins (older backups can hold such duplicates).
+assert.strictEqual(
+  ratesAt(
+    periodFor(fromYmd("2026-09-20")),
+    [
+      { effectiveFrom: "2026-04-01", rates: { sp1: 1 } },
+      { effectiveFrom: "2026-04-01", rates: { sp1: 2 } },
+      { effectiveFrom: "2026-01-01", rates: { sp1: 3 } },
+    ],
+    { sp1: 0 },
+  ).sp1,
+  2,
+);
+
 // Money formatting: negatives get a leading minus, no "-0.00".
 assert.strictEqual(fmt(-500), "−$500.00");
 assert.strictEqual(fmt(1234.5), "$1,234.50");

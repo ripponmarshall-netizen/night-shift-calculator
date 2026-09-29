@@ -460,7 +460,7 @@ function TotalsPicker({ values, onChange, error }) {
         <Stepper label="10PM shifts" color="var(--sp2)" value={values.pm10} onChange={(v) => setK("pm10", v)} />
         <Stepper label="7AM shifts" color="var(--am)" value={values.am7} onChange={(v) => setK("am7", v)} />
         {showPairs ? (
-          <Stepper label="Days with a 3PM and a 10PM" hint="back-to-back · taxi paid once" value={values.pairs} onChange={(v) => setK("pairs", v)} />
+          <Stepper label="Days with a 3PM and a 10PM" hint="back-to-back · no taxi on these days" value={values.pairs} onChange={(v) => setK("pairs", v)} />
         ) : (
           <button onClick={() => setShowPairs(true)} style={{ ...homeInlineBtn, justifySelf: "start", fontSize: 12 }}>
             + Worked a 3PM and 10PM on the same day?
