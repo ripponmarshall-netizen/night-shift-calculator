@@ -39,11 +39,10 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
   const hasTotal = actual.grand !== "" || totalActualPerLine !== 0;
 
   const save = () => {
-    onSave({
-      ...actual,
-      at: new Date().toISOString(),
-    });
-    showToast("Pay slip check saved");
+    // Nothing typed: don't mark the period as checked against a pay slip.
+    const empty = Object.values(actual).every((v) => String(v).trim() === "");
+    onSave(empty ? null : { ...actual, at: new Date().toISOString() });
+    showToast(empty ? "Nothing entered. Pay slip check cleared" : "Pay slip check saved");
     close();
   };
 

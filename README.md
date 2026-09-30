@@ -27,7 +27,7 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 | `index.html`     | App shell, script loaders, service-worker registration                                                                       |
 | `styles.css`     | Theme tokens (dark + light), typography, base reset                                                                          |
 | `helpers.jsx`    | Date utilities, JM holidays (Easter computus), aggregate engine, JM tax model, rate history, templates, iCal export, storage |
-| `components.jsx` | Shared primitives (Card, SegToggle, buttons, AnimatedNumber), toasts with Undo, in-app confirm dialog, Save to History row   |
+| `components.jsx` | Shared primitives (Card, SegToggle, buttons, AnimatedNumber), toasts with Undo, confirm dialog, Save row, shared footer      |
 | `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup, saved as you type), Auto-fill                                       |
 | `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                 |
 | `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips       |
@@ -105,7 +105,13 @@ Both modes always produce identical results when given equivalent inputs.
 ## Created By
 
 **L/Cpl. R. Marshall**
-Workflow Coaching and Optimisation
+Workflow Coaching and Optimisation · Portland Division
+
+## Contact
+
+Questions, issues, or a rate that looks wrong? Email **[ripponmarshall@yahoo.com](mailto:ripponmarshall@yahoo.com)**. Say which pay period and screen you were on; a screenshot helps.
+
+The same address is in the footer of every screen and on the in-app **About** page.
 
 ---
 
@@ -142,7 +148,7 @@ Validates `manifest.json` formatting, ensures core app files exist and are non-e
 ## Release Checklist
 
 1. Confirm default rates in `helpers.jsx` (`DEFAULT_RATES`, `DEFAULT_TAX`) and the "Rates effective" label in `app.jsx`.
-2. Bump `APP_VERSION` in `helpers.jsx` (shown in the Shifts footer).
+2. Bump `APP_VERSION` in `helpers.jsx` (shown in the footer on every screen). The credit line and contact address are `APP_CREDIT` and `CONTACT_EMAIL` in the same file.
 3. Run `./check.sh`.
 4. Bump the service worker cache version in `sw.js` (`const CACHE`).
 5. Verify install / offline behaviour and the snapshot share-as-PNG output manually.

@@ -60,7 +60,9 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   ctx.fillStyle = colors.faint;
   ctx.font = '600 22px "Geist Mono", monospace';
   ctx.textBaseline = "top";
-  ctx.fillText("NIGHT SHIFT · " + (snap.mode === "basic" ? "QUICK" : "DETAILED").toUpperCase(), pad + 50, pad + 50);
+  // Same taxi wording as the app (Short / Long / Varies).
+  const taxi = snap.mode === "advanced" ? "TAXI VARIES" : snap.basicDistance === "L" ? "LONG TAXI" : "SHORT TAXI";
+  ctx.fillText("NIGHT SHIFT · " + taxi, pad + 50, pad + 50);
 
   ctx.fillStyle = colors.ink;
   ctx.font = '700 56px "Geist", system-ui';
@@ -83,7 +85,8 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   ctx.fillStyle = colors.accent;
   ctx.font = '700 22px "Geist Mono", monospace';
-  ctx.fillText("ESTIMATED GROSS", pad + 80, chipY + 26);
+  // What the number actually is: gross only when a monthly basic was set.
+  ctx.fillText(totalLabel(snap.totals).toUpperCase(), pad + 80, chipY + 26);
 
   ctx.fillStyle = colors.ink;
   ctx.font = '700 68px "Geist Mono", monospace';
@@ -109,7 +112,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   ctx.fillStyle = colors.faint;
   ctx.font = '500 20px "Geist Mono", monospace';
   ctx.textAlign = "center";
-  ctx.fillText("Night Shift Calculator · " + new Date(snap.at).toLocaleDateString(), W / 2, H - pad - 60);
+  ctx.fillText("Night Shift Calculator · Estimate only · Saved " + new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), W / 2, H - pad - 60);
   ctx.textAlign = "left";
 
   return canvas;

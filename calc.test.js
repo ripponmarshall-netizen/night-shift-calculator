@@ -4,6 +4,8 @@ const {
   calcTax,
   DEFAULT_TAX,
   summaryText,
+  fmtShort,
+  CONTACT_EMAIL,
   ratesAt,
   periodFor,
   fromYmd,
@@ -710,5 +712,13 @@ assert.strictEqual(
 assert.strictEqual(fmt(-500), "−$500.00");
 assert.strictEqual(fmt(1234.5), "$1,234.50");
 assert.strictEqual(fmt(-0.001), "$0.00");
+assert.strictEqual(fmtShort(-1500), "−$1.5k");
+assert.strictEqual(fmtShort(1500), "$1.5k");
+assert.strictEqual(fmtShort(-0.2), "$0");
+
+// Footnotes: the copied summary ends with the same "Estimate only" note the
+// app shows, and the contact address is set.
+assert.ok(stNoNet.endsWith("— Night Shift Calculator · Estimate only"));
+assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
 
 console.log("calc tests passed");
