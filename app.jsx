@@ -124,11 +124,17 @@ function App() {
     return { state: same ? "saved" : "changed", at: saved.at };
   }, [snapshots, period, totals]);
 
+  /* Undo puts back only what was removed, so a period saved while the
+     toast is up isn't wiped by restoring an older list. A restored result
+     never replaces a newer save of the same period. */
+  const restoreSnapshots = (removed) => setSnapshots((cur) => [
+    ...cur,
+    ...removed.filter((r) => !cur.some((c) => c.at === r.at || (r.periodKey && c.periodKey === r.periodKey))),
+  ]);
   const deleteSnapshot = (at) => {
-    const prev = snapshots;
-    const gone = prev.find((s) => s.at === at);
-    setSnapshots(prev.filter((s) => s.at !== at));
-    showToast(`Deleted ${gone?.period || "saved result"}`, { action: { label: "Undo", onClick: () => setSnapshots(prev) } });
+    const gone = snapshots.find((s) => s.at === at);
+    setSnapshots((prev) => prev.filter((s) => s.at !== at));
+    showToast(`Deleted ${gone?.period || "saved result"}`, { action: { label: "Undo", onClick: () => gone && restoreSnapshots([gone]) } });
   };
   const clearSnapshots = async () => {
     const ok = await askConfirm({
@@ -139,7 +145,7 @@ function App() {
     if (!ok) return;
     const prev = snapshots;
     setSnapshots([]);
-    showToast("History cleared", { action: { label: "Undo", onClick: () => setSnapshots(prev) } });
+    showToast("History cleared", { action: { label: "Undo", onClick: () => restoreSnapshots(prev) } });
   };
 
   /* templates */
@@ -186,7 +192,9 @@ function App() {
   };
   const pasteDay = (key) => {
     if (!clipboard) return false;
-    setEntries((prev) => ({ ...prev, [key]: { ...clipboard.entry, dist: { ...clipboard.entry.dist }, holiday: null } }));
+    // Keep the target day's own holiday setting; it belongs to the date, not
+    // to the shifts being pasted.
+    setEntries((prev) => ({ ...prev, [key]: { ...clipboard.entry, dist: { ...clipboard.entry.dist }, holiday: prev[key]?.holiday ?? null } }));
     return true;
   };
   const cancelCopy = () => setClipboard(null);
@@ -226,18 +234,21 @@ function App() {
           confirmLabel: "Restore", danger: true,
         });
         if (!ok) return;
-        if (obj.mode) setMode(obj.mode);
-        if (obj.periodAnchor) setPeriodAnchor(obj.periodAnchor);
+        // Only accept known values, so a hand-edited or foreign file can't
+        // leave the screens and the math disagreeing about the mode.
+        const oneOf = (v, list) => list.includes(v);
+        if (oneOf(obj.mode, ["basic", "advanced"])) setMode(obj.mode);
+        if (typeof obj.periodAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.periodAnchor)) setPeriodAnchor(obj.periodAnchor);
         if (isObj(obj.entries)) setEntries(obj.entries);
-        if (obj.basicDistance) setBasicDistance(obj.basicDistance);
-        if (obj.defaultDist) setDefaultDist(obj.defaultDist);
+        if (oneOf(obj.basicDistance, ["S", "L"])) setBasicDistance(obj.basicDistance);
+        if (oneOf(obj.defaultDist, ["S", "L"])) setDefaultDist(obj.defaultDist);
         if (isObj(obj.counts)) setCounts(obj.counts);
         if (isObj(obj.basePay)) setBasePay(obj.basePay);
         if (isObj(obj.rates)) setRates(obj.rates);
         if (isObj(obj.tax)) setTax(obj.tax);
         if (Array.isArray(obj.ratesHistory)) setRatesHistory(obj.ratesHistory);
         if (Array.isArray(obj.templates)) setTemplates(obj.templates);
-        if (obj.theme) setTheme(obj.theme);
+        if (oneOf(obj.theme, ["auto", "dark", "light"])) setTheme(obj.theme);
         if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
@@ -369,7 +380,6 @@ function App() {
           onCopyShare={copySummary}
           onOpenCalc={openCalc}
           onOpenSettings={() => setSettingsOpen(true)}
-          onAbout={() => go("about")}
         />
       )}
 
@@ -417,11 +427,21 @@ function App() {
 
       {view === "about" && <AboutView onBack={() => go("home")} />}
 
+      {/* One footnote for every screen (hidden while Home setup is open, so
+          the wizard's bottom bar stays the last thing on screen). */}
+      {!(view === "home" && wizardOpen) && (
+        <AppFooter
+          ratesEffective={view === "about" ? null : ratesEffectiveLabel}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onAbout={view === "about" ? null : () => go("about")}
+        />
+      )}
+
       {!(view === "home" && wizardOpen) && <Taskbar
         activeTab={view}
         onTab={go}
         total={totals.grand}
-        totalShort={Number(totals.monthlyBasic) > 0 ? "Est. gross" : "Allowances"}
+        totalShort={Number(totals.monthlyBasic) > 0 ? "Est. gross" : Number(totals.compulsory) > 0 ? "Est. pay" : "Allowances"}
         showTotal={view === "calc" && !heroVisible}
         hasInputs={Object.keys(entries).length > 0}
         snapshotCount={snapshots.length}
@@ -496,7 +516,7 @@ function Header({ onSettings }) {
     }}>
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 12px) 20px 12px", display: "flex", alignItems: "center", gap: 12 }}>
         <img src="icon-192.svg" alt="" width="28" height="28" style={{ borderRadius: 8, flexShrink: 0 }} />
-        <h1 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em" }}>Night Shift Calculator</h1>
+        <h1 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: "clamp(15px, 4.6vw, 17px)", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Night Shift Calculator</h1>
         <button onClick={onSettings} title="Settings" aria-label="Settings" style={iconBtn()}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -558,9 +578,6 @@ function CalcView(props) {
           <CrossCheckFold counts={counts} setCounts={setCounts} totals={totals} onWarningClick={onWarningClick} />
         </Card>
 
-        <div style={{ padding: "8px 4px 0", textAlign: "center", fontSize: 11.5, color: "var(--ink-faint)", lineHeight: 1.6 }}>
-          Workflow Coaching and Optimisation Co.<br />Portland Division · v{APP_VERSION}
-        </div>
       </div>
     </main>
   );
@@ -718,19 +735,42 @@ function MoneyInput({ label, value, onChange }) {
 }
 
 /* ============ About ============ */
+/* Mirrors the README's credit and disclaimers, so the app says the same
+   thing as the repo, plus how to get in touch. */
 function AboutView({ onBack }) {
+  const strong = { color: "var(--ink)" };
+  const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       <Card>
-        <SectionHead title="About" subtitle="Personal productivity tool" />
+        <SectionHead title="About" subtitle="WCO JFB Night Shift Calculator" />
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
-          <p>The Night Shift Calculator combines allowances, base pay, and extra-hours pay in one workflow, with calendar-based shift logging, mismatch cross-checks, snapshot history for sharing, and import/export support.</p>
-          <p style={{ marginTop: 12 }}>On the <strong style={{ color: "var(--ink)" }}>Shifts</strong> screen, set <strong style={{ color: "var(--ink)" }}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={{ color: "var(--ink)" }}>Varies</strong> to set it per shift when you tap a day.</p>
-          <p style={{ marginTop: 12 }}>Public holidays are auto-marked from the Jamaica calendar — Easter, Good Friday, Easter Monday, Ash Wednesday, Heroes Day, and all fixed-date holidays. Override per day from the day editor.</p>
-          <p style={{ marginTop: 12, color: "var(--ink-faint)" }}>Verify all results against official pay records. This is not official payroll advice.</p>
-          <p style={{ marginTop: 12, color: "var(--ink-faint)" }}>Data stays on this device. Backup, restore and reset are in Settings → Backup.</p>
+          <p style={{ margin: 0 }}>Works out your night shift allowances (SP1, SP2, meal and taxi), base pay and extra-hours pay in one place, from the shifts on your calendar. Save each period to History, compare periods and check them against your pay slip.</p>
+          <p style={{ marginTop: 12 }}>On the <strong style={strong}>Shifts</strong> screen, set <strong style={strong}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={strong}>Varies</strong> to set it per shift when you tap a day.</p>
+          <p style={{ marginTop: 12 }}>Public holidays are marked automatically from the Jamaica calendar: Ash Wednesday, Good Friday, Easter Monday, National Heroes Day and the fixed-date holidays. Change any day from the day editor.</p>
+          <p style={{ marginTop: 12 }}>Created by <strong style={strong}>L/Cpl. R. Marshall</strong>, Portland Division · Workflow Coaching and Optimisation.</p>
         </div>
-        <div style={{ marginTop: 12 }}>
+      </Card>
+
+      <Card>
+        <SectionHead title="Questions or issues?" subtitle="A number looks wrong, a rate changed, or something doesn't work" />
+        <a href={mailto} style={{ ...accentBtn(), display: "block", textAlign: "center", textDecoration: "none", padding: "12px 16px", fontSize: 14 }}>
+          Email {CONTACT_EMAIL}
+        </a>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 10, lineHeight: 1.5 }}>
+          Say which pay period and screen you were on. A screenshot helps.
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHead title="Disclaimers" />
+        <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--ink-dim)" }}>
+          <p style={{ margin: 0 }}><strong style={strong}>Accuracy.</strong> Estimates only. Check every result against your official pay records. This is not official payroll advice.</p>
+          <p style={{ marginTop: 10 }}><strong style={strong}>Your data.</strong> Nothing leaves this device. Backup, restore and reset are in Settings → Backup.</p>
+          <p style={{ marginTop: 10 }}><strong style={strong}>Unofficial.</strong> Made independently. Not an official product of the JFB or any affiliated organisation.</p>
+          <p style={{ marginTop: 10 }}><strong style={strong}>AI assistance.</strong> Built with help from Claude, an AI assistant made by Anthropic. The concept, design, calculations and content were directed and checked by L/Cpl. R. Marshall.</p>
+        </div>
+        <div style={{ marginTop: 14 }}>
           <button onClick={onBack} style={primaryBtn()}>← Back</button>
         </div>
       </Card>

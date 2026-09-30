@@ -22,8 +22,11 @@ const DEFAULT_RATES = {
   threshold: 173.33,
 };
 const STORAGE = "nsc:v3";
-// Shown in the Shifts footer. Bump with each release (see README).
-const APP_VERSION = "3.2";
+// Shown in the footer on every screen. Bump with each release (see README).
+const APP_VERSION = "3.3";
+// One credit line and contact address, shared by every footer and About.
+const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
+const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
 const MIGRATION = "nsc-rates-2026-05b";
 
 /* JM tax defaults — TAJ 2025/26 (threshold effective 1 April 2026). */
@@ -143,8 +146,11 @@ const fmt = (n) => {
 };
 const fmtShort = (n) => {
   const v = Number(n) || 0;
-  if (Math.abs(v) >= 1000) return "$" + (v / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k";
-  return "$" + v.toLocaleString("en-JM", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  const a = Math.abs(v);
+  const s = a >= 1000
+    ? "$" + (a / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k"
+    : "$" + a.toLocaleString("en-JM", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return v < 0 && s !== "$0" ? "−" + s : s;
 };
 const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -201,7 +207,7 @@ function summaryText(totals, periodStr, net) {
   if (net != null && Number.isFinite(net) && Math.round(net) !== Math.round(totals.grand)) {
     lines.push(row("Estimated Net", fmt(net), 2));
   }
-  lines.push(rule("═"), "— Night Shift Calculator");
+  lines.push(rule("═"), "— Night Shift Calculator · Estimate only");
   return lines.join("\n");
 }
 
@@ -695,6 +701,7 @@ function toICS(entries, periodKeyOrAll) {
 
 const _exports = {
   SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
+  APP_CREDIT, CONTACT_EMAIL,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,

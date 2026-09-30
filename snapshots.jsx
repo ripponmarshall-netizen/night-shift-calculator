@@ -193,6 +193,14 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
     }
   };
   const recon = snap.reconcile;
+  // Same rule as the pay slip check: the typed total when there is one,
+  // otherwise the sum of the lines that were filled in.
+  const RECON_LINES = ["sp1", "sp2", "meal", "taxi", "monthlyBasic", "compulsory", "holidayPay", "overtimePay"];
+  const reconLineSum = recon ? RECON_LINES.reduce((a, k) => a + (Number(recon[k]) || 0), 0) : 0;
+  const reconHasGrand = !!recon && recon.grand != null && recon.grand !== "";
+  const reconTotal = reconHasGrand ? Number(recon.grand) || 0 : reconLineSum;
+  const reconHasTotal = reconHasGrand || reconLineSum !== 0;
+  const reconVar = reconTotal - (Number(t.grand) || 0);
   return (
     <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
       position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
@@ -262,17 +270,14 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
           }}>
             <div className="label" style={{ marginBottom: 6 }}>Pay slip check</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 13.5 }}>Pay slip total</span>
-              <span className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{recon.grand ? fmt(Number(recon.grand)) : "—"}</span>
+              <span style={{ fontSize: 13.5 }}>Pay slip total{!reconHasGrand && reconHasTotal ? " (sum of lines)" : ""}</span>
+              <span className="mono" style={{ fontSize: 15, fontWeight: 700 }}>{reconHasTotal ? fmt(reconTotal) : "—"}</span>
             </div>
-            {recon.grand && (
+            {reconHasTotal && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 4 }}>
                 <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>Variance vs estimate</span>
-                <span className="mono" style={{ fontSize: 13, fontWeight: 600,
-                  color: Math.abs(Number(recon.grand) - t.grand) < 0.01 ? "var(--ok)" :
-                         Number(recon.grand) >= t.grand ? "var(--ok)" : "var(--holiday)",
-                }}>
-                  {Number(recon.grand) >= t.grand ? "+" : ""}{fmt(Number(recon.grand) - t.grand)}
+                <span className="mono" style={{ fontSize: 13, fontWeight: 600, color: reconVar > -0.01 ? "var(--ok)" : "var(--holiday)" }}>
+                  {Math.abs(reconVar) < 0.01 ? "✓ match" : `${reconVar > 0 ? "+" : ""}${fmt(reconVar)}`}
                 </span>
               </div>
             )}

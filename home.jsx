@@ -57,10 +57,7 @@ function HomeView(props) {
       {wizard ? (
         <SetupWizard {...props} shiftDays={shiftDays} onDone={() => setWizard(false)} />
       ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor ? (
-        <>
-          <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
-          <HomeFooter ratesEffective={props.ratesEffective} onOpenSettings={props.onOpenSettings} onAbout={props.onAbout} />
-        </>
+        <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
       ) : (
         <HomeSummary {...props} basicDistance={basicDistance} totals={totals} tax={tax} shiftDays={shiftDays} onUpdate={() => setWizard(true)} />
       )}
@@ -103,17 +100,8 @@ function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
   );
 }
 
-function HomeFooter({ ratesEffective, onOpenSettings, onAbout }) {
-  return (
-    <div style={{ fontSize: 12, color: "var(--ink-faint)", textAlign: "center", lineHeight: 1.7 }}>
-      {ratesEffective} · <button onClick={onOpenSettings} style={homeInlineBtn}>Edit rates</button>
-      <br />Estimate only. Check against your pay slip. · <button onClick={onAbout} style={homeInlineBtn}>About</button>
-    </div>
-  );
-}
-
 /* ----- result at a glance ----- */
-function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc, onOpenSettings, onAbout, ratesEffective }) {
+function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc }) {
   const net = calcTax(totals.grand, tax).net;
   const extra = rotationStats(entries, period, rotationAnchor).extra;
   const counts = [
@@ -185,7 +173,6 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
         </div>
       </Card>
 
-      <HomeFooter ratesEffective={ratesEffective} onOpenSettings={onOpenSettings} onAbout={onAbout} />
     </>
   );
 }

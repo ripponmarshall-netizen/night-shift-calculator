@@ -288,7 +288,9 @@ function SaveRow({ status, onSave, onCopy }) {
   const label = state === "saved" ? "Saved ✓" : state === "changed" ? "Save changes" : "Save to History";
   return (
     <div style={{ marginTop: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {/* Side by side when both labels fit on one line; stacked on a
+          narrow phone instead of wrapping each label onto two lines. */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8 }}>
         <button onClick={save} style={state === "saved" ? { ...ghostBtn(), color: "var(--ok)", fontWeight: 600 } : accentBtn()}>{label}</button>
         <button onClick={onCopy} style={ghostBtn()}>Copy summary</button>
       </div>
@@ -298,6 +300,32 @@ function SaveRow({ status, onSave, onCopy }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* AppFooter — the one footnote every screen ends with, so the disclaimer,
+   credit and contact read the same everywhere. The rates line shows when
+   Settings can be opened from it; About is left out on the About screen. */
+function AppFooter({ ratesEffective, onOpenSettings, onAbout }) {
+  const link = {
+    background: "transparent", border: "none", padding: 0, color: "var(--ink-dim)",
+    fontSize: "inherit", cursor: "pointer", fontFamily: "inherit",
+    textDecoration: "underline", textUnderlineOffset: 3,
+  };
+  const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
+  return (
+    <footer style={{ maxWidth: 560, margin: "0 auto", padding: "6px 20px 0", textAlign: "center", fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.7 }}>
+      {ratesEffective && onOpenSettings && (
+        <div>{ratesEffective} · <button onClick={onOpenSettings} style={link}>Edit rates</button></div>
+      )}
+      <div>Estimate only. Check against your pay slip.</div>
+      <div>Questions or issues? <a href={mailto} style={link}>{CONTACT_EMAIL}</a></div>
+      <div>{APP_CREDIT}</div>
+      <div>
+        v{APP_VERSION}
+        {onAbout && <> · <button onClick={onAbout} style={link}>About</button></>}
+      </div>
+    </footer>
   );
 }
 
@@ -427,6 +455,6 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
-  askConfirm, ConfirmHost, totalLabel, SaveRow,
+  askConfirm, ConfirmHost, totalLabel, SaveRow, AppFooter,
   copyText, downloadBlob,
 });

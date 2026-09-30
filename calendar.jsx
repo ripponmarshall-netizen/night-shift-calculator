@@ -268,6 +268,9 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
       }, 450);
     }
   };
+  // A mouse hovering after the press isn't a drag; only track while pressed,
+  // or a later keyboard Enter on this day would be swallowed as a scroll.
+  const end = () => { startPosRef.current = null; };
   const move = (e) => {
     if (!startPosRef.current) return;
     const dx = Math.abs(e.clientX - startPosRef.current.x);
@@ -296,8 +299,9 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
       style={style}
       onPointerDown={start}
       onPointerMove={move}
-      onPointerCancel={clearTimer}
-      onPointerLeave={clearTimer}
+      onPointerUp={end}
+      onPointerCancel={() => { clearTimer(); end(); }}
+      onPointerLeave={() => { clearTimer(); end(); }}
       // A held finger also opens the phone's context menu / text callout,
       // which covers the calendar just as the day is copied.
       onContextMenu={(e) => { if (timerRef.current || longPressedRef.current) e.preventDefault(); }}

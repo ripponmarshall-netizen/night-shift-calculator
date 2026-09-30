@@ -40,7 +40,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
             <div className="label" style={{  }}>Templates</div>
             <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Weekly patterns</div>
           </div>
-          <button onClick={close} style={iconBtn()}>✕</button>
+          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
         <div style={{ marginBottom: 14 }}>
