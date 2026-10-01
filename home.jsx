@@ -47,7 +47,7 @@ function HomeView(props) {
         <Card style={{ padding: 18, border: "1px solid color-mix(in oklab, var(--accent) 40%, var(--line-soft))" }}>
           <div style={{ fontSize: 16, fontWeight: 600 }}>New pay period</div>
           <div style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.5, marginTop: 4 }}>
-            Your rotation carries on into {periodLabel(period)}. Fill it in, then fix any days that were different.
+            Your rotation carries on into this period. Fill it in, then fix any days that were different.
           </div>
           <button onClick={fillRotation} style={{ ...accentBtn(), width: "100%", padding: "13px 16px", fontSize: 15, marginTop: 14 }}>
             Fill my rotation
@@ -124,7 +124,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
             <AnimatedNumber value={totals.grand} format={fmt} />
           </div>
-          {tax?.enabled && Math.round(net) !== Math.round(totals.grand) && (
+          {netApplies(totals, tax) && Math.round(net) !== Math.round(totals.grand) && (
             <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 2 }}>
               About <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmt(net)}</span> after tax
             </div>
@@ -158,18 +158,20 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           }}>⚠ Your shift counts don't match the calendar. Review →</button>
         )}
 
-        <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />
+        {/* Nothing to save or share until a shift is logged. */}
+        {(shiftDays > 0 || saveStatus?.state !== "none") && <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />}
       </Card>
 
       <Card style={{ padding: 18 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>Your shifts</div>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "2px 8px", marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }}>Your shifts</div>
           <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Tap a day to change it</div>
         </div>
         <Calendar compact period={period} entries={entries} mode={mode} totals={totals} rotationAnchor={rotationAnchor} onOpenDay={onOpenDay} />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 14 }}>
-          <button onClick={onUpdate} style={ghostBtn()}>Redo my setup</button>
-          <button onClick={() => onOpenCalc()} style={ghostBtn()}>Full breakdown</button>
+        {/* Side by side, or stacked when a label would wrap (320px phones). */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginTop: 14 }}>
+          <button onClick={onUpdate} style={{ ...ghostBtn(), whiteSpace: "nowrap" }}>Redo my setup</button>
+          <button onClick={() => onOpenCalc()} style={{ ...ghostBtn(), whiteSpace: "nowrap" }}>Full breakdown</button>
         </div>
       </Card>
 

@@ -65,21 +65,26 @@ function YTDDashboard({ snapshots }) {
           const h = max > 0 ? (v / max) * 100 : 0;
           const active = v > 0;
           return (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%" }}>
-              <div title={fmt(v)} style={{
-                width: "100%",
-                background: active ? "color-mix(in oklab, var(--accent) 65%, var(--bg-3))" : "var(--bg-2)",
-                height: `${Math.max(2, h)}%`,
-                borderRadius: 4,
-                transition: "height 0.4s ease",
-              }} />
+            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%", minWidth: 0 }}>
+              {/* The bar's % height is of this track, not the column, so a
+                  full bar never pushes the month letter out of the chart. */}
+              <div style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", alignItems: "flex-end" }}>
+                <div title={`${monthNameLong(i)}: ${fmt(v)}`} style={{
+                  width: "100%",
+                  background: active ? "color-mix(in oklab, var(--accent) 65%, var(--bg-3))" : "var(--bg-2)",
+                  height: `${Math.max(2, h)}%`,
+                  borderRadius: 4,
+                  transition: "height 0.4s ease",
+                }} />
+              </div>
               <div className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>{monthName(i)[0]}</div>
             </div>
           );
         })}
       </div>
 
-      {stats.biggest && (
+      {/* With one period, "biggest" just repeats Earned YTD. */}
+      {thisYear.length > 1 && stats.biggest && (
         <div style={{
           marginTop: 14, padding: "10px 12px",
           background: "var(--bg-2)", borderRadius: 10,

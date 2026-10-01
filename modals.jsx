@@ -68,7 +68,7 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
         {entry.pm3 && <HoursRow keyName="pm3" entry={entry} onChange={setHours} />}
         {mode === "advanced" && entry.pm3 && <DistRow value={entry.dist.pm3} onChange={(v) => setDist("pm3", v)} />}
         <DayToggle label="10PM shift" hours="9h · crosses midnight" color="var(--sp2)" active={entry.pm10} extra={!!slot && slot !== "pm10"} onClick={() => toggle("pm10")} />
-        {entry.pm10 && <HoursRow keyName="pm10" entry={entry} onChange={setHours} hint="total · crosses midnight" />}
+        {entry.pm10 && <HoursRow keyName="pm10" entry={entry} onChange={setHours} hint="total" />}
         {mode === "advanced" && entry.pm10 && <DistRow value={entry.dist.pm10} onChange={(v) => setDist("pm10", v)} />}
 
         <div style={{ height: 1, background: "var(--line-soft)", margin: "12px 0" }} />
@@ -228,7 +228,7 @@ function DataTab({ onExport, onImport, onExportICS, onReset }) {
       {item("Save a backup", "Download everything as a JSON file", onExport)}
       {item("Restore a backup", "Load a JSON file you saved before", onImport)}
       {item("Add shifts to my calendar", "Download this period as an .ics file", onExportICS)}
-      {item("Reset this period", "Clears this period's shifts and pay. Rates and history are kept.", onReset, true)}
+      {item("Reset this period", "Clears this period's shifts and roster counts. Pay, rates and History are kept.", onReset, true)}
       <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.5, marginTop: 6 }}>
         Your data stays on this device. Save a backup before changing phones or clearing your browser.
       </div>
@@ -297,7 +297,14 @@ function SettingsFooter({ onDefaults }) {
 
 const taxToDraft = (t) => {
   const out = {};
-  for (const k of Object.keys(t)) out[k] = typeof t[k] === "boolean" ? t[k] : String(t[k]);
+  // Round for display: the NIS cap default is 5,000,000 / 12, which would
+  // otherwise show as 416666.6666666667. The stored value stays exact until
+  // the field is edited.
+  for (const k of Object.keys(t)) {
+    out[k] = typeof t[k] === "boolean" ? t[k]
+      : typeof t[k] === "number" ? String(Math.round(t[k] * 100) / 100)
+      : String(t[k]);
+  }
   return out;
 };
 
@@ -343,7 +350,7 @@ function TaxTab({ tax, setTax }) {
             {field("eduTax", "Education Tax", "%")}
             {field("payeThreshold", "PAYE threshold (monthly)", "$")}
             {field("payeRate1", "PAYE rate (lower)", "%")}
-            {field("payeBreak2", "PAYE break point", "$")}
+            {field("payeBreak2", "PAYE break point (monthly)", "$")}
             {field("payeRate2", "PAYE rate (upper)", "%")}
             {field("pension", "Pension (if any)", "%")}
           </div>
@@ -523,7 +530,7 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
         <FieldLabel>Pattern</FieldLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
           <PatternCard active={isRotation} onClick={() => setPattern("rotation")}
-            title="Standard rotation" desc="7AM → 3PM → 10PM → Off, repeating" />
+            title="Standard rotation" desc="4-day cycle with an off day" />
           <PatternCard active={pattern === "am7"} onClick={() => setPattern("am7")} title="7AM only" desc="8h shifts" color="var(--am)" />
           <PatternCard active={pattern === "pm3"} onClick={() => setPattern("pm3")} title="3PM only" desc="7h shifts" color="var(--sp1)" />
           <PatternCard active={pattern === "pm10"} onClick={() => setPattern("pm10")} title="10PM only" desc="9h, crosses midnight" color="var(--sp2)" />
@@ -586,7 +593,7 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
 
 function PatternCard({ active, onClick, title, desc, color }) {
   return (
-    <button onClick={onClick} style={{
+    <button onClick={onClick} aria-pressed={active} style={{
       padding: "12px 12px",
       borderRadius: 10,
       background: active ? "var(--bg-2)" : "transparent",
