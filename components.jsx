@@ -276,6 +276,13 @@ function totalLabel(t) {
   return "Estimated allowances";
 }
 
+/* netApplies — whether an "after tax" figure means anything. Deductions
+   depend on the whole month's pay, so taxing allowances alone (no monthly
+   basic) would understate them and show a net that's too high. */
+function netApplies(t, tx) {
+  return !!tx?.enabled && Number(t?.monthlyBasic) > 0;
+}
+
 /* SaveRow — Save to History + Copy summary, with whether this period is
    already saved. status: { state: "none" | "saved" | "changed", at } */
 function SaveRow({ status, onSave, onCopy }) {
@@ -455,6 +462,6 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
-  askConfirm, ConfirmHost, totalLabel, SaveRow, AppFooter,
+  askConfirm, ConfirmHost, totalLabel, netApplies, SaveRow, AppFooter,
   copyText, downloadBlob,
 });

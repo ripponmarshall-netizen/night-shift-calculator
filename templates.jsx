@@ -75,7 +75,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
                   <>
                     <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 0", marginTop: 6 }}>
                       <input type="checkbox" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
-                      <span style={{ fontSize: 13.5 }}>Preserve days that already have shifts</span>
+                      <span style={{ fontSize: 13.5 }}>Keep days that already have shifts</span>
                     </label>
                     <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
                       <button onClick={close} style={ghostBtn()}>Cancel</button>
@@ -116,7 +116,9 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
 
 function TemplateRow({ t, active, onSelect, onDelete }) {
   return (
-    <div onClick={onSelect} style={{
+    <div onClick={onSelect} role="radio" aria-checked={active} tabIndex={0}
+      onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect(); } }}
+      style={{
       padding: "12px 12px",
       border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
       borderRadius: 12,

@@ -24,8 +24,6 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   }, []);
   const noBasic = !(Number(totals.monthlyBasic) > 0);
 
-  const distLabel = mode === "basic" ? (basicDistance === "L" ? "Long" : "Short") : "Per-shift";
-
   return (
     <Card>
       {/* Hero total */}
@@ -40,7 +38,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
             <AnimatedNumber value={est} format={fmt} />
           </div>
-          {tax?.enabled && (
+          {netApplies(totals, tax) && (
             <button onClick={() => setShowNet((v) => !v)} style={{
               background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12, padding: 0, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit",
             }}>
@@ -50,10 +48,10 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         </div>
         {noBasic && (
           <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
-            Base pay and overtime aren't included. Add your monthly basic under <strong style={{ color: "var(--ink)" }}>Your monthly pay</strong> below.
+            Base pay, overtime and tax aren't included until you add your monthly basic below.
           </div>
         )}
-        {showNet && tax?.enabled && (
+        {showNet && netApplies(totals, tax) && (
           <div style={{
             marginTop: 12, padding: "10px 12px",
             background: "color-mix(in oklab, var(--bg-2) 60%, transparent)",
@@ -90,7 +88,6 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
               : `Short (${totals.cal.shortPm3 + totals.cal.shortPm10}) × ${fmt(totals.rates.taxiShort)}\n+ Long (${totals.cal.longPm3 + totals.cal.longPm10}) × ${fmt(totals.rates.taxiLong)}${totals.taxiDeduct > 0 ? `\n− pair deduction ${fmt(totals.taxiDeduct)}` : ""}`,
             totals.taxi)} />
           {totals.taxiDeduct > 0 && <Row label={`Same-day pair deduction (×${totals.cal.sameDayPair})`} value={"− " + fmt(totals.taxiDeduct)} faint />}
-          <Row label="Distance" value={distLabel} />
         </div>
       </Collapse>
 

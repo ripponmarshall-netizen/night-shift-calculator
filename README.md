@@ -62,7 +62,7 @@ The app opens on **Home**. Tap **Start** and answer three questions:
 
 The live estimate updates as you answer and stays pinned to the bottom of the screen with the **Next** / **See my pay** buttons (the tab bar hides during setup). **See my pay** saves the answers into the same calendar and inputs the **Shifts** screen uses, so both screens always show the same numbers. Use **Redo my setup** to change them, or **Full breakdown** to fine-tune individual days.
 
-If you leave your monthly pay blank, the big number is labelled **Estimated allowances** (not gross pay), with a link to add your pay.
+If you leave your monthly pay blank, the big number is labelled **Estimated allowances** (not gross pay), with a link to add your pay. No after-tax figure is shown until a monthly basic is set: deductions depend on your whole month's pay, so taxing allowances alone would overstate your take-home.
 
 After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
 
@@ -119,7 +119,7 @@ The same address is in the footer of every screen and on the in-app **About** pa
 
 ### Data & Privacy
 
-This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device. Clear local data any time with **Settings → Backup → Reset this period**, or by clearing site data in your browser.
+This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device. **Settings → Backup → Reset this period** clears one period's shifts and roster counts (your monthly pay, rates and History are kept). To remove everything, clear site data in your browser.
 
 ### Accuracy
 

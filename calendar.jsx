@@ -17,6 +17,8 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
   const stats = rotationStats(entries, period, rotationAnchor);
   const shiftCount = totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10;
   const todayKey = ymd(new Date());
+  // Legend entries only for what this period actually shows.
+  const anyHoliday = days.some((d) => { const e = entries[ymd(d)]; return e?.holiday == null ? isJamaicaHoliday(d) : e.holiday; });
 
   const grid = (
     <>
@@ -112,14 +114,15 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         <Legend color="var(--am)" label="7AM" />
         <Legend color="var(--sp1)" label="3PM" />
         <Legend color="var(--sp2)" label="10PM" />
-        {rotationAnchor && <Legend color="var(--extra)" label="Extra" />}
-        <Legend color="var(--holiday)" label="Holiday" dot />
+        {stats.extra > 0 && <Legend color="var(--extra)" label="Extra" />}
+        {anyHoliday && <Legend color="var(--holiday)" label="Holiday" dot />}
         <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
+        {/* Home prints the same counts above its calendar. */}
+        {!compact && <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
           <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
           {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra</>}
           {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(totals.totalHours)}</span>h
-        </div>
+        </div>}
       </div>
 
       {totals.holidayHours > 0 && (
@@ -137,9 +140,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px", flexWrap: "wrap", gap: 8 }}>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="label">Pay period</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>
-            {monthName(period.start.getMonth())} {period.start.getDate()} – {monthName(period.end.getMonth())} {period.end.getDate()}
-          </div>
+          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           <button onClick={() => onShift(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
@@ -223,7 +224,8 @@ function ShiftChip({ label, color, extra, long }) {
   return (
     <span className="mono" style={{
       position: "relative", display: "block", textAlign: "center",
-      fontSize: 10.5, fontWeight: 700, lineHeight: "16px", letterSpacing: "-0.03em",
+      // Shrinks a little on 320px phones so "10PM" fits a seventh of the width.
+      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: "16px", letterSpacing: "-0.03em",
       borderRadius: 4, background: bg, color: "var(--chip-ink)",
       overflow: "hidden", whiteSpace: "nowrap",
     }}>

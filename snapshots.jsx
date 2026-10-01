@@ -50,7 +50,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
             </div>
             <Sparkline points={sortedAsc.map(g)} labels={sortedAsc.map((s) => s.period)} avg={avg} />
             <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 8 }}>
-              avg {fmt(avg)} · max {fmt(max)} · {sortedAsc.length} periods
+              avg {fmt(avg)} · max {fmt(max)}
             </div>
           </div>
         )}
@@ -180,7 +180,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const t = snap.totals || {};
   const copy = () => {
-    const net = calcTax(t.grand, snap.tax).net;
+    const net = netApplies(t, snap.tax) ? calcTax(t.grand, snap.tax).net : null;
     copyText(summaryText(t, snap.period, net), "Summary copied");
   };
   const downloadPng = () => { downloadSnapshotImage(snap, theme); showToast("Image downloaded"); };

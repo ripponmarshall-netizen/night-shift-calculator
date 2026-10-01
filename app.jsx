@@ -202,16 +202,16 @@ function App() {
   const reset = async () => {
     const ok = await askConfirm({
       title: `Reset ${periodLabel(period)}?`,
-      body: "Clears this period's shifts, roster counts and monthly pay. Rates and History are kept.",
+      body: "Clears this period's shifts and roster counts. Your monthly pay, rates and History are kept.",
       confirmLabel: "Reset period", danger: true,
     });
     if (!ok) return;
-    const before = { entries, counts, basePay };
+    // Monthly pay is kept: it applies to every period, not just this one.
+    const before = { entries, counts };
     setEntries((prev) => clearPeriodEntries(prev, period));
     setCounts({ pm3: "", pm10: "", am7: "" });
-    setBasePay({ monthly: "", compulsory: "" });
     showToast("Period reset", { action: { label: "Undo", onClick: () => {
-      setEntries(before.entries); setCounts(before.counts); setBasePay(before.basePay);
+      setEntries(before.entries); setCounts(before.counts);
     } } });
   };
 
@@ -259,7 +259,7 @@ function App() {
   };
 
   const copySummary = () => {
-    const net = calcTax(totals.grand, tax).net;
+    const net = netApplies(totals, tax) ? calcTax(totals.grand, tax).net : null;
     copyText(summaryText(totals, periodLabel(period), net), "Summary copied");
   };
 
@@ -443,7 +443,7 @@ function App() {
         total={totals.grand}
         totalShort={Number(totals.monthlyBasic) > 0 ? "Est. gross" : Number(totals.compulsory) > 0 ? "Est. pay" : "Allowances"}
         showTotal={view === "calc" && !heroVisible}
-        hasInputs={Object.keys(entries).length > 0}
+        hasInputs={totals.totalHours > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
       />}
@@ -644,7 +644,7 @@ function BasePayFold({ basePay, setBasePay }) {
   const monthly = Number(basePay.monthly) || 0;
   const detail = monthly > 0
     ? `${fmt(monthly)} basic · ${fmt(Number(basePay.compulsory) || 0)} compulsory`
-    : "Not set. Needed for base pay and overtime";
+    : "Not set";
   return (
     <FoldRow title="Your monthly pay" detail={detail} warn={!(monthly > 0)} open={open} onToggle={() => setOpen((o) => !o)}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
