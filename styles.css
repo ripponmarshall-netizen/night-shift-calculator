@@ -113,9 +113,184 @@ button {
   gap: 10px;
   padding: 24px;
 }
-.nsc-splash img {
-  border-radius: 14px;
-  animation: nscPulse 1.4s ease-in-out infinite;
+/* Fire truck that drives across the road on a loop, kicking up tyre smoke.
+   The lane is as wide as the road, so translating it by 100% plus the
+   truck's width carries the truck from just off the left edge to just off
+   the right one at any screen size. */
+.nsc-road {
+  position: relative;
+  width: min(100%, 520px);
+  height: 84px;
+  overflow: hidden;
+  border-bottom: 2px dashed var(--line);
+  margin-bottom: 8px;
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    #000 12%,
+    #000 88%,
+    transparent
+  );
+}
+.nsc-lane {
+  position: absolute;
+  inset: 0;
+  animation: nscDrive 2.2s linear infinite;
+}
+.nsc-truck {
+  position: absolute;
+  right: 100%;
+  bottom: 0;
+  width: 150px;
+  height: 62px;
+}
+.nsc-truck svg {
+  position: relative;
+  display: block;
+  overflow: visible;
+}
+.nsc-body {
+  animation: nscBounce 0.28s ease-in-out infinite alternate;
+}
+.nsc-wheel {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: nscSpin 0.35s linear infinite;
+}
+.nsc-light-r {
+  animation: nscBlink 0.5s steps(1) infinite;
+}
+.nsc-light-b {
+  animation: nscBlink 0.5s steps(1) infinite reverse;
+}
+.nsc-puff {
+  position: absolute;
+  left: 18px;
+  bottom: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0;
+  animation: nscPuff 0.6s ease-out infinite;
+}
+.nsc-puff-2 {
+  animation-delay: 0.15s;
+}
+.nsc-puff-3 {
+  animation-delay: 0.3s;
+}
+.nsc-puff-4 {
+  animation-delay: 0.45s;
+}
+/* Front wheel puffs: smaller and fainter, mostly hidden behind the body. */
+.nsc-puff-f1,
+.nsc-puff-f2 {
+  left: 108px;
+  width: 10px;
+  height: 10px;
+}
+.nsc-puff-f2 {
+  animation-delay: 0.3s;
+}
+.nsc-speed {
+  position: absolute;
+  right: 100%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--ink-faint);
+  transform-origin: right center;
+  animation: nscStreak 0.4s ease-out infinite;
+}
+.nsc-speed-1 {
+  top: 22px;
+  width: 34px;
+}
+.nsc-speed-2 {
+  top: 34px;
+  width: 52px;
+  animation-delay: 0.13s;
+}
+.nsc-speed-3 {
+  top: 46px;
+  width: 26px;
+  animation-delay: 0.26s;
+}
+@keyframes nscDrive {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(100% + 150px));
+  }
+}
+@keyframes nscBounce {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-1px);
+  }
+}
+@keyframes nscSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes nscBlink {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+@keyframes nscPuff {
+  0% {
+    opacity: 0.55;
+    transform: translate(0, 0) scale(0.4);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-46px, -14px) scale(1.8);
+  }
+}
+@keyframes nscStreak {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scaleX(0.3);
+  }
+  30% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-24px) scaleX(1);
+  }
+}
+/* Reduced motion: park the truck in the middle of the road, no smoke. */
+@media (prefers-reduced-motion: reduce) {
+  .nsc-lane,
+  .nsc-body,
+  .nsc-wheel,
+  .nsc-light-r,
+  .nsc-light-b {
+    animation: none;
+  }
+  .nsc-lane {
+    transform: translateX(calc(50% + 75px));
+  }
+  .nsc-puff,
+  .nsc-speed {
+    display: none;
+  }
 }
 .nsc-splash-title {
   font-size: 17px;
@@ -124,15 +299,6 @@ button {
 .nsc-splash-sub {
   font-size: 13px;
   color: var(--ink-faint);
-}
-@keyframes nscPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
 }
 
 /* Small section label: sentence case, sans, muted. Replaces the old
