@@ -51,7 +51,130 @@
     <!-- Shown while the app's scripts load and compile; React replaces it. -->
     <div id="root">
       <div class="nsc-splash" role="status" aria-live="polite">
-        <img src="icon-192.svg" alt="" width="56" height="56" />
+        <div class="nsc-road" aria-hidden="true">
+          <div class="nsc-lane">
+            <div class="nsc-truck">
+              <span class="nsc-speed nsc-speed-1"></span>
+              <span class="nsc-speed nsc-speed-2"></span>
+              <span class="nsc-speed nsc-speed-3"></span>
+              <span class="nsc-puff nsc-puff-1"></span>
+              <span class="nsc-puff nsc-puff-2"></span>
+              <span class="nsc-puff nsc-puff-3"></span>
+              <span class="nsc-puff nsc-puff-4"></span>
+              <span class="nsc-puff nsc-puff-f1"></span>
+              <span class="nsc-puff nsc-puff-f2"></span>
+              <svg viewBox="0 0 160 66" width="150" height="62">
+                <g class="nsc-body">
+                  <!-- Ladder -->
+                  <rect x="8" y="9" width="92" height="2.5" fill="#c9ced6" />
+                  <rect x="8" y="14" width="92" height="2.5" fill="#c9ced6" />
+                  <path
+                    d="M14 9v7M24 9v7M34 9v7M44 9v7M54 9v7M64 9v7M74 9v7M84 9v7M94 9v7"
+                    stroke="#c9ced6"
+                    stroke-width="1.6"
+                  />
+                  <rect x="20" y="16" width="3" height="3" fill="#8a9099" />
+                  <rect x="86" y="16" width="3" height="3" fill="#8a9099" />
+                  <!-- Rear body -->
+                  <rect
+                    x="4"
+                    y="19"
+                    width="102"
+                    height="33"
+                    rx="3"
+                    fill="#d62828"
+                  />
+                  <rect
+                    x="10"
+                    y="23"
+                    width="26"
+                    height="14"
+                    rx="1.5"
+                    fill="#b51f1f"
+                  />
+                  <rect
+                    x="40"
+                    y="23"
+                    width="26"
+                    height="14"
+                    rx="1.5"
+                    fill="#b51f1f"
+                  />
+                  <rect
+                    x="70"
+                    y="23"
+                    width="30"
+                    height="14"
+                    rx="1.5"
+                    fill="#b51f1f"
+                  />
+                  <!-- Cab -->
+                  <path d="M104 52V21q0-4 4-4h26l14 15v20z" fill="#e63030" />
+                  <path d="M121 21h12l11 12h-23z" fill="#9fd3f2" />
+                  <path d="M108 21h10v12h-10z" fill="#9fd3f2" />
+                  <!-- Light bar -->
+                  <rect
+                    class="nsc-light-r"
+                    x="110"
+                    y="12.5"
+                    width="7"
+                    height="4.5"
+                    rx="1.5"
+                    fill="#ff3b3b"
+                  />
+                  <rect
+                    class="nsc-light-b"
+                    x="117"
+                    y="12.5"
+                    width="7"
+                    height="4.5"
+                    rx="1.5"
+                    fill="#3b82ff"
+                  />
+                  <!-- Stripe, bumper, headlight -->
+                  <rect x="4" y="40" width="144" height="4" fill="#f4f1e8" />
+                  <rect
+                    x="145"
+                    y="45"
+                    width="8"
+                    height="7"
+                    rx="1.5"
+                    fill="#3a3d44"
+                  />
+                  <rect
+                    x="146"
+                    y="34"
+                    width="3.5"
+                    height="4.5"
+                    rx="1"
+                    fill="#ffd34d"
+                  />
+                  <!-- Wheel arches -->
+                  <path d="M18 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
+                  <path d="M112 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
+                </g>
+                <g class="nsc-wheel">
+                  <circle cx="32" cy="54" r="11" fill="#1d1e22" />
+                  <circle cx="32" cy="54" r="5" fill="#b9bec7" />
+                  <path
+                    d="M32 46v16M24 54h16"
+                    stroke="#1d1e22"
+                    stroke-width="2"
+                  />
+                </g>
+                <g class="nsc-wheel">
+                  <circle cx="126" cy="54" r="11" fill="#1d1e22" />
+                  <circle cx="126" cy="54" r="5" fill="#b9bec7" />
+                  <path
+                    d="M126 46v16M118 54h16"
+                    stroke="#1d1e22"
+                    stroke-width="2"
+                  />
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
         <div class="nsc-splash-title">Night Shift Calculator</div>
         <div class="nsc-splash-sub">Loading…</div>
       </div>
