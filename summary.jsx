@@ -6,7 +6,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const [math, setMath] = useStateS(null);
   const [showNet, setShowNet] = useStateS(false);
   const est = totals.grand;
-  const taxBreak = calcTax(est, tax);
+  const taxBreak = estimateNet(totals, tax);
   const net = taxBreak.net;
 
   const showMath = (label, formula, value) => setMath({ label, formula, value });
@@ -70,7 +70,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
               <span className="mono" style={{ fontSize: 14, fontWeight: 700 }}>{fmt(net)}</span>
             </div>
             <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.5 }}>
-              JM brackets: NIS, NHT, Education Tax, PAYE. Verify in Settings.
+              Meal and taxi ({fmt(taxBreak.exempt)}) are tax-free, so deductions are on {fmt(taxBreak.taxable)}. JM brackets: NIS, NHT, Education Tax, PAYE. Verify in Settings.
             </div>
           </div>
         )}

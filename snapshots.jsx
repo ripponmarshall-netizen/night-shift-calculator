@@ -180,7 +180,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   const t = snap.totals || {};
   const copy = () => {
-    const net = netApplies(t, snap.tax) ? calcTax(t.grand, snap.tax).net : null;
+    const net = netApplies(t, snap.tax) ? estimateNet(t, snap.tax).net : null;
     copyText(summaryText(t, snap.period, net), "Summary copied");
   };
   const downloadPng = () => { downloadSnapshotImage(snap, theme); showToast("Image downloaded"); };
