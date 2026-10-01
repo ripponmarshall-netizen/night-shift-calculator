@@ -102,7 +102,7 @@ function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
 
 /* ----- result at a glance ----- */
 function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc }) {
-  const net = calcTax(totals.grand, tax).net;
+  const net = estimateNet(totals, tax).net;
   const extra = rotationStats(entries, period, rotationAnchor).extra;
   const counts = [
     [totals.cal.pm3, "3PM"],

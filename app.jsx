@@ -259,7 +259,7 @@ function App() {
   };
 
   const copySummary = () => {
-    const net = netApplies(totals, tax) ? calcTax(totals.grand, tax).net : null;
+    const net = netApplies(totals, tax) ? estimateNet(totals, tax).net : null;
     copyText(summaryText(totals, periodLabel(period), net), "Summary copied");
   };
 

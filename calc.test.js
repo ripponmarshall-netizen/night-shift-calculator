@@ -2,6 +2,7 @@ const assert = require("assert");
 const {
   aggregate,
   calcTax,
+  estimateNet,
   DEFAULT_TAX,
   summaryText,
   fmtShort,
@@ -720,5 +721,38 @@ assert.strictEqual(fmtShort(-0.2), "$0");
 // app shows, and the contact address is set.
 assert.ok(stNoNet.endsWith("— Night Shift Calculator · Estimate only"));
 assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
+
+// Meal and taxi are tax-free: deductions are on the rest of the gross and
+// come off the full total.
+{
+  const t = { grand: 200000, meal: 9500, taxi: 9500 };
+  const r = estimateNet(t, DEFAULT_TAX);
+  const taxedOnly = calcTax(181000, DEFAULT_TAX);
+  assert.strictEqual(r.taxable, 181000);
+  assert.strictEqual(r.exempt, 19000);
+  assert.ok(Math.abs(r.deductions - taxedOnly.deductions) < 0.005);
+  assert.ok(Math.abs(r.net - (200000 - taxedOnly.deductions)) < 0.005);
+  // Less tax than treating the whole gross as taxable.
+  assert.ok(r.net > calcTax(200000, DEFAULT_TAX).net);
+  // Nothing taxable (allowances only): no deductions at all.
+  const allMealTaxi = estimateNet(
+    { grand: 1900, meal: 950, taxi: 950 },
+    DEFAULT_TAX,
+  );
+  assert.strictEqual(allMealTaxi.deductions, 0);
+  assert.strictEqual(allMealTaxi.net, 1900);
+  // Tax switched off: net is the gross.
+  assert.strictEqual(
+    estimateNet(t, { ...DEFAULT_TAX, enabled: false }).net,
+    200000,
+  );
+  // Legacy snapshot totals without meal/taxi: everything is taxable.
+  assert.ok(
+    Math.abs(
+      estimateNet({ grand: 200000 }, DEFAULT_TAX).net -
+        calcTax(200000, DEFAULT_TAX).net,
+    ) < 0.005,
+  );
+}
 
 console.log("calc tests passed");

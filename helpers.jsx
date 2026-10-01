@@ -23,7 +23,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.4";
+const APP_VERSION = "3.5";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -594,6 +594,17 @@ function calcTax(grossMonthly, tx) {
   return { net: grossMonthly - deductions, deductions, lines, nis, nht, eduTax, pension, paye };
 }
 
+/* Estimated net for a period's totals. Meal and taxi allowances are tax-free,
+   so deductions are worked out on the rest of the gross (basic, compulsory,
+   SP1/SP2, holiday and overtime pay) and taken off the full total. */
+function estimateNet(totals, tx) {
+  const grand = Number(totals?.grand) || 0;
+  const exempt = Math.max(0, Number(totals?.meal) || 0) + Math.max(0, Number(totals?.taxi) || 0);
+  const taxable = Math.max(0, grand - exempt);
+  const r = calcTax(taxable, tx);
+  return { ...r, taxable, exempt, net: grand - r.deductions };
+}
+
 /* ----- Rate history lookup ----- */
 function ratesAt(period, ratesHistory, currentRates) {
   if (!ratesHistory || ratesHistory.length === 0) return currentRates;
@@ -709,7 +720,7 @@ const _exports = {
   blankDay, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
-  calcTax, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
+  calcTax, estimateNet, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
 };
 
