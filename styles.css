@@ -4,16 +4,16 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f1013;
-  --bg-1: #17181c;
-  --bg-2: #1f2025;
-  --bg-3: #282a31;
-  --line: #2c2e36;
-  --line-soft: #23252b;
-  --ink: #f2f2f4;
-  --ink-dim: #a4a4ae;
-  --ink-faint: #74747e;
-  --accent: oklch(74% 0.13 70);
+  --bg: #161513;
+  --bg-1: #1d1c19;
+  --bg-2: #252420;
+  --bg-3: #2e2d28;
+  --line: #36342e;
+  --line-soft: #2a2922;
+  --ink: #f5f3ee;
+  --ink-dim: #aba79c;
+  --ink-faint: #7f7b71;
+  --accent: oklch(72% 0.13 45);
   --accent-ink: #141414;
   --sp1: oklch(74% 0.12 220);
   --sp2: oklch(72% 0.13 290);
@@ -44,7 +44,7 @@
   --ink: #1a1815;
   --ink-dim: #6a665f;
   --ink-faint: #767368;
-  --accent: oklch(58% 0.15 60);
+  --accent: oklch(54% 0.14 40);
   --accent-ink: #ffffff;
   --sp1: oklch(56% 0.16 230);
   --sp2: oklch(54% 0.18 295);
