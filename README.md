@@ -14,14 +14,17 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 - **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
 - **Base pay** — Monthly Basic + Compulsory Assignment
 - **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
-- **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, or orderly duty. Leave keeps the shift's hours as ordinary hours (total and overtime; never holiday ×2, even on a public holiday) but drops its SP1, SP2, meal and taxi. Orderly duty is paid as a normal shift and only recorded
+- **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, orderly duty, or one side of a shift swap:
+  - **Leave** (VL, DL, SL, TO) keeps the shift's hours as ordinary hours (total and overtime; never holiday ×2, even on a public holiday) but drops its SP1, SP2, meal and taxi.
+  - **Exchange leave** (EXL): someone else covers your shift. It loses all its hours and allowances, as if it weren't worked (it also never counts as an extra shift or as a day's first shift for the holiday rule).
+  - **Orderly duty** (ORD) and **Exchange for** (EXF, covering someone else's shift) are paid as normal shifts and only recorded.
 - **Estimated net** — JM tax model (NIS, NHT, Education Tax, PAYE bands, optional pension). Meal and taxi allowances are tax-free, so deductions are worked out on the rest of the gross
 
 ---
 
 ## App Architecture
 
-The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` shows a loading screen until the app mounts, and applies the saved theme before first paint.
+The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen (a fire truck) while the scripts load; once the app mounts, the app logo draws in and the screen fades to reveal the app.
 
 | File             | Purpose                                                                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -75,7 +78,7 @@ The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (g
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
 2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type.
-   - **Duty** (under each ticked shift → Change): Regular, Orderly, Vacation, Departmental, Sick or Time off. Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); orderly as a solid **ORD** chip. The summary lists them under **Leave & duties**.
+   - **Duty** (under each ticked shift → Change), grouped by what it does to pay: _Worked_ (Regular, Orderly, Exchange for), _Leave_ (Vacation, Departmental, Sick, Time off) and _Swapped out_ (Exchange leave). Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); exchange leave as a faint dotted **EXL** chip with `0h`; orderly and exchange for as solid **ORD** / **EXF** chips. The summary lists them under **Leave & duties**, and **About** has a key to every label.
 3. **Pick a taxi distance** under the calendar:
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.

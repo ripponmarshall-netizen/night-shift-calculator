@@ -27,7 +27,11 @@ const {
   am7InPeriod,
   shiftDuty,
   isLeave,
+  isGivenAway,
+  worksShift,
   LEAVE_KEYS,
+  DUTY_KEYS,
+  DUTY_TYPES,
   toICS,
 } = require("./helpers.jsx");
 
@@ -845,6 +849,129 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.ok(
     /SUMMARY:3PM shift \(Sick leave\)/.test(
       toICS({ [PLAIN]: withDuty({ pm3: 1 }, { pm3: "sick" }) }),
+    ),
+  );
+}
+
+// Exchange leave and exchange for: a shift swap between two people.
+{
+  const withDuty = (opts, duty) => ({ ...D(opts), duty });
+  const none = agg({});
+  const base = agg({ [PLAIN]: D({ pm3: 1, pm10: 1 }) });
+
+  // Every duty mark has a known pay rule, and the codes are unique.
+  for (const k of DUTY_KEYS) {
+    assert.ok(["full", "hours", "none"].includes(DUTY_TYPES[k].pay), k);
+  }
+  const codes = DUTY_KEYS.map((k) => DUTY_TYPES[k].code);
+  assert.strictEqual(new Set(codes).size, codes.length);
+  assert.ok(isGivenAway("exchangeLeave"));
+  assert.ok(!isGivenAway("exchangeFor"));
+  assert.ok(!isGivenAway("vacation"));
+  assert.ok(!isLeave("exchangeLeave"));
+
+  // Exchange leave: no hours and no allowances, as if not on the calendar.
+  let r = agg({
+    [PLAIN]: withDuty(
+      { pm3: 1, pm10: 1 },
+      { pm3: "exchangeLeave", pm10: "exchangeLeave" },
+    ),
+  });
+  holNear(r.grand, none.grand);
+  assert.strictEqual(r.totalHours, 0);
+  assert.strictEqual(r.sp1 + r.sp2 + r.meal + r.taxi, 0);
+  assert.strictEqual(r.cal.pm3 + r.cal.pm10, 0);
+  assert.strictEqual(r.exchangedShifts, 2);
+  assert.strictEqual(r.exchangedHours, 16);
+  assert.strictEqual(r.duties.exchangeLeave, 2);
+  assert.strictEqual(r.leaveShifts, 0);
+  assert.strictEqual(r.dayHours[PLAIN], 0);
+
+  // One leg of a 3PM+10PM day given away: the 10PM is paid alone, with no
+  // same-day pair deduction.
+  r = agg({ [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { pm3: "exchangeLeave" }) });
+  assert.strictEqual(r.sp1, 0);
+  holNear(r.sp2, HOL_RATES.sp2);
+  holNear(r.taxi, HOL_RATES.taxiShort);
+  assert.strictEqual(r.cal.sameDayPair, 0);
+  assert.strictEqual(r.totalHours, 9);
+
+  // An hours override on a given-away shift is ignored.
+  r = agg({
+    [PLAIN]: {
+      ...withDuty({ am7: 1 }, { am7: "exchangeLeave" }),
+      hours: { am7: "12" },
+    },
+  });
+  assert.strictEqual(r.totalHours, 0);
+
+  // Exchange for: covering someone else's shift is paid in full.
+  r = agg({
+    [PLAIN]: withDuty(
+      { pm3: 1, pm10: 1 },
+      { pm3: "exchangeFor", pm10: "exchangeFor" },
+    ),
+  });
+  holNear(r.grand, base.grand);
+  assert.strictEqual(r.totalHours, base.totalHours);
+  assert.strictEqual(r.duties.exchangeFor, 2);
+  assert.strictEqual(r.exchangedShifts, 0);
+
+  // Holiday order: a given-away first shift doesn't make the next one the
+  // "second" shift of the day, so the 3PM is regular, not ×2.
+  r = agg({
+    [HOL]: withDuty(
+      { am7: 1, pm3: 1, holiday: true },
+      { am7: "exchangeLeave" },
+    ),
+  });
+  assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.totalHours, 7);
+  // A given-away 10PM the night before isn't a carryover either.
+  r = agg({
+    [PREV]: withDuty({ pm10: 1 }, { pm10: "exchangeLeave" }),
+    [HOL]: D({ am7: 1, holiday: true }),
+  });
+  assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.totalHours, 8);
+  // ...while a worked one still is (the 7AM becomes the 2nd shift).
+  r = agg({
+    [PREV]: withDuty({ pm10: 1 }, { pm10: "exchangeFor" }),
+    [HOL]: D({ am7: 1, holiday: true }),
+  });
+  assert.strictEqual(r.holidayHours, 8);
+
+  // Rotation: a shift given away is never an extra; one worked for someone
+  // else on an off day is.
+  const ANCHOR = "2026-05-17"; // 7AM; so 05-20 is an off day
+  assert.strictEqual(rotationSlot(PLAIN, ANCHOR), "off");
+  assert.deepStrictEqual(
+    extraShiftKeys(withDuty({ pm3: 1 }, { pm3: "exchangeLeave" }), "off"),
+    [],
+  );
+  assert.deepStrictEqual(
+    extraShiftKeys(withDuty({ pm3: 1 }, { pm3: "exchangeFor" }), "off"),
+    ["pm3"],
+  );
+  assert.ok(!worksShift(withDuty({ pm3: 1 }, { pm3: "exchangeLeave" }), "pm3"));
+  assert.ok(worksShift(withDuty({ pm3: 1 }, { pm3: "exchangeFor" }), "pm3"));
+  assert.ok(!worksShift(undefined, "pm3"));
+
+  // Summary text and calendar export name both.
+  r = agg({
+    [PLAIN]: withDuty(
+      { pm3: 1, pm10: 1 },
+      { pm3: "exchangeLeave", pm10: "exchangeFor" },
+    ),
+  });
+  const txt = summaryText(r, "May 16 – Jun 15, 2026", null);
+  assert.ok(/Exchange leave\s+1 shift/.test(txt));
+  assert.ok(/Exchange for\s+1 shift/.test(txt));
+  assert.ok(/Exchanged away \(not paid\)\s+7\.00h/.test(txt));
+  assert.ok(!/NaN|undefined/.test(txt));
+  assert.ok(
+    /SUMMARY:3PM shift \(Exchange leave\)/.test(
+      toICS({ [PLAIN]: withDuty({ pm3: 1 }, { pm3: "exchangeLeave" }) }),
     ),
   );
 }

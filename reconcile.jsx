@@ -28,13 +28,13 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
     { k: "compulsory", label: "Compulsory assign.", expected: t.compulsory },
     { k: "holidayPay", label: "Holiday pay (×2)", expected: t.holidayPay },
     { k: "overtimePay", label: "Overtime (×1.5)", expected: t.overtimePay },
-  ];
+  ].map((l) => ({ ...l, expected: Number(l.expected) || 0 })); // legacy snapshots can miss a field
 
   const totalActualPerLine = lines.reduce((sum, l) => sum + (Number(actual[l.k]) || 0), 0);
   // Use the explicit "Pay slip total" when entered (honoring an explicit 0),
   // otherwise fall back to the sum of the per-line actuals.
   const actualGrand = actual.grand !== "" ? Number(actual.grand) || 0 : totalActualPerLine;
-  const totalVariance = actualGrand - t.grand;
+  const totalVariance = actualGrand - (Number(t.grand) || 0);
   // There's a total to compare whenever the user entered the grand or any line.
   const hasTotal = actual.grand !== "" || totalActualPerLine !== 0;
 
@@ -98,7 +98,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                   style={{
                     width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
                     borderRadius: 8, padding: "8px 8px 8px 18px", color: "var(--ink)",
-                    fontSize: 13, outline: "none", fontFamily: "inherit",
+                    fontSize: 16, outline: "none", fontFamily: "inherit",
                   }}
                 />
               </div>
@@ -128,7 +128,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                 style={{
                   width: "100%", background: "var(--bg-1)", border: "1px solid var(--line)",
                   borderRadius: 8, padding: "8px 8px 8px 18px", color: "var(--ink)",
-                  fontSize: 13, outline: "none", fontFamily: "inherit",
+                  fontSize: 16, outline: "none", fontFamily: "inherit",
                 }}
               />
             </div>
@@ -153,7 +153,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             style={{
               width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
               borderRadius: 10, padding: "10px 12px", color: "var(--ink)",
-              fontSize: 13, outline: "none", fontFamily: "inherit",
+              fontSize: 16, outline: "none", fontFamily: "inherit",
               resize: "vertical", minHeight: 60,
             }}
           />

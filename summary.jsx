@@ -9,7 +9,9 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const taxBreak = estimateNet(totals, tax);
   const net = taxBreak.net;
 
-  const showMath = (label, formula, value) => setMath({ label, formula, value });
+  // unit "h" shows the result as hours; money otherwise.
+  const showMath = (label, formula, value, unit) => setMath({ label, formula, value, unit });
+  const n = (k, word) => `${k} ${word}${k === 1 ? "" : "s"}`;
   const toggle = (k) => setOpenSec((p) => ({ ...p, [k]: !p[k] }));
 
   // Tell the app when this total is on screen, so the floating total pill
@@ -81,16 +83,17 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
       <SecHeader title="Allowance" subtotal={totals.allowanceSubtotal} open={openSec.allow} onToggle={() => toggle("allow")} accent="var(--sp1)" />
       <Collapse open={openSec.allow}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
-          <Row label="SP1 — 3PM" value={fmt(totals.sp1)} formula onClick={() => showMath("SP1 — 3PM allowance", `${totals.cal.pm3} shifts × ${fmt(totals.rates.sp1)} per shift`, totals.sp1)} />
-          <Row label="SP2 — 10PM" value={fmt(totals.sp2)} formula onClick={() => showMath("SP2 — 10PM allowance", `${totals.cal.pm10} shifts × ${fmt(totals.rates.sp2)} per shift`, totals.sp2)} />
+          <Row label="SP1 — 3PM" value={fmt(totals.sp1)} formula onClick={() => showMath("SP1 — 3PM allowance", `${n(totals.cal.pm3, "shift")} × ${fmt(totals.rates.sp1)} per shift`, totals.sp1)} />
+          <Row label="SP2 — 10PM" value={fmt(totals.sp2)} formula onClick={() => showMath("SP2 — 10PM allowance", `${n(totals.cal.pm10, "shift")} × ${fmt(totals.rates.sp2)} per shift`, totals.sp2)} />
           <Row label="Meal" value={fmt(totals.meal)} formula onClick={() => showMath("Meal allowance", `(${totals.cal.pm3} × 3PM + ${totals.cal.pm10} × 10PM) × ${fmt(totals.rates.meal)} = ${totals.cal.pm3 + totals.cal.pm10} × ${fmt(totals.rates.meal)}`, totals.meal)} />
           <Row label="Taxi" value={fmt(totals.taxi)} formula onClick={() => showMath("Taxi allowance",
             mode === "basic"
-              ? `${totals.cal.pm3 + totals.cal.pm10} shifts (3PM + 10PM) × ${fmt(basicDistance === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)} (${basicDistance === "L" ? "Long" : "Short"})${totals.taxiDeduct > 0 ? `\nminus ${totals.cal.sameDayPair} same-day pair × 2 × rate = − ${fmt(totals.taxiDeduct)}` : ""}`
+              ? `${n(totals.cal.pm3 + totals.cal.pm10, "shift")} (3PM + 10PM) × ${fmt(basicDistance === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)} (${basicDistance === "L" ? "Long" : "Short"})${totals.taxiDeduct > 0 ? `\nminus ${n(totals.cal.sameDayPair, "same-day pair")} × 2 × rate = − ${fmt(totals.taxiDeduct)}` : ""}`
               : `Short (${totals.cal.shortPm3 + totals.cal.shortPm10}) × ${fmt(totals.rates.taxiShort)}\n+ Long (${totals.cal.longPm3 + totals.cal.longPm10}) × ${fmt(totals.rates.taxiLong)}${totals.taxiDeduct > 0 ? `\n− pair deduction ${fmt(totals.taxiDeduct)}` : ""}`,
             totals.taxi)} />
           {totals.taxiDeduct > 0 && <Row label={`Same-day pair deduction (×${totals.cal.sameDayPair})`} value={"− " + fmt(totals.taxiDeduct)} faint />}
           {totals.leaveShifts > 0 && <Row label={`Shifts on leave (×${totals.leaveShifts})`} value="no allowance" faint />}
+          {totals.exchangedShifts > 0 && <Row label={`Exchange leave (×${totals.exchangedShifts})`} value="no allowance" faint />}
         </div>
       </Collapse>
 
@@ -107,9 +110,10 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
       <Collapse open={openSec.extra}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
           <Row label="Total hours" value={fmtH(totals.totalHours)} />
+          {totals.exchangedShifts > 0 && <Row label="Exchange leave (not counted)" value={fmtH(totals.exchangedHours)} faint />}
           <Row label="Holiday hours" value={fmtH(totals.holidayHours)} />
           <Row label="Non-holiday hours" value={fmtH(totals.nonHolidayHours)} />
-          <Row label={`Hours over ${totals.rates.threshold}`} value={fmtH(totals.otHours)} formula onClick={() => showMath("Overtime hours", `Non-holiday hours − threshold\n${fmtH(totals.nonHolidayHours)} − ${totals.rates.threshold} (clamped ≥ 0)`, totals.otHours)} />
+          <Row label={`Hours over ${totals.rates.threshold}`} value={fmtH(totals.otHours)} formula onClick={() => showMath("Overtime hours", `Non-holiday hours − threshold\n${fmtH(totals.nonHolidayHours)} − ${totals.rates.threshold} (clamped ≥ 0)`, totals.otHours, "h")} />
           <Row label="Holiday pay (×2)" value={fmt(totals.holidayPay)} formula onClick={() => showMath("Holiday pay", `${fmtH(totals.holidayHours)} hours × ${fmt(totals.hourlyRate)}/h × 2`, totals.holidayPay)} />
           <Row label="Overtime pay (×1.5)" value={fmt(totals.overtimePay)} formula onClick={() => showMath("Overtime pay", `${fmtH(totals.otHours)} hours × ${fmt(totals.hourlyRate)}/h × 1.5`, totals.overtimePay)} />
         </div>
@@ -157,7 +161,7 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
   );
 }
 
-function MathPopover({ label, formula, value, onClose }) {
+function MathPopover({ label, formula, value, unit, onClose }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
   return (
     <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
@@ -181,7 +185,7 @@ function MathPopover({ label, formula, value, onClose }) {
         }}>{formula}</pre>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 12 }}>
           <span className="label">Result</span>
-          <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{fmt(value)}</span>
+          <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{unit === "h" ? `${fmtH(value)}h` : fmt(value)}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
           <button onClick={close} style={primaryBtn()}>Got it</button>

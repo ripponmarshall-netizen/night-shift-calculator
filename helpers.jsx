@@ -15,18 +15,24 @@ function effHours(e, key) {
 }
 /* Per-shift duty marks. An entry may carry a sparse map
    duty: { am7?, pm3?, pm10? } naming one of these keys; absent => a regular
-   shift. Leave keeps the shift's hours as ordinary hours (total and
-   overtime, never holiday ×2) but earns no SP1, SP2, meal or taxi. Orderly duty is worked as normal and
-   only recorded. */
+   shift. Each mark has a `pay` rule:
+   - "full": worked and paid as normal, only recorded (orderly duty, and
+     exchange for: covering someone else's shift in a swap).
+   - "hours": leave. The shift's hours count as ordinary hours (total and
+     overtime, never holiday ×2) but earn no SP1, SP2, meal or taxi.
+   - "none": exchange leave. Someone else covers the shift, so it has no
+     hours and no allowances at all; the day counts as not worked. */
 const LEAVE_TYPES = {
-  vacation: { label: "Vacation leave", short: "Vacation", code: "VL" },
-  departmental: { label: "Departmental leave", short: "Departmental", code: "DL" },
-  sick: { label: "Sick leave", short: "Sick", code: "SL" },
-  timeoff: { label: "Time off", short: "Time off", code: "TO" },
+  vacation: { label: "Vacation leave", short: "Vacation", code: "VL", pay: "hours" },
+  departmental: { label: "Departmental leave", short: "Departmental", code: "DL", pay: "hours" },
+  sick: { label: "Sick leave", short: "Sick", code: "SL", pay: "hours" },
+  timeoff: { label: "Time off", short: "Time off", code: "TO", pay: "hours" },
 };
 const DUTY_TYPES = {
-  orderly: { label: "Orderly duty", short: "Orderly", code: "ORD" },
+  orderly: { label: "Orderly duty", short: "Orderly", code: "ORD", pay: "full" },
+  exchangeFor: { label: "Exchange for", short: "Exchange for", code: "EXF", pay: "full" },
   ...LEAVE_TYPES,
+  exchangeLeave: { label: "Exchange leave", short: "Exchange leave", code: "EXL", pay: "none" },
 };
 const DUTY_KEYS = Object.keys(DUTY_TYPES);
 const LEAVE_KEYS = Object.keys(LEAVE_TYPES);
@@ -37,6 +43,10 @@ function shiftDuty(e, key) {
   return v && Object.prototype.hasOwnProperty.call(DUTY_TYPES, v) ? v : null;
 }
 const isLeave = (v) => !!v && Object.prototype.hasOwnProperty.call(LEAVE_TYPES, v);
+/* Exchange leave: the shift was given away, so nothing about it is paid. */
+const isGivenAway = (v) => !!v && DUTY_TYPES[v]?.pay === "none";
+/* A shift that is ticked and actually worked (not given away). */
+const worksShift = (e, key) => !!(e && e[key]) && !isGivenAway(shiftDuty(e, key));
 
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
@@ -48,7 +58,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.6";
+const APP_VERSION = "3.7";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -227,7 +237,8 @@ function summaryText(totals, periodStr, net) {
     ], fmt(totals.extraSubtotal)),
     "",
   ];
-  // Leave and orderly duty: a record of the shifts, no money of their own.
+  // Leave, orderly duty and exchanges: a record of the shifts, no money of
+  // their own (their effect is already in the lines above).
   const dutyItems = DUTY_KEYS
     .filter((k) => Number(totals.duties?.[k]) > 0)
     .map((k) => {
@@ -236,9 +247,10 @@ function summaryText(totals, periodStr, net) {
     });
   if (dutyItems.length) {
     lines.push("LEAVE & DUTIES", ...dutyItems.map(([label, value]) => row(label, value, 2)));
-    if (Number(totals.leaveShifts) > 0) {
-      lines.push("  " + rule("─").slice(2), row(`Leave hours (no allowances)`, `${fmtH(totals.leaveHours)}h`, 2));
-    }
+    const notes = [];
+    if (Number(totals.leaveShifts) > 0) notes.push(row("Leave hours (no allowances)", `${fmtH(totals.leaveHours)}h`, 2));
+    if (Number(totals.exchangedShifts) > 0) notes.push(row("Exchanged away (not paid)", `${fmtH(totals.exchangedHours)}h`, 2));
+    if (notes.length) lines.push("  " + rule("─").slice(2), ...notes);
     lines.push("");
   }
   lines.push(rule("═"), row("GROSS TOTAL", fmt(totals.grand), 2));
@@ -331,10 +343,11 @@ function rotationSlot(key, anchor) {
 }
 
 /* Shifts on a day that the rotation doesn't call for (an off day's shift,
-   or a second shift on a working day). Empty when no rotation is saved. */
+   or a second shift on a working day). A shift given away on exchange leave
+   isn't worked, so it's never extra. Empty when no rotation is saved. */
 function extraShiftKeys(entry, slot) {
   if (!slot || !entry) return [];
-  return ["am7", "pm3", "pm10"].filter((k) => entry[k] && k !== slot);
+  return ["am7", "pm3", "pm10"].filter((k) => k !== slot && worksShift(entry, k));
 }
 
 /* Per-period rotation facts for the UI: extra shift count and off days. */
@@ -419,10 +432,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   let shortPm3 = 0, longPm3 = 0, shortPm10 = 0, longPm10 = 0, shortAm7 = 0, longAm7 = 0;
   let totalHours = 0, holidayHours = 0;
   let sameDayPairLegSum = 0; // sum of actual leg rates for same-day 3PM+10PM pairs (advanced mode)
-  // Shifts per duty mark (leave types + orderly), and the hours on leave.
+  // Shifts per duty mark, the hours on leave, and the shifts (and their
+  // hours) given away on exchange leave, which are never counted.
   const duties = {};
   for (const k of DUTY_KEYS) duties[k] = 0;
-  let leaveShifts = 0, leaveHours = 0;
+  let leaveShifts = 0, leaveHours = 0, exchangedShifts = 0, exchangedHours = 0;
 
   // Normalize rates so corrupted storage or imported data can never produce
   // negative pay or a divide-by-zero. threshold must stay > 0 (it divides).
@@ -447,16 +461,20 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     const isHol = e.holiday == null ? isJamaicaHoliday(d) : e.holiday;
     let h = 0, hHol = 0;
 
+    // Only shifts actually worked count below; one given away on exchange
+    // leave is as if it weren't on the calendar (no hours, no allowance).
+    const work = { am7: worksShift(e, "am7"), pm3: worksShift(e, "pm3"), pm10: worksShift(e, "pm10") };
+
     // Holiday pay (×2) applies only to the 2nd+ shift on a holiday day; the
     // first shift in time order is regular. Time order on this calendar day:
     // a 10PM carried over from the previous day (starts 00:00) → 7AM → 3PM → 10PM.
     const prevEntry = entries[ymd(addDays(d, -1))];
-    const carryoverFromPrev = !!(prevEntry && prevEntry.pm10);
+    const carryoverFromPrev = worksShift(prevEntry, "pm10");
     let firstSeg;
     if (carryoverFromPrev) firstSeg = "carryover";
-    else if (e.am7) firstSeg = "am7";
-    else if (e.pm3) firstSeg = "pm3";
-    else if (e.pm10) firstSeg = "pm10_start";
+    else if (work.am7) firstSeg = "am7";
+    else if (work.pm3) firstSeg = "pm3";
+    else if (work.pm10) firstSeg = "pm10_start";
     else firstSeg = null;
 
     // Allowance credit (SP1/SP2/meal/taxi): a shift counts as a FULL shift only
@@ -470,24 +488,25 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       onLeave[k] = isLeave(duty);
       if (duty) duties[duty]++;
       if (e[k] && onLeave[k]) { leaveShifts++; leaveHours += effHours(e, k); }
-      credit[k] = !!e[k] && !onLeave[k] && effHours(e, k) > stdHours(k) / 2;
+      if (e[k] && !work[k]) { exchangedShifts++; exchangedHours += effHours(e, k); }
+      credit[k] = work[k] && !onLeave[k] && effHours(e, k) > stdHours(k) / 2;
     }
 
-    if (e.am7) {
+    if (work.am7) {
       if (credit.am7) cal7am++;
       const ha = effHours(e, "am7");
       h += ha;
       if (isHol && firstSeg !== "am7" && !onLeave.am7) hHol += ha;
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
-    if (e.pm3) {
+    if (work.pm3) {
       if (credit.pm3) calPm3++;
       const hp3 = effHours(e, "pm3");
       h += hp3;
       if (isHol && firstSeg !== "pm3" && !onLeave.pm3) hHol += hp3;
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
-    if (e.pm10) {
+    if (work.pm10) {
       if (credit.pm10) calPm10++;
       // Single editable total; split the pre-midnight vs carryover legs
       // proportionally so the holiday rule scales (default 9 → 2h pre-midnight).
@@ -570,7 +589,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     monthlyBasic, compulsory, baseSubtotal,
     totalHours, holidayHours, nonHolidayHours, otHours, hourlyRate,
     holidayPay, overtimePay, extraSubtotal,
-    duties, leaveShifts, leaveHours,
+    duties, leaveShifts, leaveHours, exchangedShifts, exchangedHours,
     grand,
     mismatch, hasMismatch,
     rates, mode, basicDistance,
@@ -761,7 +780,7 @@ function toICS(entries, periodKeyOrAll) {
 
 const _exports = {
   SHIFT_HOURS, PM10_TOTAL, stdHours, effHours,
-  LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
+  LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,

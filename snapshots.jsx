@@ -40,11 +40,13 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="label">vs previous</div>
+                {/* Under a cent either way reads as no change, not a green ▲. */}
                 <div className="mono" style={{
                   fontSize: 14, fontWeight: 600, marginTop: 2,
-                  color: delta >= 0 ? "var(--ok)" : "var(--holiday)",
+                  color: Math.abs(delta) < 0.005 ? "var(--ink-dim)" : delta > 0 ? "var(--ok)" : "var(--holiday)",
                 }}>
-                  {delta >= 0 ? "▲" : "▼"} {fmt(Math.abs(delta))} ({deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%)
+                  {Math.abs(delta) < 0.005 ? "No change"
+                    : <>{delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))} ({deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%)</>}
                 </div>
               </div>
             </div>
@@ -61,7 +63,8 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {sortedDesc.map((s, i) => {
               const prevSnap = sortedDesc[i + 1];
-              const d = prevSnap ? g(s) - g(prevSnap) : 0;
+              const raw = prevSnap ? g(s) - g(prevSnap) : 0;
+              const d = Math.abs(raw) < 0.005 ? 0 : raw;
               return (
                 <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => onDelete(s.at)} />
               );
@@ -92,23 +95,31 @@ function Sparkline({ points, labels, avg }) {
   const areaD = pathD + ` L${(P + (points.length - 1) * stepX).toFixed(2)},${H - P} L${P},${H - P} Z`;
   const avgY = y(avg);
 
+  // The chart stretches to the card's width (preserveAspectRatio none), so
+  // strokes keep their weight via non-scaling-stroke and the dots are HTML
+  // laid over it, which stay round at any width.
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block" }}>
-      <defs>
-        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35"/>
-          <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d={areaD} fill="url(#sparkFill)" />
-      <line x1={P} x2={W - P} y1={avgY} y2={avgY} stroke="var(--ink-faint)" strokeDasharray="3 3" strokeWidth="1" opacity="0.5" />
-      <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    <div style={{ position: "relative", height: 80 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block" }} aria-hidden>
+        <defs>
+          <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35"/>
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d={areaD} fill="url(#sparkFill)" />
+        <line x1={P} x2={W - P} y1={avgY} y2={avgY} stroke="var(--ink-faint)" strokeDasharray="3 3" strokeWidth="1" opacity="0.5" vectorEffect="non-scaling-stroke" />
+        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
       {points.map((v, i) => (
-        <circle key={i} cx={P + i * stepX} cy={y(v)} r="3" fill="var(--bg-1)" stroke="var(--accent)" strokeWidth="2">
-          <title>{labels[i]}: {fmt(v)}</title>
-        </circle>
+        <span key={i} title={`${labels[i]}: ${fmt(v)}`} style={{
+          position: "absolute", width: 8, height: 8, borderRadius: "50%",
+          left: `${((P + i * stepX) / W) * 100}%`, top: `${(y(v) / H) * 100}%`,
+          transform: "translate(-50%, -50%)",
+          background: "var(--bg-1)", border: "2px solid var(--accent)", boxSizing: "border-box",
+        }} />
       ))}
-    </svg>
+    </div>
   );
 }
 

@@ -45,12 +45,59 @@
             m.setAttribute("content", t === "light" ? "#faf9f7" : "#161513");
         } catch (e) {}
       })();
+      // Splash hand-off. The fire truck drives while the scripts load; once
+      // the app has mounted (app.jsx calls nscSplashDone), the app logo takes
+      // the truck's place for a beat, then the splash fades to reveal the
+      // app. Screen entrance animations wait (nsc-booting) so they play as
+      // the splash lifts instead of hidden under it.
+      (function () {
+        var start = Date.now();
+        var reduce =
+          window.matchMedia &&
+          matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var root = document.documentElement;
+        root.classList.add("nsc-booting");
+        var slow = setTimeout(function () {
+          var sub = document.getElementById("nsc-splash-sub");
+          if (sub) sub.textContent = "Still loading… check your connection";
+        }, 12000);
+        window.nscSplashDone = function () {
+          window.nscSplashDone = function () {};
+          clearTimeout(slow);
+          var el = document.getElementById("nsc-splash");
+          if (!el) {
+            root.classList.remove("nsc-booting");
+            return;
+          }
+          // Let the truck finish at least most of one pass on a fast load.
+          var truckLeft = reduce ? 0 : Math.max(0, 900 - (Date.now() - start));
+          setTimeout(function () {
+            el.classList.add("is-ready");
+            el.setAttribute("aria-busy", "false");
+            setTimeout(
+              function () {
+                el.classList.add("is-leaving");
+                el.setAttribute("aria-hidden", "true");
+                root.classList.remove("nsc-booting");
+                setTimeout(
+                  function () {
+                    el.remove();
+                  },
+                  reduce ? 0 : 450,
+                );
+              },
+              reduce ? 350 : 1100,
+            );
+          }, truckLeft);
+        };
+      })();
     </script>
   </head>
   <body>
-    <!-- Shown while the app's scripts load and compile; React replaces it. -->
-    <div id="root">
-      <div class="nsc-splash" role="status" aria-live="polite">
+    <!-- Loading screen: an overlay above the app (not inside #root), so it
+         can hand over to the logo after React mounts. See nscSplashDone. -->
+    <div id="nsc-splash" class="nsc-splash" role="status" aria-busy="true">
+      <div class="nsc-stage">
         <div class="nsc-road" aria-hidden="true">
           <div class="nsc-lane">
             <div class="nsc-truck">
@@ -175,10 +222,44 @@
             </div>
           </div>
         </div>
-        <div class="nsc-splash-title">Night Shift Calculator</div>
-        <div class="nsc-splash-sub">Loading…</div>
+        <!-- The app icon (icon-192.svg), drawn in as the truck leaves. -->
+        <div class="nsc-brand" aria-hidden="true">
+          <span class="nsc-brand-glow"></span>
+          <svg viewBox="0 0 192 192" width="96" height="96">
+            <rect width="192" height="192" rx="42" fill="#0b0b0c" />
+            <circle
+              class="nsc-brand-ring"
+              cx="96"
+              cy="96"
+              r="60"
+              fill="none"
+              stroke="#f4f4f5"
+              stroke-width="6"
+              transform="rotate(-90 96 96)"
+            />
+            <path
+              class="nsc-brand-hands"
+              d="M96 56 v40 l28 18"
+              stroke="#f4f4f5"
+              stroke-width="6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              fill="none"
+            />
+            <circle
+              class="nsc-brand-dot"
+              cx="138"
+              cy="58"
+              r="14"
+              fill="#e0a43c"
+            />
+          </svg>
+        </div>
       </div>
+      <div class="nsc-splash-title">Night Shift Calculator</div>
+      <div class="nsc-splash-sub" id="nsc-splash-sub">Loading…</div>
     </div>
+    <div id="root"></div>
 
     <script
       src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"

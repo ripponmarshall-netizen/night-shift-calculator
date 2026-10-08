@@ -21,6 +21,8 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
   const anyHoliday = days.some((d) => { const e = entries[ymd(d)]; return e?.holiday == null ? isJamaicaHoliday(d) : e.holiday; });
   const leaveCount = totals.leaveShifts || 0;
   const orderlyCount = totals.duties?.orderly || 0;
+  const exchForCount = totals.duties?.exchangeFor || 0;
+  const exchLeaveCount = totals.exchangedShifts || 0;
 
   const grid = (
     <>
@@ -42,7 +44,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const isOff = slot === "off" && !has;
           const hours = totals.dayHours[key] || 0;
           const holidayHrs = totals.dayHolidayHours[key] || 0;
-          const partial = has && CAL_SHIFTS.some((s) => e[s.k] && effHours(e, s.k) !== stdHours(s.k));
+          // Hours differ from the standard ones (a short shift, or a shift
+          // given away): show the day's real total under the chips.
+          const partial = has && CAL_SHIFTS.some((s) => e[s.k] && (!worksShift(e, s.k) || effHours(e, s.k) !== stdHours(s.k)));
           const isHighlighted = highlight && highlight.has(key);
           const canCopy = !compact && !!copyDay;
           const isClipboardSource = canCopy && clipboard && clipboard.srcKey === key;
@@ -123,20 +127,25 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         {anyHoliday && <Legend color="var(--holiday)" label="Holiday" dot />}
         {leaveCount > 0 && <Legend outline label="Leave" />}
         {orderlyCount > 0 && <Legend code="ORD" label="Orderly" />}
+        {exchForCount > 0 && <Legend code="EXF" label="Exchange for" />}
+        {exchLeaveCount > 0 && <Legend dotted label="Exchange leave" />}
         <div style={{ flex: 1 }} />
         {/* Home prints the same counts above its calendar. */}
         {!compact && <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
           <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
           {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra</>}
           {leaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{leaveCount}</span> leave</>}
+          {exchLeaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{exchLeaveCount}</span> swapped out</>}
           {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(totals.totalHours)}</span>h
         </div>}
       </div>
 
-      {(totals.holidayHours > 0 || leaveCount > 0) && (
+      {(totals.holidayHours > 0 || leaveCount > 0 || exchForCount > 0 || exchLeaveCount > 0) && (
         <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: compact ? "6px 0 0" : "0 16px 12px", lineHeight: 1.5 }}>
           {totals.holidayHours > 0 && <div>* includes holiday hours (paid ×2)</div>}
           {leaveCount > 0 && <div>Leave (VL vacation · DL departmental · SL sick · TO time off): hours count, no allowances.</div>}
+          {exchForCount > 0 && <div>EXF exchange for: covering someone's shift, paid as normal.</div>}
+          {exchLeaveCount > 0 && <div>EXL exchange leave: someone covers your shift, no hours or allowances.</div>}
         </div>
       )}
     </>
@@ -229,23 +238,26 @@ function fmtH0(n) {
 /* One shift on a calendar day: a labelled chip, so colour is never the only
    cue. Extra shifts (outside the rotation) use the extra colour and a "+".
    Leave shows as a dashed outline with its code (VL, DL, SL, TO), since it
-   earns no allowance; orderly duty is a solid chip labelled ORD. */
+   earns no allowance; exchange leave (EXL) as a faint dotted outline, since
+   it isn't worked at all. Orderly (ORD) and exchange for (EXF) are worked
+   shifts: solid chips with their code. */
 function ShiftChip({ label, color, extra, long, duty }) {
   const bg = extra ? "var(--extra)" : color;
-  const leave = isLeave(duty);
+  const pay = duty ? DUTY_TYPES[duty].pay : "full";
+  const outline = pay !== "full";
   const text = duty ? DUTY_TYPES[duty].code : (extra ? "+" : "") + label;
   return (
     <span className="mono nsc-chip-in" style={{
       position: "relative", display: "block", textAlign: "center",
       // Shrinks a little on 320px phones so "10PM" fits a seventh of the width.
-      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: leave ? "14px" : "16px", letterSpacing: "-0.03em",
+      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: outline ? "14px" : "16px", letterSpacing: "-0.03em",
       borderRadius: 4,
-      background: leave ? `color-mix(in oklab, ${bg} 16%, transparent)` : bg,
-      border: leave ? `1px dashed ${bg}` : "none",
-      color: leave ? "var(--ink)" : "var(--chip-ink)",
+      background: pay === "hours" ? `color-mix(in oklab, ${bg} 16%, transparent)` : pay === "none" ? "transparent" : bg,
+      border: pay === "hours" ? `1px dashed ${bg}` : pay === "none" ? "1px dotted var(--ink-faint)" : "none",
+      color: pay === "hours" ? "var(--ink)" : pay === "none" ? "var(--ink-faint)" : "var(--chip-ink)",
       overflow: "hidden", whiteSpace: "nowrap",
     }}>
-      {long && !leave && <span aria-hidden style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4.5px)" }} />}
+      {long && !outline && <span aria-hidden style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4.5px)" }} />}
       <span style={{ position: "relative" }}>{text}</span>
     </span>
   );
@@ -330,11 +342,11 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
   );
 }
 
-function Legend({ color, label, dot, outline, code }) {
+function Legend({ color, label, dot, outline, dotted, code }) {
   const mark = dot
     ? { width: 8, height: 8, borderRadius: "50%", background: color }
-    : outline
-      ? { width: 14, height: 8, borderRadius: 2, border: "1px dashed var(--ink-dim)" }
+    : outline || dotted
+      ? { width: 14, height: 8, borderRadius: 2, border: `1px ${dotted ? "dotted" : "dashed"} var(--ink-dim)` }
       : { width: 14, height: 4, borderRadius: 2, background: color };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
