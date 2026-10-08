@@ -173,9 +173,11 @@ function prefersReducedMotion() {
 }
 
 /* AnimatedNumber — smooth count to target */
-function AnimatedNumber({ value, format, durationMs = 350 }) {
-  const [display, setDisplay] = useStateC(value);
-  const fromRef = useRefC(value);
+/* `from` counts up on mount (e.g. from 0); without it the first render shows
+   the value as is and only later changes animate. */
+function AnimatedNumber({ value, format, durationMs = 350, from }) {
+  const [display, setDisplay] = useStateC(from ?? value);
+  const fromRef = useRefC(from ?? value);
   const startRef = useRefC(null);
   const rafRef = useRefC(null);
   useEffectC(() => {
@@ -194,6 +196,52 @@ function AnimatedNumber({ value, format, durationMs = 350 }) {
     return () => cancelAnimationFrame(rafRef.current);
   }, [value]);
   return <span className="mono">{format(display)}</span>;
+}
+
+/* ChartTip — the one hover/focus readout for History's charts. Value first
+   (strong), label after; pinned above the mark at `xPct` and kept inside the
+   chart near either edge. */
+function ChartTip({ xPct, value, label, note }) {
+  const shift = xPct < 18 ? "0%" : xPct > 82 ? "-100%" : "-50%";
+  return (
+    <div role="status" className="nsc-tip" style={{
+      position: "absolute", left: `${xPct}%`, bottom: "calc(100% + 6px)", transform: `translateX(${shift})`,
+      padding: "6px 9px", borderRadius: 8, whiteSpace: "nowrap", pointerEvents: "none", zIndex: 2,
+      background: "var(--surface-translucent)", border: "1px solid var(--line)", boxShadow: "var(--shadow)",
+    }}>
+      <div className="mono" style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{value}</div>
+      <div style={{ fontSize: 11, color: "var(--ink-dim)", marginTop: 1 }}>{label}</div>
+      {note && <div style={{ marginTop: 2 }}>{note}</div>}
+    </div>
+  );
+}
+
+/* useChartCursor — which point/column a chart is reading out. Pointer sets it
+   directly; the chart is one tab stop, and arrows step through the indexes
+   `valid` allows. Mouse-out or blur clears it; a touch readout stays up
+   until the next tap elsewhere (which blurs the chart). */
+function useChartCursor(count, valid = () => true) {
+  const [cur, setCur] = useStateC(null);
+  const step = (dir) => setCur((c) => {
+    let k = c ?? (dir > 0 ? -1 : count);
+    do { k += dir; } while (k >= 0 && k < count && !valid(k));
+    return k >= 0 && k < count ? k : c;
+  });
+  const props = {
+    tabIndex: 0,
+    onKeyDown: (e) => {
+      if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); step(e.key === "ArrowRight" ? 1 : -1); }
+      else if (e.key === "Escape") setCur(null);
+    },
+    onFocus: () => setCur((c) => {
+      if (c != null) return c;
+      for (let k = count - 1; k >= 0; k--) if (valid(k)) return k;
+      return null;
+    }),
+    onBlur: () => setCur(null),
+    onPointerLeave: (e) => { if (e.pointerType === "mouse") setCur(null); },
+  };
+  return [cur, setCur, props];
 }
 
 /* Collapse — animate height open/closed via grid-template-rows (no measuring).
@@ -617,7 +665,7 @@ Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
   ModalFrame, ModalHead, PeriodNav, ChoiceCard,
-  AnimatedNumber, sanitizeDecimal, useModalDismiss,
+  AnimatedNumber, ChartTip, useChartCursor, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
   askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,
   copyText, downloadBlob,

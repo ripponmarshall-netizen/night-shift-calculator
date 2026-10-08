@@ -1,4 +1,5 @@
 /* ytd.jsx — Year-to-date dashboard */
+const { useState: useStateY } = React;
 
 function YTDDashboard({ snapshots }) {
   const year = new Date().getFullYear();
@@ -31,7 +32,8 @@ function YTDDashboard({ snapshots }) {
 
   if (thisYear.length === 0) return null;
 
-  const max = Math.max(1, ...stats.monthly);
+  // Totals count up from zero when History opens.
+  const count = (v, format) => <AnimatedNumber value={v} format={format} from={0} durationMs={900} />;
 
   return (
     <Card>
@@ -39,53 +41,24 @@ function YTDDashboard({ snapshots }) {
 
       {/* Earned YTD gets its own row: a six-figure amount beside another tile
           overflows the card on a 320px phone. */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 14 }}>
-        <KpiTile label="Earned YTD" value={fmt(stats.total)} accent="var(--accent)" wide />
-        <KpiTile label="Hours worked" value={hrs1(stats.hours)} accent="var(--am)" small />
-        <KpiTile label="Holiday hours" value={hrs1(stats.holHours)} small />
-        <KpiTile label="OT hours" value={hrs1(stats.otHours)} small />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 16 }}>
+        <KpiTile label="Earned YTD" value={count(stats.total, fmt)} wide
+          sub={thisYear.length > 1 ? `avg ${fmt(stats.total / thisYear.length)} per period` : null} />
+        <KpiTile label="Hours worked" value={count(stats.hours, hrs1)} small />
+        <KpiTile label="Holiday hours" value={count(stats.holHours, hrs1)} small />
+        <KpiTile label="OT hours" value={count(stats.otHours, hrs1)} small />
       </div>
 
-      {/* Composition bar */}
-      <div className="label" style={{ marginBottom: 6 }}>Composition</div>
+      <div className="label" style={{ marginBottom: 8 }}>By month</div>
+      <MonthlyBars monthly={stats.monthly} />
+
+      <div className="label" style={{ margin: "18px 0 8px" }}>Where it came from</div>
       <Composition allow={stats.sumAllow} base={stats.sumBase} extra={stats.sumExtra} total={stats.total} />
-
-      {/* Monthly bars */}
-      <div className="label" style={{ margin: "16px 0 8px" }}>Monthly</div>
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(12, 1fr)",
-        gap: 4,
-        alignItems: "end",
-        height: 120,
-        padding: "4px 0",
-      }}>
-        {stats.monthly.map((v, i) => {
-          const h = max > 0 ? (v / max) * 100 : 0;
-          const active = v > 0;
-          return (
-            <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, height: "100%", minWidth: 0 }}>
-              {/* The bar's % height is of this track, not the column, so a
-                  full bar never pushes the month letter out of the chart. */}
-              <div style={{ flex: 1, minHeight: 0, width: "100%", display: "flex", alignItems: "flex-end" }}>
-                <div title={`${monthNameLong(i)}: ${fmt(v)}`} style={{
-                  width: "100%",
-                  background: active ? "color-mix(in oklab, var(--accent) 65%, var(--bg-3))" : "var(--bg-2)",
-                  height: `${Math.max(2, h)}%`,
-                  borderRadius: 4,
-                  transition: "height 0.4s ease",
-                }} />
-              </div>
-              <div className="mono" style={{ fontSize: 9.5, color: "var(--ink-faint)" }}>{monthName(i)[0]}</div>
-            </div>
-          );
-        })}
-      </div>
 
       {/* With one period, "biggest" just repeats Earned YTD. */}
       {thisYear.length > 1 && stats.biggest && (
         <div style={{
-          marginTop: 14, padding: "10px 12px",
+          marginTop: 16, padding: "10px 12px",
           background: "var(--bg-2)", borderRadius: 10,
           display: "flex", justifyContent: "space-between", alignItems: "baseline",
         }}>
@@ -103,7 +76,7 @@ function YTDDashboard({ snapshots }) {
 /* Year totals to one decimal ("25.7h"), short enough for a third-width tile. */
 const hrs1 = (n) => (Math.round((Number(n) || 0) * 10) / 10).toLocaleString("en-JM", { maximumFractionDigits: 1 }) + "h";
 
-function KpiTile({ label, value, accent, small, wide }) {
+function KpiTile({ label, value, sub, small, wide }) {
   return (
     <div style={{
       padding: small ? "10px 10px" : "12px 14px",
@@ -114,38 +87,109 @@ function KpiTile({ label, value, accent, small, wide }) {
       gridColumn: wide ? "1 / -1" : undefined,
     }}>
       <div className="label">{label}</div>
-      <div className="mono" style={{ fontSize: small ? 15 : 22, fontWeight: 700, marginTop: 4, color: accent || "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+      <div className="mono" style={{ fontSize: small ? 15 : 26, fontWeight: 700, marginTop: 4, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>
+      {sub && <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 3 }}>{sub}</div>}
     </div>
   );
 }
 
-function Composition({ allow, base, extra, total }) {
-  if (total <= 0) total = 1;
-  const a = (allow / total) * 100;
-  const b = (base / total) * 100;
-  const e = (extra / total) * 100;
+/* One column per month on a shared baseline. The latest month with a saved
+   period is full accent and the rest a step back, only the peak carries a
+   printed value, and hover, tap or arrow keys read out any month. */
+function MonthlyBars({ monthly }) {
+  const max = Math.max(0, ...monthly);
+  const peak = max > 0 ? monthly.indexOf(max) : -1;
+  const latest = monthly.reduce((a, v, i) => (v > 0 ? i : a), -1);
+  const thisMonth = new Date().getMonth();
+  const [cur, setCur, cursorProps] = useChartCursor(12, (i) => monthly[i] > 0);
   return (
-    <div>
+    <div {...cursorProps} className="nsc-col" role="group"
+      aria-label="Totals by month. Use the arrow keys to read each month."
+      style={{ position: "relative", paddingTop: 18, touchAction: "pan-y" }}>
       <div style={{
-        display: "flex", height: 14, borderRadius: 7, overflow: "hidden",
-        background: "var(--bg-2)", border: "1px solid var(--line-soft)",
+        display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 2,
+        height: 96, alignItems: "end", borderBottom: "1px solid var(--line)",
       }}>
-        <div title={`Allowance ${fmt(allow)}`} style={{ width: `${a}%`, background: "var(--sp1)" }} />
-        <div title={`Base ${fmt(base)}`} style={{ width: `${b}%`, background: "var(--am)" }} />
-        <div title={`Extra ${fmt(extra)}`} style={{ width: `${e}%`, background: "var(--sp2)" }} />
+        {monthly.map((v, i) => {
+          const h = max > 0 ? (v / max) * 100 : 0;
+          const on = cur === i;
+          return (
+            // The whole column is the hit target, not just the painted bar.
+            <div key={i} onPointerEnter={() => setCur(i)} onPointerDown={() => setCur(i)}
+              style={{ position: "relative", height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
+              {i === peak && cur == null && (
+                <span className="mono" style={{
+                  position: "absolute", bottom: `calc(${h}% + 3px)`, left: "50%", transform: "translateX(-50%)",
+                  fontSize: 10, color: "var(--ink-dim)", whiteSpace: "nowrap",
+                }}>{fmtShort(v)}</span>
+              )}
+              {v > 0 && (
+                <div className="nsc-grow-y" style={{
+                  width: "70%", maxWidth: 24, height: `${h}%`, minHeight: 2,
+                  borderRadius: "4px 4px 0 0",
+                  background: i === latest ? "var(--accent)" : "color-mix(in oklab, var(--accent) 45%, var(--bg-3))",
+                  filter: on ? "brightness(1.18)" : "none",
+                  animationDelay: `${120 + i * 35}ms`,
+                  transition: "height 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s ease",
+                }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 2, marginTop: 5 }}>
+        {monthly.map((_, i) => (
+          <div key={i} className="mono" style={{
+            textAlign: "center", fontSize: 9.5,
+            color: i === thisMonth ? "var(--ink)" : "var(--ink-faint)", fontWeight: i === thisMonth ? 700 : 400,
+          }}>{monthName(i)[0]}</div>
+        ))}
+      </div>
+      {cur != null && monthly[cur] > 0 && (
+        <ChartTip xPct={((cur + 0.5) / 12) * 100} value={fmt(monthly[cur])}
+          label={`${monthNameLong(cur)}${cur === peak ? " · best month" : ""}`} />
+      )}
+    </div>
+  );
+}
+
+/* Stacked bar of the year's pay. Segments are split by a 2px surface gap
+   (no strokes); pointing at a segment or its key spotlights it. */
+function Composition({ allow, base, extra, total }) {
+  const [focus, setFocus] = useStateY(null);
+  if (total <= 0) total = 1;
+  const parts = [
+    { key: "allow", label: "Allowance", value: allow, color: "var(--sp1)" },
+    { key: "base", label: "Base", value: base, color: "var(--am)" },
+    { key: "extra", label: "Extra", value: extra, color: "var(--sp2)" },
+  ];
+  const shown = parts.filter((p) => p.value > 0);
+  const dim = (k) => (focus && focus !== k ? 0.3 : 1);
+  return (
+    <div onPointerLeave={() => setFocus(null)}>
+      <div className="nsc-reveal-x" style={{
+        display: "flex", gap: 2, height: 12, borderRadius: 6, overflow: "hidden",
+        background: shown.length ? "transparent" : "var(--bg-2)", animationDelay: "0.45s",
+      }}>
+        {shown.map((p) => (
+          <div key={p.key} onPointerEnter={() => setFocus(p.key)} onPointerDown={() => setFocus(p.key)}
+            title={`${p.label} ${fmt(p.value)}`}
+            style={{ flex: `${p.value} 1 0`, minWidth: 3, background: p.color, opacity: dim(p.key), transition: "opacity 0.15s ease" }} />
+        ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, gap: 8, flexWrap: "wrap" }}>
-        <CompKey color="var(--sp1)" label="Allowance" value={allow} pct={a} />
-        <CompKey color="var(--am)" label="Base" value={base} pct={b} />
-        <CompKey color="var(--sp2)" label="Extra" value={extra} pct={e} />
+        {parts.map((p) => (
+          <CompKey key={p.key} color={p.color} label={p.label} value={p.value} pct={(p.value / total) * 100}
+            opacity={dim(p.key)} onEnter={() => setFocus(p.key)} />
+        ))}
       </div>
     </div>
   );
 }
 
-function CompKey({ color, label, value, pct }) {
+function CompKey({ color, label, value, pct, opacity, onEnter }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+    <div onPointerEnter={onEnter} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, opacity, transition: "opacity 0.15s ease" }}>
       <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
       <span className="mono" style={{ fontSize: 11, color: "var(--ink-dim)" }}>{label}</span>
       <span className="mono" style={{ fontSize: 11, color: "var(--ink)", fontWeight: 600 }}>{fmtShort(value)}</span>

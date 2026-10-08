@@ -1,5 +1,5 @@
 /* snapshots.jsx — history list with sparkline */
-const { useState: useStateSn, useMemo: useMemoSn } = React;
+const { useState: useStateSn, useMemo: useMemoSn, useRef: useRefSn } = React;
 
 function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcile }) {
   // Track the open snapshot by id and look it up live, so a reconciliation
@@ -17,10 +17,31 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   const g = (s) => Number(s?.totals?.grand) || 0;
   const max = Math.max(1, ...sortedAsc.map(g));
   const avg = sortedAsc.length ? sortedAsc.reduce((a, s) => a + g(s), 0) / sortedAsc.length : 0;
-  const latest = sortedDesc[0];
-  const prev = sortedDesc[1];
+  // Scrubbing the trend swaps the header from the latest period to the one
+  // under the crosshair, so the readout never covers the chart.
+  const cursor = useChartCursor(sortedAsc.length);
+  const trendAt = cursor[0] == null ? null : Math.min(cursor[0], sortedAsc.length - 1);
+  const shownIdx = trendAt ?? sortedAsc.length - 1;
+  const latest = sortedAsc[shownIdx];
+  const prev = sortedAsc[shownIdx - 1];
   const delta = latest && prev ? g(latest) - g(prev) : 0;
   const deltaPct = g(prev) ? (delta / g(prev)) * 100 : 0;
+
+  // A deleted row folds away before it leaves the list (the app's Undo toast
+  // still covers it). The ref guards a second tap while it's folding.
+  const [leaving, setLeaving] = useStateSn([]);
+  const leavingRef = useRefSn(new Set());
+  const remove = (at) => {
+    if (leavingRef.current.has(at)) return;
+    if (prefersReducedMotion()) { onDelete(at); return; }
+    leavingRef.current.add(at);
+    setLeaving((l) => [...l, at]);
+    setTimeout(() => {
+      onDelete(at);
+      leavingRef.current.delete(at);
+      setLeaving((l) => l.filter((x) => x !== at));
+    }, 220);
+  };
 
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
@@ -35,8 +56,12 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div className="label">Latest</div>
-                <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{fmt(g(latest))}</div>
+                <div className="label">{trendAt == null ? "Latest" : latest.period}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>
+                  <AnimatedNumber value={g(latest)} format={fmt} from={0} durationMs={trendAt == null ? 900 : 220} />
+                </div>
+                {/* The counting number is too chatty to announce; read the settled value instead. */}
+                <span aria-live="polite" style={srOnly}>{trendAt == null ? "" : `${latest.period}: ${fmt(g(latest))}`}</span>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="label">vs previous</div>
@@ -45,14 +70,16 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
                   fontSize: 14, fontWeight: 600, marginTop: 2,
                   color: Math.abs(delta) < 0.005 ? "var(--ink-dim)" : delta > 0 ? "var(--ok)" : "var(--holiday)",
                 }}>
-                  {Math.abs(delta) < 0.005 ? "No change"
+                  {!prev ? "First saved"
+                    : Math.abs(delta) < 0.005 ? "No change"
                     : <>{delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))} ({deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%)</>}
                 </div>
               </div>
             </div>
-            <Sparkline points={sortedAsc.map(g)} labels={sortedAsc.map((s) => s.period)} avg={avg} />
-            <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 8 }}>
-              avg {fmt(avg)} · max {fmt(max)}
+            <Sparkline points={sortedAsc.map(g)} avg={avg} cursor={cursor} />
+            <div className="mono" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10 }}>
+              <svg aria-hidden width="14" height="2"><line x1="0" x2="14" y1="1" y2="1" stroke="var(--ink-faint)" strokeDasharray="3 3" /></svg>
+              avg {fmt(avg)} · high {fmt(max)}
             </div>
           </div>
         )}
@@ -60,13 +87,21 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
         {list.length === 0 ? (
           <EmptyState onBack={onBack} />
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column" }}>
             {sortedDesc.map((s, i) => {
               const prevSnap = sortedDesc[i + 1];
               const raw = prevSnap ? g(s) - g(prevSnap) : 0;
               const d = Math.abs(raw) < 0.005 ? 0 : raw;
+              // The gap lives inside the folding wrapper so it folds away too.
               return (
-                <SnapRow key={s.at} snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => onDelete(s.at)} />
+                <div key={s.at} className={"nsc-row" + (leaving.includes(s.at) ? " is-leaving" : "")}>
+                  <div>
+                    <div className="nsc-row-in" style={{ paddingBottom: 8, animationDelay: `${Math.min(i, 8) * 40 + 80}ms` }}>
+                      <SnapRow snap={s} delta={d}
+                        onOpen={() => setSelectedAt(s.at)} onDelete={() => remove(s.at)} />
+                    </div>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -78,47 +113,84 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   );
 }
 
+const srOnly = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" };
+
 function snapOrder(a, b) {
   const key = (s) => s.periodKey || ymd(new Date(s.at));
   const k = key(a).localeCompare(key(b));
   return k !== 0 ? k : new Date(a.at) - new Date(b.at);
 }
 
-function Sparkline({ points, labels, avg }) {
-  const W = 600, H = 80, P = 8;
+/* Trend across every saved period. The line draws in left to right and the
+   dots pop in behind it; hover, drag, tap or arrow keys move a crosshair
+   that snaps to the nearest period, and the card's header reads it out. */
+function Sparkline({ points, avg, cursor }) {
+  const W = 600, H = 88, P = 10;
   const min = Math.min(...points);
   const max = Math.max(...points);
   const range = max - min || 1;
-  const stepX = points.length > 1 ? (W - 2 * P) / (points.length - 1) : 0;
+  const n = points.length;
+  const stepX = n > 1 ? (W - 2 * P) / (n - 1) : 0;
+  const x = (i) => P + i * stepX;
   const y = (v) => H - P - ((v - min) / range) * (H - 2 * P);
-  const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"}${(P + i * stepX).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
-  const areaD = pathD + ` L${(P + (points.length - 1) * stepX).toFixed(2)},${H - P} L${P},${H - P} Z`;
+  const pathD = points.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(2)},${y(v).toFixed(2)}`).join(" ");
+  const areaD = pathD + ` L${x(n - 1).toFixed(2)},${H - P} L${P},${H - P} Z`;
   const avgY = y(avg);
+  const pct = (i) => (x(i) / W) * 100;
+
+  const [cur, setCur, cursorProps] = cursor;
+  const nearest = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const fx = ((e.clientX - r.left) / r.width) * W;
+    setCur(Math.max(0, Math.min(n - 1, Math.round((fx - P) / (stepX || 1)))));
+  };
 
   // The chart stretches to the card's width (preserveAspectRatio none), so
   // strokes keep their weight via non-scaling-stroke and the dots are HTML
   // laid over it, which stay round at any width.
   return (
-    <div style={{ position: "relative", height: 80 }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block" }} aria-hidden>
+    <div {...cursorProps} className="nsc-col" role="group"
+      aria-label="Total per saved period. Use the arrow keys to read each period."
+      onPointerMove={nearest} onPointerDown={nearest}
+      style={{ position: "relative", height: H, touchAction: "pan-y", cursor: "crosshair" }}>
+      <svg className="nsc-reveal-x" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: H, display: "block" }} aria-hidden>
         <defs>
           <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35"/>
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.18"/>
             <stop offset="100%" stopColor="var(--accent)" stopOpacity="0"/>
           </linearGradient>
         </defs>
         <path d={areaD} fill="url(#sparkFill)" />
-        <line x1={P} x2={W - P} y1={avgY} y2={avgY} stroke="var(--ink-faint)" strokeDasharray="3 3" strokeWidth="1" opacity="0.5" vectorEffect="non-scaling-stroke" />
-        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        <line x1={P} x2={W - P} y1={avgY} y2={avgY} stroke="var(--ink-faint)" strokeDasharray="3 3" strokeWidth="1" opacity="0.6" vectorEffect="non-scaling-stroke" />
+        <path d={pathD} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
       </svg>
-      {points.map((v, i) => (
-        <span key={i} title={`${labels[i]}: ${fmt(v)}`} style={{
-          position: "absolute", width: 8, height: 8, borderRadius: "50%",
-          left: `${((P + i * stepX) / W) * 100}%`, top: `${(y(v) / H) * 100}%`,
-          transform: "translate(-50%, -50%)",
-          background: "var(--bg-1)", border: "2px solid var(--accent)", boxSizing: "border-box",
+      {cur != null && (
+        <span aria-hidden style={{
+          position: "absolute", top: 0, bottom: 0, left: `${pct(cur)}%`, width: 1,
+          background: "var(--line)", transform: "translateX(-0.5px)", pointerEvents: "none",
         }} />
-      ))}
+      )}
+      {points.map((v, i) => {
+        const on = cur === i;
+        const last = i === n - 1;
+        return (
+          <span key={i} aria-hidden style={{
+            position: "absolute", left: `${pct(i)}%`, top: `${(y(v) / H) * 100}%`,
+            transform: "translate(-50%, -50%)", pointerEvents: "none",
+          }}>
+            {/* Inner span pops in, so its scale doesn't fight the centring. */}
+            <span className="nsc-spark-dot" style={{
+              display: "block", width: 8, height: 8, borderRadius: "50%", boxSizing: "border-box",
+              background: last || on ? "var(--accent)" : "var(--bg-2)",
+              border: "2px solid var(--accent)",
+              boxShadow: "0 0 0 2px var(--bg-2)",
+              transform: on ? "scale(1.5)" : "none",
+              transition: "transform 0.15s ease, background 0.15s ease",
+              animationDelay: `${350 + (n > 1 ? (i / (n - 1)) * 750 : 0)}ms`,
+            }} />
+          </span>
+        );
+      })}
     </div>
   );
 }
