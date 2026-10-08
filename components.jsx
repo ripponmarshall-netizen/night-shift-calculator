@@ -310,34 +310,52 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
   );
 }
 
-/* DutySummary — leave and orderly shifts for a period's totals, as one row
-   of chips. Nothing when there are none (or for a legacy snapshot). */
+/* DutySummary — leave, orderly and exchange shifts for a period's totals, as
+   one row of chips plus a line on what each kind did to pay. Nothing when
+   there are none (or for a legacy snapshot). */
 function DutySummary({ totals, style }) {
   const d = totals?.duties || {};
   const kinds = DUTY_KEYS.filter((k) => Number(d[k]) > 0);
   if (!kinds.length) return null;
   const leaveH = Number(totals.leaveHours) || 0;
+  const exchH = Number(totals.exchangedHours) || 0;
+  const hoursNote = [
+    leaveH > 0 && <span key="l"><span className="mono">{fmtH0(leaveH)}</span>h on leave</span>,
+    exchH > 0 && <span key="x"><span className="mono">{fmtH0(exchH)}</span>h swapped out</span>,
+  ].filter(Boolean);
+  const notes = [
+    Number(totals.leaveShifts) > 0 && "Leave hours count as ordinary hours toward your total and overtime, never holiday ×2. No SP1, SP2, meal or taxi on those shifts.",
+    Number(d.exchangeLeave) > 0 && "Exchange leave shifts were covered by someone else: no hours and no allowances.",
+    Number(d.exchangeFor) > 0 && "Exchange for shifts (covering someone else) are paid in full.",
+  ].filter(Boolean);
   return (
     <div style={{ padding: "10px 12px", borderRadius: 12, background: "var(--bg-2)", border: "1px solid var(--line-soft)", ...style }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
         <span className="label">Leave & duties</span>
-        {leaveH > 0 && <span style={{ fontSize: 12, color: "var(--ink-faint)" }}><span className="mono">{fmtH(leaveH)}</span>h on leave</span>}
+        {hoursNote.length > 0 && (
+          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
+            {hoursNote.map((n, i) => <React.Fragment key={i}>{i > 0 && " · "}{n}</React.Fragment>)}
+          </span>
+        )}
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-        {kinds.map((k) => (
-          <span key={k} style={{
-            fontSize: 12, padding: "3px 9px", borderRadius: 999, color: "var(--ink)",
-            border: `1px ${isLeave(k) ? "dashed" : "solid"} var(--line)`, background: "var(--bg-1)",
-          }}>
-            {DUTY_TYPES[k].label} <span className="mono" style={{ fontWeight: 700 }}>× {d[k]}</span>
-          </span>
-        ))}
+        {kinds.map((k) => {
+          const pay = DUTY_TYPES[k].pay;
+          return (
+            <span key={k} style={{
+              fontSize: 12, padding: "3px 9px", borderRadius: 999,
+              color: pay === "none" ? "var(--ink-dim)" : "var(--ink)",
+              border: `1px ${pay === "hours" ? "dashed" : pay === "none" ? "dotted" : "solid"} ${pay === "none" ? "var(--ink-faint)" : "var(--line)"}`,
+              background: "var(--bg-1)",
+            }}>
+              {DUTY_TYPES[k].label} <span className="mono" style={{ fontWeight: 700 }}>× {d[k]}</span>
+            </span>
+          );
+        })}
       </div>
-      {Number(totals.leaveShifts) > 0 && (
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-          Leave hours count as ordinary hours toward your total and overtime, never holiday ×2. No SP1, SP2, meal or taxi on those shifts.
-        </div>
-      )}
+      {notes.map((n) => (
+        <div key={n} style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>{n}</div>
+      ))}
     </div>
   );
 }

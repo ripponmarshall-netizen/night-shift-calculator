@@ -150,6 +150,8 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           {totals.holidayHours > 0 && ` · ${fmtH0(totals.holidayHours)}h holiday`}
           {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
           {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
+          {totals.duties?.exchangeFor > 0 && ` · ${totals.duties.exchangeFor} exchange for`}
+          {totals.exchangedShifts > 0 && ` · ${totals.exchangedShifts} exchange leave`}
         </div>
 
         {totals.hasMismatch && (
@@ -458,7 +460,7 @@ function RotationPicker({ period, value, onChange }) {
             Public holiday, applied automatically.{" "}
           </>
         )}
-        Took leave or worked an extra shift? Tap that day on the calendar afterwards. Extra shifts show in <span style={{ color: "var(--extra)", fontWeight: 600 }}>pink</span> with a +.
+        Took leave, swapped a shift or worked an extra one? Tap that day on the calendar afterwards. Extra shifts show in <span style={{ color: "var(--extra)", fontWeight: 600 }}>pink</span> with a +.
       </div>
     </>
   );

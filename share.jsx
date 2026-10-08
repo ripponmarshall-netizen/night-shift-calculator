@@ -108,10 +108,21 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   drawLine(ctx, `Holiday hours · ${fmtH(snap.totals.holidayHours)}h`, fmt(snap.totals.holidayPay), pad + 70, y, W - 2 * pad - 140, colors); y += 38;
   drawLine(ctx, `OT hours · ${fmtH(snap.totals.otHours)}h`, fmt(snap.totals.overtimePay), pad + 70, y, W - 2 * pad - 140, colors); y += 50;
 
-  // Leave: a record only (its hours are already in the totals above).
+  // Leave and exchanges: a record only (their effect is already in the
+  // totals above). One line each, while there's room above the footer.
+  const plural = (n) => `${n} shift${n === 1 ? "" : "s"}`;
   const leaveN = Number(snap.totals.leaveShifts) || 0;
-  if (leaveN > 0 && y < H - pad - 110) {
-    drawLine(ctx, `On leave · ${leaveN} shift${leaveN === 1 ? "" : "s"} · ${fmtH(snap.totals.leaveHours)}h`, "no allowance", pad + 70, y, W - 2 * pad - 140, colors);
+  const exchN = Number(snap.totals.exchangedShifts) || 0;
+  const coverN = Number(snap.totals.duties?.exchangeFor) || 0;
+  const notes = [
+    leaveN > 0 && [`On leave · ${plural(leaveN)} · ${fmtH(snap.totals.leaveHours)}h`, "no allowance"],
+    exchN > 0 && [`Exchange leave · ${plural(exchN)}`, "not paid"],
+    coverN > 0 && [`Exchange for · ${plural(coverN)}`, "paid as normal"],
+  ].filter(Boolean);
+  for (const [label, value] of notes) {
+    if (y >= H - pad - 110) break;
+    drawLine(ctx, label, value, pad + 70, y, W - 2 * pad - 140, colors);
+    y += 38;
   }
 
   // footer

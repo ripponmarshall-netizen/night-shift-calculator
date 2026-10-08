@@ -53,6 +53,10 @@ function App() {
     return "Current rates";
   }, [ratesHistory, period]);
 
+  // The app is on screen: hand the loading screen over to the logo, then
+  // let it fade (index.html).
+  useEffect(() => { window.nscSplashDone?.(); }, []);
+
   useEffect(() => {
     saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor });
   }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor]);
@@ -119,8 +123,12 @@ function App() {
   const saveStatus = useMemo(() => {
     const saved = snapshots.find((s) => s.periodKey === periodKey(period));
     if (!saved) return { state: "none" };
-    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "leaveShifts"];
-    const same = keys.every((k) => Math.abs((Number(saved.totals?.[k]) || 0) - (Number(totals[k]) || 0)) < 0.005);
+    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "leaveShifts", "exchangedShifts"];
+    const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.005;
+    // Duty marks that don't move the pay (orderly, exchange for) still
+    // belong in the saved record, so a change to them counts too.
+    const same = keys.every((k) => near(saved.totals?.[k], totals[k]))
+      && DUTY_KEYS.every((k) => near(saved.totals?.duties?.[k], totals.duties[k]));
     return { state: same ? "saved" : "changed", at: saved.at };
   }, [snapshots, period, totals]);
 
@@ -314,15 +322,22 @@ function App() {
     const fill = opts.pattern === "rotation"
       ? rotationEntries(period, opts.am7Key, opts.defaultDist)
       : autofillPattern(period, opts);
-    if (opts.pattern === "rotation") setRotationAnchor(opts.am7Key);
-    setEntries((prev) => {
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(fill)) {
-        if (opts.preserve && prev[k] && (prev[k].am7 || prev[k].pm3 || prev[k].pm10)) continue;
-        next[k] = v;
-      }
-      return next;
-    });
+    if (opts.pattern === "rotation") {
+      setRotationAnchor(opts.am7Key);
+      // A rotation covers the whole period, so without "keep" it replaces
+      // the period like the Home setup does; otherwise shifts left on the
+      // new off days would linger as extras and still be paid.
+      setEntries((prev) => mergePeriodFill(prev, period, fill, !opts.preserve));
+    } else {
+      setEntries((prev) => {
+        const next = { ...prev };
+        for (const [k, v] of Object.entries(fill)) {
+          if (opts.preserve && prev[k] && (prev[k].am7 || prev[k].pm3 || prev[k].pm10)) continue;
+          next[k] = v;
+        }
+        return next;
+      });
+    }
     setAutofillOpen(false);
   };
 
@@ -736,19 +751,38 @@ function MoneyInput({ label, value, onChange }) {
 
 /* ============ About ============ */
 /* Mirrors the README's credit and disclaimers, so the app says the same
-   thing as the repo, plus how to get in touch. */
+   thing as the repo, plus the shift labels and how to get in touch. */
 function AboutView({ onBack }) {
   const strong = { color: "var(--ink)" };
+  const p = { margin: "12px 0 0" };
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       <Card>
-        <SectionHead title="About" subtitle="WCO JFB Night Shift Calculator" />
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+          <img src="icon-192.svg" alt="" width="56" height="56" style={{ borderRadius: 14, flexShrink: 0, boxShadow: "var(--shadow)" }} />
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.01em" }}>Night Shift Calculator</div>
+            <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>WCO JFB · Version {APP_VERSION}</div>
+          </div>
+        </div>
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
           <p style={{ margin: 0 }}>Works out your night shift allowances (SP1, SP2, meal and taxi), base pay and extra-hours pay in one place, from the shifts on your calendar. Save each period to History, compare periods and check them against your pay slip.</p>
-          <p style={{ marginTop: 12 }}>On the <strong style={strong}>Shifts</strong> screen, set <strong style={strong}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={strong}>Varies</strong> to set it per shift when you tap a day.</p>
-          <p style={{ marginTop: 12 }}>Public holidays are marked automatically from the Jamaica calendar: Ash Wednesday, Good Friday, Easter Monday, National Heroes Day and the fixed-date holidays. Change any day from the day editor.</p>
-          <p style={{ marginTop: 12 }}>Created by <strong style={strong}>L/Cpl. R. Marshall</strong>, Portland Division · Workflow Coaching and Optimisation.</p>
+          <p style={p}>On the <strong style={strong}>Shifts</strong> screen, set <strong style={strong}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={strong}>Varies</strong> to set it per shift when you tap a day.</p>
+          <p style={p}>Public holidays are marked automatically from the Jamaica calendar: Ash Wednesday, Good Friday, Easter Monday, National Heroes Day and the fixed-date holidays. Change any day from the day editor.</p>
+          <p style={p}>Created by <strong style={strong}>L/Cpl. R. Marshall</strong>, Portland Division · Workflow Coaching and Optimisation.</p>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionHead title="Shift labels" subtitle="Tap a day, tick a shift, then Duty → Change" />
+        <div style={{ display: "grid", gap: 2 }}>
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" />} title="Regular shift" detail="Hours and all allowances." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="orderly" />} title="Orderly duty" detail="Paid as a normal shift. Recorded for your reference." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="exchangeFor" />} title="Exchange for" detail="You cover someone else's shift. Paid as a normal shift." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="vacation" />} title="Leave: VL · DL · SL · TO" detail="Vacation, departmental, sick or time off. Hours count as ordinary hours (never holiday ×2); no SP1, SP2, meal or taxi." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="exchangeLeave" />} title="Exchange leave" detail="Someone else covers your shift. No hours and no allowances." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" extra />} title="Extra shift" detail="A worked shift outside your saved rotation, shown in pink with a +." last />
         </div>
       </Card>
 
@@ -764,17 +798,31 @@ function AboutView({ onBack }) {
 
       <Card>
         <SectionHead title="Disclaimers" />
-        <div style={{ fontSize: 13.5, lineHeight: 1.55, color: "var(--ink-dim)" }}>
+        <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
           <p style={{ margin: 0 }}><strong style={strong}>Accuracy.</strong> Estimates only. Check every result against your official pay records. This is not official payroll advice.</p>
-          <p style={{ marginTop: 10 }}><strong style={strong}>Your data.</strong> Nothing leaves this device. Backup, restore and reset are in Settings → Backup.</p>
-          <p style={{ marginTop: 10 }}><strong style={strong}>Unofficial.</strong> Made independently. Not an official product of the JFB or any affiliated organisation.</p>
-          <p style={{ marginTop: 10 }}><strong style={strong}>AI assistance.</strong> Built with help from Claude, an AI assistant made by Anthropic. The concept, design, calculations and content were directed and checked by L/Cpl. R. Marshall.</p>
+          <p style={p}><strong style={strong}>Your data.</strong> Nothing leaves this device. Backup, restore and reset are in Settings → Backup.</p>
+          <p style={p}><strong style={strong}>Unofficial.</strong> Made independently. Not an official product of the JFB or any affiliated organisation.</p>
+          <p style={p}><strong style={strong}>AI assistance.</strong> Built with help from Claude, an AI assistant made by Anthropic. The concept, design, calculations and content were directed and checked by L/Cpl. R. Marshall.</p>
         </div>
-        <div style={{ marginTop: 14 }}>
+        <div style={{ marginTop: 16 }}>
           <button onClick={onBack} style={primaryBtn()}>← Back</button>
         </div>
       </Card>
     </main>
+  );
+}
+
+/* One entry in About's shift-label guide: the calendar chip, then what it
+   does to pay. */
+function LabelRow({ chip, title, detail, last }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 0", borderBottom: last ? "none" : "1px dashed var(--line-soft)" }}>
+      <div style={{ width: 46, flexShrink: 0, paddingTop: 1 }}>{chip}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 500, color: "var(--ink)" }}>{title}</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.45 }}>{detail}</div>
+      </div>
+    </div>
   );
 }
 

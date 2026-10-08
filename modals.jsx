@@ -126,14 +126,24 @@ const DAY_SHIFTS = [
 function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }) {
   const on = !!entry[sh.k];
   const duty = shiftDuty(entry, sh.k);
+  const pay = duty ? DUTY_TYPES[duty].pay : "full";
   return (
     <div>
       <DayToggle label={sh.label} hours={sh.hours} color={sh.color} active={on} duty={duty}
-        extra={!!slot && slot !== sh.k} onClick={onToggle} />
+        extra={!!slot && slot !== sh.k && pay !== "none"} onClick={onToggle} />
       <Collapse open={on}>
         <div style={{ paddingBottom: 2 }}>
-          <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
-          {mode === "advanced" && <DistRow value={entry.dist?.[sh.k] || "S"} onChange={onDist} />}
+          {/* A given-away shift has no hours, and only a paid shift has a
+              taxi distance, so those rows fold away instead of showing
+              settings that can't change anything. */}
+          <Collapse open={pay !== "none"}>
+            <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
+          </Collapse>
+          {mode === "advanced" && (
+            <Collapse open={pay === "full"}>
+              <DistRow value={entry.dist?.[sh.k] || "S"} onChange={onDist} />
+            </Collapse>
+          )}
           <DutyRow value={duty} onChange={onDuty} shift={ROTATION_LABEL[sh.k]} />
         </div>
       </Collapse>
@@ -141,12 +151,30 @@ function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }
   );
 }
 
-/* Leave or orderly duty for one shift. Folded to one line like the holiday
-   setting; leave keeps the hours but drops SP1, SP2, meal and taxi. */
-const DUTY_OPTIONS = [{ v: null, l: "Regular" }, ...DUTY_KEYS.map((k) => ({ v: k, l: DUTY_TYPES[k].short }))];
+/* Duty for one shift, folded to one line like the holiday setting. The
+   choices are grouped by what they do to pay:
+   - worked: paid as normal (regular, orderly, exchange for)
+   - leave: hours kept as ordinary hours, no SP1, SP2, meal or taxi
+   - given away: exchange leave, no hours and no allowances */
+const DUTY_GROUPS = [
+  { title: "Worked · paid as normal", options: [{ v: null, l: "Regular" }, ...DUTY_KEYS.filter((k) => DUTY_TYPES[k].pay === "full").map((k) => ({ v: k, l: DUTY_TYPES[k].short }))] },
+  { title: "Leave · hours count, no allowances", options: DUTY_KEYS.filter((k) => DUTY_TYPES[k].pay === "hours").map((k) => ({ v: k, l: DUTY_TYPES[k].short })) },
+  { title: "Swapped out · no hours, no allowances", options: DUTY_KEYS.filter((k) => DUTY_TYPES[k].pay === "none").map((k) => ({ v: k, l: DUTY_TYPES[k].short })) },
+];
+/* What the chosen duty does to this shift's pay, in one line. */
+const DUTY_NOTES = {
+  orderly: "Orderly duty: paid as a normal shift, and listed under Leave & duties.",
+  exchangeFor: "Exchange for: you're covering someone else's shift. All hours and allowances count as normal.",
+  exchangeLeave: "Exchange leave: someone else covers this shift. It earns no hours and no SP1, SP2, meal or taxi.",
+};
+const LEAVE_NOTE = "On leave: the hours count as ordinary hours (never holiday ×2), but no SP1, SP2, meal or taxi for this shift.";
 function DutyRow({ value, onChange, shift }) {
   const [open, setOpen] = useStateM(!!value);
-  const leave = isLeave(value);
+  const note = value ? (isLeave(value) ? LEAVE_NOTE : DUTY_NOTES[value]) : null;
+  // Keep the last note on screen while it folds away, so the text doesn't
+  // vanish before the collapse animation finishes.
+  const lastNote = React.useRef(note);
+  if (note) lastNote.current = note;
   return (
     <div style={{ margin: "0 0 10px", padding: "8px 10px", background: "var(--bg-2)", borderRadius: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 24 }}>
@@ -157,25 +185,33 @@ function DutyRow({ value, onChange, shift }) {
         <button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={linkBtn}>{open ? "Hide" : "Change"}</button>
       </div>
       <Collapse open={open}>
-        <div role="radiogroup" aria-label={`Duty for the ${shift} shift`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(88px, 1fr))", gap: 6, paddingTop: 8 }}>
-          {DUTY_OPTIONS.map((o) => {
-            const active = (value || null) === o.v;
-            return (
-              <button key={o.l} role="radio" aria-checked={active} onClick={() => onChange(o.v)} className="nsc-chip" style={{
-                padding: "8px 4px", borderRadius: 8, minWidth: 0,
-                border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
-                background: active ? "var(--ink)" : "var(--bg-1)",
-                color: active ? "var(--bg)" : "var(--ink-dim)",
-                fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
-                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              }}>{o.l}</button>
-            );
-          })}
+        <div role="radiogroup" aria-label={`Duty for the ${shift} shift`} style={{ paddingTop: 4 }}>
+          {DUTY_GROUPS.map((g) => (
+            <div key={g.title}>
+              <div style={{ fontSize: 11.5, color: "var(--ink-faint)", margin: "8px 0 5px" }}>{g.title}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(96px, 1fr))", gap: 6 }}>
+                {g.options.map((o) => {
+                  const active = (value || null) === o.v;
+                  return (
+                    <button key={o.l} role="radio" aria-checked={active} onClick={() => onChange(o.v)} style={{
+                      padding: "8px 4px", borderRadius: 8, minWidth: 0,
+                      border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
+                      background: active ? "var(--ink)" : "var(--bg-1)",
+                      color: active ? "var(--bg)" : "var(--ink-dim)",
+                      fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      transition: "background 0.18s, color 0.18s, border-color 0.18s",
+                    }}>{o.l}</button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </Collapse>
-      <Collapse open={leave}>
+      <Collapse open={!!note}>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.45, paddingTop: 6 }}>
-          On leave: the hours count as ordinary hours (never holiday ×2), but no SP1, SP2, meal or taxi for this shift.
+          {note || lastNote.current}
         </div>
       </Collapse>
     </div>
@@ -190,13 +226,15 @@ const linkBtn = {
    an extra shift (shown in the extra colour). */
 function DayToggle({ label, hours, color, active, extra, duty, onClick }) {
   if (extra) color = "var(--extra)";
-  const leave = active && isLeave(duty);
+  const pay = active && duty ? DUTY_TYPES[duty].pay : "full";
+  const unpaid = pay !== "full"; // leave or given away: badge in neutral ink
   return (
     <button onClick={onClick} aria-pressed={active} className="nsc-daytoggle" style={{
       display: "flex", alignItems: "center", gap: 12,
       width: "100%", padding: "12px 12px",
-      background: active ? "color-mix(in oklab, " + color + " 14%, transparent)" : "var(--bg-2)",
-      border: `1px solid ${active ? "color-mix(in oklab, " + color + " 50%, transparent)" : "var(--line)"}`,
+      // A given-away shift is ticked but not worked: a fainter tint.
+      background: active ? `color-mix(in oklab, ${color} ${pay === "none" ? 6 : 14}%, transparent)` : "var(--bg-2)",
+      border: `1px ${pay === "none" ? "dashed" : "solid"} ${active ? "color-mix(in oklab, " + color + " 50%, transparent)" : "var(--line)"}`,
       borderRadius: 10, color: "var(--ink)",
       marginBottom: 8, cursor: "pointer", textAlign: "left",
       transition: "background 0.18s, border-color 0.18s, transform 0.12s",
@@ -217,12 +255,14 @@ function DayToggle({ label, hours, color, active, extra, duty, onClick }) {
           {active && duty && (
             <span className="nsc-pop" style={{
               marginLeft: 8, fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 999, whiteSpace: "nowrap",
-              color: leave ? "var(--ink)" : color,
-              border: `1px solid ${leave ? "var(--line)" : "color-mix(in oklab, " + color + " 50%, transparent)"}`,
+              color: unpaid ? "var(--ink)" : color,
+              border: `1px ${pay === "none" ? "dotted" : "solid"} ${unpaid ? "var(--ink-faint)" : "color-mix(in oklab, " + color + " 50%, transparent)"}`,
             }}>{DUTY_TYPES[duty].label}</span>
           )}
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{leave ? `${hours} · no allowances` : hours}</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>
+          {pay === "none" ? "Not worked · no hours or allowances" : pay === "hours" ? `${hours} · no allowances` : hours}
+        </div>
       </div>
     </button>
   );
@@ -252,7 +292,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
         inputMode="decimal" value={raw} placeholder={String(std)}
         onChange={(e) => onChange(keyName, e.target.value)}
         aria-label={`Hours worked for ${ROTATION_LABEL[keyName]} shift`}
-        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 14, outline: "none", fontFamily: "inherit", textAlign: "right" }}
+        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit", textAlign: "right" }}
       />
       <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
     </div>
@@ -497,7 +537,7 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
       <div style={{ display: "flex", gap: 8, marginTop: 14, alignItems: "center" }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={{
           flex: 1, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10,
-          padding: "9px 12px", color: "var(--ink)", fontSize: 14, fontFamily: "inherit",
+          padding: "9px 12px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit",
         }} />
         <button onClick={addEntry} style={primaryBtn()}>Save current rates</button>
       </div>
@@ -596,6 +636,9 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
   const fillCount = Object.keys(preview).filter(
     (k) => !(preserve && hasShifts(existing?.[k]))
   ).length;
+  // Without "keep", a rotation replaces the whole period (off days too).
+  const loggedDays = days.filter((d) => hasShifts(existing?.[ymd(d)])).length;
+  const replacesAll = isRotation && !preserve && loggedDays > 0;
 
   return (
     <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
@@ -661,6 +704,7 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
         }}>
           Will fill <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fillCount}</span> day{fillCount === 1 ? "" : "s"} with shifts.
           {preserve && " Days you've already logged won't change."}
+          {replacesAll && <span style={{ color: "var(--warn)" }}> Replaces the {loggedDays} day{loggedDays === 1 ? "" : "s"} already logged this period.</span>}
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
@@ -701,7 +745,7 @@ function FieldLabel({ children }) {
 
 const selectStyle = {
   width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
-  borderRadius: 10, padding: "10px 12px", color: "var(--ink)", fontSize: 14, fontFamily: "inherit",
+  borderRadius: 10, padding: "10px 12px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit",
 };
 
 Object.assign(window, { DayModal, SettingsModal, AutofillModal });
