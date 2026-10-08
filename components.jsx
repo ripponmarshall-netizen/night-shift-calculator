@@ -413,7 +413,7 @@ function AppFooter({ ratesEffective, onOpenSettings, onAbout }) {
   };
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
   return (
-    <footer style={{ maxWidth: 560, margin: "0 auto", padding: "6px 20px 0", textAlign: "center", fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.7 }}>
+    <footer className="nsc-footer" style={{ maxWidth: 560, margin: "0 auto", padding: "6px 20px 0", textAlign: "center", fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.7 }}>
       {ratesEffective && onOpenSettings && (
         <div>{ratesEffective} · <button onClick={onOpenSettings} style={link}>Edit rates</button></div>
       )}

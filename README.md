@@ -24,7 +24,7 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 
 ## App Architecture
 
-The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen (a fire truck) while the scripts load; once the app mounts, the app logo draws in and the screen fades to reveal the app.
+The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen (a fire truck) while the scripts load; once the app mounts, the truck dashes off, the app logo draws in, and the logo and title fly up into the header while the page drops in beneath them (a plain fade with reduced motion).
 
 | File             | Purpose                                                                                                                      |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |

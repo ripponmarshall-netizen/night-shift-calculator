@@ -53,8 +53,8 @@ function App() {
     return "Current rates";
   }, [ratesHistory, period]);
 
-  // The app is on screen: hand the loading screen over to the logo, then
-  // let it fade (index.html).
+  // The app is on screen: hand the loading screen over to the logo, which
+  // then flies into the header (index.html).
   useEffect(() => { window.nscSplashDone?.(); }, []);
 
   useEffect(() => {
@@ -523,15 +523,16 @@ function App() {
    period, so the header doesn't repeat it. */
 function Header({ onSettings }) {
   return (
-    <header style={{
+    <header className="nsc-header" style={{
       position: "sticky", top: 0, zIndex: 30,
       background: "var(--bg-translucent)",
       backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
       borderBottom: "1px solid var(--line-soft)",
     }}>
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 12px) 20px 12px", display: "flex", alignItems: "center", gap: 12 }}>
-        <img src="icon-192.svg" alt="" width="28" height="28" style={{ borderRadius: 8, flexShrink: 0 }} />
-        <h1 style={{ flex: 1, minWidth: 0, margin: 0, fontSize: "clamp(15px, 4.6vw, 17px)", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Night Shift Calculator</h1>
+        {/* The splash logo and title fly onto these two (index.html). */}
+        <img data-splash-target="logo" src="icon-192.svg" alt="" width="28" height="28" style={{ borderRadius: 8, flexShrink: 0 }} />
+        <h1 data-splash-target="title" style={{ flex: 1, minWidth: 0, margin: 0, fontSize: "clamp(15px, 4.6vw, 17px)", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Night Shift Calculator</h1>
         <button onClick={onSettings} title="Settings" aria-label="Settings" style={iconBtn()}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -865,7 +866,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
         </div>
       )}
 
-      <div style={{ maxWidth: 420, margin: "0 auto", padding: "0 16px 12px", pointerEvents: "auto" }}>
+      <div className="nsc-dock" style={{ maxWidth: 420, margin: "0 auto", padding: "0 16px 12px", pointerEvents: "auto" }}>
         <div role="tablist" style={{
           background: "var(--surface-translucent)",
           backdropFilter: "blur(24px) saturate(140%)",
