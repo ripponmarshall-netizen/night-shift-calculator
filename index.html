@@ -45,49 +45,181 @@
             m.setAttribute("content", t === "light" ? "#faf9f7" : "#161513");
         } catch (e) {}
       })();
-      // Splash hand-off. The fire truck drives while the scripts load; once
-      // the app has mounted (app.jsx calls nscSplashDone), the app logo takes
-      // the truck's place for a beat, then the splash fades to reveal the
-      // app. Screen entrance animations wait (nsc-booting) so they play as
-      // the splash lifts instead of hidden under it.
+      // Splash hand-off. The fire truck drives while the scripts load. Once
+      // the app has mounted (app.jsx calls nscSplashDone), the truck dashes
+      // off the road, the app logo draws itself in its place, then the logo
+      // and title fly up into the header while the page drops in beneath
+      // them. Screen entrances wait (nsc-booting) so they play as the splash
+      // clears instead of hidden under it; nsc-intro makes that first
+      // entrance fall from above rather than rise.
       (function () {
         var start = Date.now();
         var reduce =
           window.matchMedia &&
           matchMedia("(prefers-reduced-motion: reduce)").matches;
         var root = document.documentElement;
-        root.classList.add("nsc-booting");
+        root.classList.add("nsc-booting", "nsc-intro");
         var slow = setTimeout(function () {
           var sub = document.getElementById("nsc-splash-sub");
           if (sub) sub.textContent = "Still loading… check your connection";
         }, 12000);
+        var later = function (fn, ms) {
+          setTimeout(fn, reduce ? Math.min(ms, 350) : ms);
+        };
+        var finish = function (el) {
+          root.classList.remove("nsc-booting", "nsc-handoff");
+          if (el) el.remove();
+          // The intro entrance has played; later screens rise as usual.
+          later(function () {
+            root.classList.remove("nsc-intro");
+          }, 1400);
+        };
+        var rect = function (n) {
+          var r = n && n.getBoundingClientRect();
+          return r && r.width > 0 && r.height > 0 ? r : null;
+        };
+
+        // Accelerate the truck from wherever it is in its loop off the right
+        // edge, then call next. Falls back to a plain fade if the browser
+        // can't read or animate the lane.
+        var dashOff = function (el, next) {
+          var lane = el.querySelector(".nsc-lane");
+          if (reduce || !lane || !lane.animate || !window.DOMMatrix) {
+            return next();
+          }
+          try {
+            var x = new DOMMatrix(getComputedStyle(lane).transform).m41;
+            var end = lane.offsetWidth + 150;
+            var left = Math.max(0, end - x);
+            lane.style.animation = "none";
+            lane.style.transform = "translateX(" + end + "px)";
+            var ms = Math.round(Math.max(220, Math.min(520, left * 0.9)));
+            lane.animate(
+              [
+                { transform: "translateX(" + x + "px)" },
+                { transform: "translateX(" + end + "px)" },
+              ],
+              { duration: ms, easing: "cubic-bezier(0.55, 0, 0.9, 0.45)" },
+            );
+            el.classList.add("is-dashing");
+            setTimeout(next, Math.max(0, ms - 140));
+          } catch (e) {
+            next();
+          }
+        };
+
+        // Fly the splash logo and title onto the header's logo and title
+        // (FLIP: measure both, animate the difference), dropping the splash
+        // backdrop so the page comes in underneath. If the header isn't
+        // measurable, fade the splash out as a whole instead.
+        var flyHome = function (el) {
+          var brand = el.querySelector(".nsc-brand");
+          var title = el.querySelector(".nsc-splash-title");
+          var toLogo = document.querySelector("[data-splash-target=logo]");
+          var toTitle = document.querySelector("[data-splash-target=title]");
+          var a = rect(brand);
+          var b = rect(toLogo);
+          if (reduce || !a || !b || !brand.animate) {
+            el.classList.add("is-leaving");
+            el.setAttribute("aria-hidden", "true");
+            root.classList.remove("nsc-booting");
+            later(function () {
+              finish(el);
+            }, 450);
+            return;
+          }
+          var ms = 720;
+          var ease = "cubic-bezier(0.45, 0, 0.15, 1)";
+          var s = b.width / a.width;
+          var dx = b.left + b.width / 2 - (a.left + a.width / 2);
+          var dy = b.top + b.height / 2 - (a.top + a.height / 2);
+          var svg = brand.querySelector("svg");
+          var radius =
+            parseFloat(getComputedStyle(toLogo).borderTopLeftRadius) || 0;
+          root.classList.add("nsc-handoff");
+          el.classList.add("is-flying");
+          el.setAttribute("aria-hidden", "true");
+          var flight = brand.animate(
+            [
+              { transform: "none" },
+              {
+                transform:
+                  "translate(" + dx + "px, " + dy + "px) scale(" + s + ")",
+              },
+            ],
+            { duration: ms, easing: ease, fill: "forwards" },
+          );
+          if (svg) {
+            svg.animate(
+              [
+                {
+                  borderRadius: getComputedStyle(svg).borderTopLeftRadius,
+                },
+                { borderRadius: radius / s + "px", boxShadow: "none" },
+              ],
+              { duration: ms, easing: ease, fill: "forwards" },
+            );
+          }
+          var c = rect(title);
+          var d = rect(toTitle);
+          if (c && d) {
+            // The header title is left-aligned and may be a little smaller
+            // (it scales with the screen), so pin the left edge.
+            var ts =
+              parseFloat(getComputedStyle(toTitle).fontSize) /
+              parseFloat(getComputedStyle(title).fontSize);
+            title.animate(
+              [
+                { transform: "none" },
+                {
+                  transform:
+                    "translate(" +
+                    (d.left - c.left) +
+                    "px, " +
+                    (d.top + d.height / 2 - (c.top + c.height / 2)) +
+                    "px) scale(" +
+                    ts +
+                    ")",
+                },
+              ],
+              { duration: ms, easing: ease, fill: "forwards" },
+            );
+          } else {
+            title.style.opacity = "0";
+          }
+          // Let the page start falling in once the logo is most of the way
+          // up, so the cards don't fade in underneath it as it passes.
+          setTimeout(function () {
+            root.classList.remove("nsc-booting");
+          }, ms * 0.55);
+          // Swap to the real header logo on the flight's last frame (a timer
+          // alone can fire a frame early); the timer is the backstop.
+          var landed = false;
+          var land = function () {
+            if (landed) return;
+            landed = true;
+            finish(el);
+            toLogo.classList.add("nsc-landed");
+          };
+          flight.onfinish = land;
+          setTimeout(land, ms + 250);
+        };
+
         window.nscSplashDone = function () {
           window.nscSplashDone = function () {};
           clearTimeout(slow);
           var el = document.getElementById("nsc-splash");
-          if (!el) {
-            root.classList.remove("nsc-booting");
-            return;
-          }
+          if (!el) return finish(null);
           // Let the truck finish at least most of one pass on a fast load.
           var truckLeft = reduce ? 0 : Math.max(0, 900 - (Date.now() - start));
           setTimeout(function () {
-            el.classList.add("is-ready");
-            el.setAttribute("aria-busy", "false");
-            setTimeout(
-              function () {
-                el.classList.add("is-leaving");
-                el.setAttribute("aria-hidden", "true");
-                root.classList.remove("nsc-booting");
-                setTimeout(
-                  function () {
-                    el.remove();
-                  },
-                  reduce ? 0 : 450,
-                );
-              },
-              reduce ? 350 : 1100,
-            );
+            dashOff(el, function () {
+              el.classList.add("is-ready");
+              el.setAttribute("aria-busy", "false");
+              later(function () {
+                flyHome(el);
+              }, 1050);
+            });
           }, truckLeft);
         };
       })();

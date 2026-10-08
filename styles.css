@@ -103,8 +103,10 @@ button {
 }
 
 /* Loading screen in index.html: an overlay above the app. The truck drives
-   while the scripts load; .is-ready swaps it for the app logo, .is-leaving
-   fades the whole screen away (see nscSplashDone). */
+   while the scripts load; .is-dashing sends it off the road, .is-ready swaps
+   it for the app logo, and .is-flying clears the backdrop while the logo and
+   title fly into the header (.is-leaving is the plain-fade fallback). See
+   nscSplashDone. */
 .nsc-splash {
   position: fixed;
   inset: 0;
@@ -118,7 +120,12 @@ button {
   padding: 24px;
   transition:
     opacity 0.45s ease,
-    visibility 0s linear 0.45s;
+    visibility 0s linear 0.45s,
+    background-color 0.5s ease;
+}
+.nsc-splash.is-flying {
+  background-color: transparent;
+  pointer-events: none;
 }
 .nsc-splash.is-leaving {
   opacity: 0;
@@ -201,6 +208,43 @@ button {
 .nsc-splash.is-ready .nsc-splash-sub {
   opacity: 0;
 }
+/* The glow and logo shadow belong to the splash, not the header. */
+.nsc-splash.is-flying .nsc-brand-glow {
+  animation: nscGlowOut 0.3s ease-out forwards;
+}
+/* Faster streaks as the truck floors it off the road. */
+.nsc-splash.is-dashing .nsc-speed {
+  animation-duration: 0.22s;
+}
+/* The header's own logo and title stay hidden until the splash copies
+   land on them, so the swap is invisible. */
+.nsc-booting [data-splash-target],
+.nsc-handoff [data-splash-target] {
+  visibility: hidden;
+}
+.nsc-landed {
+  animation: nscLand 0.42s ease-out;
+}
+@keyframes nscLand {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes nscGlowOut {
+  from {
+    opacity: 0.55;
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
 @keyframes nscLogoIn {
   to {
     opacity: 1;
@@ -225,10 +269,17 @@ button {
     transform: scale(1);
   }
 }
-/* While the splash is up, screen entrances wait, so the cards rise in as it
-   lifts rather than hidden underneath it. */
+/* While the splash is up, screen entrances wait, so the cards come in as it
+   lifts rather than hidden underneath it. On that first entrance (.nsc-intro)
+   they fall into place from above, a little slower and more staggered, as
+   if dropping out of the header the logo just flew into. */
 .nsc-booting #root * {
   animation-play-state: paused !important;
+}
+.nsc-intro {
+  --rise-from: -18px;
+  --rise-dur: 0.65s;
+  --rise-step: 0.08s;
 }
 /* Fire truck that drives across the road on a loop, kicking up tyre smoke.
    The lane is as wide as the road, so translating it by 100% plus the
@@ -421,9 +472,12 @@ button {
     transform: none;
   }
 }
+/* Matches the header title, which it turns into. */
 .nsc-splash-title {
   font-size: 17px;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  transform-origin: left center;
 }
 .nsc-splash-sub {
   font-size: 13px;
@@ -549,7 +603,7 @@ button:focus-visible {
    fixed-position sheets opened inside it. */
 @keyframes nscRise {
   from {
-    transform: translateY(14px);
+    transform: translateY(var(--rise-from, 14px));
     opacity: 0;
   }
   to {
@@ -596,19 +650,20 @@ button:focus-visible {
 .nsc-view > :not(.nsc-backdrop),
 .calc-left,
 .calc-right > * {
-  animation: nscRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscRise var(--rise-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1)
+    backwards;
 }
 .nsc-view > :nth-child(2),
 .calc-right > :nth-child(1) {
-  animation-delay: 0.05s;
+  animation-delay: var(--rise-step, 0.05s);
 }
 .nsc-view > :nth-child(3),
 .calc-right > :nth-child(2) {
-  animation-delay: 0.1s;
+  animation-delay: calc(var(--rise-step, 0.05s) * 2);
 }
 .nsc-view > :nth-child(n + 4),
 .calc-right > :nth-child(n + 3) {
-  animation-delay: 0.15s;
+  animation-delay: calc(var(--rise-step, 0.05s) * 3);
 }
 /* The calc screen's own grid wrapper doesn't animate; its columns do. */
 .calc-grid.nsc-view > * {
@@ -616,7 +671,31 @@ button:focus-visible {
 }
 .calc-grid.nsc-view > .calc-left,
 .calc-grid.nsc-view > .calc-right > * {
-  animation: nscRise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscRise var(--rise-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1)
+    backwards;
+}
+
+/* App chrome. The header only fades (no movement), so the splash can
+   measure where its logo will land while the header is still hidden. The
+   tab bar slides up into place; the footer settles in after the cards. */
+.nsc-header {
+  animation: nscFadeIn 0.45s ease-out backwards;
+}
+.nsc-dock {
+  animation: nscDockIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
+}
+.nsc-footer {
+  animation: nscFadeIn 0.5s ease-out 0.3s backwards;
+}
+@keyframes nscDockIn {
+  from {
+    transform: translateY(28px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
 
 /* Wizard steps slide in from the right. */
