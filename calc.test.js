@@ -800,6 +800,22 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.strictEqual(r.sp2, 0);
   assert.strictEqual(r.leaveShifts, 20);
 
+  // On a holiday, leave hours are ordinary hours, never holiday ×2. The
+  // worked shift keeps the holiday rule as before.
+  r = agg({ [HOL]: D({ am7: 1, pm3: 1, holiday: true }) });
+  assert.strictEqual(r.holidayHours, 7); // 3PM is the 2nd shift
+  r = agg({
+    [HOL]: withDuty({ am7: 1, pm3: 1, holiday: true }, { pm3: "sick" }),
+  });
+  assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.nonHolidayHours, 15);
+  holNear(r.holidayPay, 0);
+  r = agg({
+    [PREV]: D({ pm10: 1 }),
+    [HOL]: withDuty({ pm10: 1, holiday: true }, { pm10: "vacation" }),
+  });
+  assert.strictEqual(r.holidayHours, 0);
+
   // Orderly duty is a worked shift: allowances paid as normal.
   r = agg({
     [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { pm3: "orderly", pm10: "orderly" }),

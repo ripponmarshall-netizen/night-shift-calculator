@@ -15,8 +15,8 @@ function effHours(e, key) {
 }
 /* Per-shift duty marks. An entry may carry a sparse map
    duty: { am7?, pm3?, pm10? } naming one of these keys; absent => a regular
-   shift. Leave keeps the shift's hours (total, overtime and holiday hours)
-   but earns no SP1, SP2, meal or taxi. Orderly duty is worked as normal and
+   shift. Leave keeps the shift's hours as ordinary hours (total and
+   overtime, never holiday ×2) but earns no SP1, SP2, meal or taxi. Orderly duty is worked as normal and
    only recorded. */
 const LEAVE_TYPES = {
   vacation: { label: "Vacation leave", short: "Vacation", code: "VL" },
@@ -462,27 +462,29 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     // Allowance credit (SP1/SP2/meal/taxi): a shift counts as a FULL shift only
     // when more than half its standard hours were worked. Half or less earns no
     // allowance, but the actual hours below still count toward totals/overtime.
-    // A shift on leave earns no allowance either; its hours still count.
-    const credit = {};
+    // A shift on leave earns no allowance either. Its hours count as ordinary
+    // hours (total and overtime), never holiday hours, even on a holiday.
+    const credit = {}, onLeave = {};
     for (const k of ["am7", "pm3", "pm10"]) {
       const duty = shiftDuty(e, k);
+      onLeave[k] = isLeave(duty);
       if (duty) duties[duty]++;
-      if (e[k] && isLeave(duty)) { leaveShifts++; leaveHours += effHours(e, k); }
-      credit[k] = !!e[k] && !isLeave(duty) && effHours(e, k) > stdHours(k) / 2;
+      if (e[k] && onLeave[k]) { leaveShifts++; leaveHours += effHours(e, k); }
+      credit[k] = !!e[k] && !onLeave[k] && effHours(e, k) > stdHours(k) / 2;
     }
 
     if (e.am7) {
       if (credit.am7) cal7am++;
       const ha = effHours(e, "am7");
       h += ha;
-      if (isHol && firstSeg !== "am7") hHol += ha;
+      if (isHol && firstSeg !== "am7" && !onLeave.am7) hHol += ha;
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (e.pm3) {
       if (credit.pm3) calPm3++;
       const hp3 = effHours(e, "pm3");
       h += hp3;
-      if (isHol && firstSeg !== "pm3") hHol += hp3;
+      if (isHol && firstSeg !== "pm3" && !onLeave.pm3) hHol += hp3;
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
     if (e.pm10) {
@@ -495,7 +497,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       h += tot;
       // The carryover leg starts at 00:00 next day, so it is always that day's
       // first segment and never earns holiday pay; only the pre-midnight leg can.
-      if (isHol && firstSeg !== "pm10_start") hHol += startSeg;
+      if (isHol && firstSeg !== "pm10_start" && !onLeave.pm10) hHol += startSeg;
       if (credit.pm10) { if (e.dist?.pm10 === "L") longPm10++; else shortPm10++; }
       if (credit.pm10 && credit.pm3) {
         sameDayPair++;

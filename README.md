@@ -14,7 +14,7 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 - **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
 - **Base pay** — Monthly Basic + Compulsory Assignment
 - **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
-- **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, or orderly duty. Leave keeps the shift's hours (total, overtime and holiday hours) but drops its SP1, SP2, meal and taxi. Orderly duty is paid as a normal shift and only recorded
+- **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, or orderly duty. Leave keeps the shift's hours as ordinary hours (total and overtime; never holiday ×2, even on a public holiday) but drops its SP1, SP2, meal and taxi. Orderly duty is paid as a normal shift and only recorded
 - **Estimated net** — JM tax model (NIS, NHT, Education Tax, PAYE bands, optional pension). Meal and taxi allowances are tax-free, so deductions are worked out on the rest of the gross
 
 ---

@@ -335,7 +335,7 @@ function DutySummary({ totals, style }) {
       </div>
       {Number(totals.leaveShifts) > 0 && (
         <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-          Leave hours count toward your total and overtime. No SP1, SP2, meal or taxi on those shifts.
+          Leave hours count as ordinary hours toward your total and overtime, never holiday ×2. No SP1, SP2, meal or taxi on those shifts.
         </div>
       )}
     </div>

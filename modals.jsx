@@ -175,7 +175,7 @@ function DutyRow({ value, onChange, shift }) {
       </Collapse>
       <Collapse open={leave}>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.45, paddingTop: 6 }}>
-          On leave: the hours still count, but no SP1, SP2, meal or taxi for this shift.
+          On leave: the hours count as ordinary hours (never holiday ×2), but no SP1, SP2, meal or taxi for this shift.
         </div>
       </Collapse>
     </div>
