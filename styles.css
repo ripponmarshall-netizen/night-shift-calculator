@@ -493,6 +493,8 @@ button {
 }
 
 input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
 button:focus-visible {
   outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
   outline-offset: 2px;
@@ -956,6 +958,13 @@ button[role="tab"]:active,
 }
 .nsc-row-in {
   animation: nscRise 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+/* Calendars: the days settle in left to right, row by row, when a period
+   opens. Cells set --i to their place in the grid. */
+.nsc-cascade > * {
+  --rise-from: 8px;
+  animation: nscRise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation-delay: calc(var(--i, 0) * 10ms + 60ms);
 }
 .nsc-col:focus-visible {
   outline: 2px solid var(--accent);

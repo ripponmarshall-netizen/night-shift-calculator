@@ -11,7 +11,9 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
   const [newName, setNewName] = useStateT("");
   const [preserve, setPreserve] = useStateT(true);
 
-  const selectedTpl = templates.find((t) => t.id === selected);
+  // Deleting the chosen template falls back to the first one left.
+  const selectedTpl = templates.find((t) => t.id === selected) || templates[0] || null;
+  const [isLeaving, removeTpl] = useFoldAway(onDelete);
 
   const saveCurrent = () => {
     const dows = extractTemplateFromWeek(currentEntries, period);
@@ -47,19 +49,26 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
           <>
             {templates.length === 0 ? (
               <div style={{
-                padding: "24px 16px", textAlign: "center",
+                padding: "28px 16px", textAlign: "center",
                 border: "1px dashed var(--line)", borderRadius: 12,
                 color: "var(--ink-dim)",
               }}>
-                <div style={{ fontSize: 24, marginBottom: 8 }}>📋</div>
-                <div style={{ fontSize: 13, color: "var(--ink)", marginBottom: 4 }}>No templates saved yet</div>
-                <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>Fill in a typical week, then come back here to save it as a reusable template.</div>
+                <svg aria-hidden width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--ink-faint)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 8 }}>
+                  <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>
+                </svg>
+                <div style={{ fontSize: 14, color: "var(--ink)", marginBottom: 6 }}>No templates saved yet</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-faint)", lineHeight: 1.5, maxWidth: 320, margin: "0 auto 14px" }}>
+                  Fill in a typical week on the calendar, then save it here to reuse in any period.
+                </div>
+                <button onClick={() => setMode("save")} style={primaryBtn()}>Save current week</button>
               </div>
             ) : (
               <>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                  {templates.map((t) => (
-                    <TemplateRow key={t.id} t={t} active={t.id === selected} onSelect={() => setSelected(t.id)} onDelete={() => onDelete(t.id)} />
+                <div style={{ display: "flex", flexDirection: "column", marginBottom: 4 }}>
+                  {templates.map((t, i) => (
+                    <AnimatedRow key={t.id} index={i} leaving={isLeaving(t.id)}>
+                      <TemplateRow t={t} active={t.id === selectedTpl?.id} onSelect={() => setSelected(t.id)} onDelete={() => removeTpl(t.id)} />
+                    </AnimatedRow>
                   ))}
                 </div>
 
@@ -92,7 +101,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
               style={{
                 width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
                 borderRadius: 10, padding: "10px 12px", color: "var(--ink)", fontSize: 16,
-                outline: "none", fontFamily: "inherit",
+                fontFamily: "inherit",
               }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>

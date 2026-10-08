@@ -27,7 +27,7 @@ function SectionHead({ title, subtitle, right }) {
 }
 
 function Row({ label, value, muted, faint, top, onClick, formula }) {
-  if (muted) return <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: top ? 14 : 6, marginBottom: 4 }}>{label}</div>;
+  if (muted) return <div className="label" style={{ marginTop: top ? 14 : 6, marginBottom: 4 }}>{label}</div>;
   // A row with math behind it is a real button, so it works by keyboard too.
   const interactive = !!formula;
   const Tag = interactive ? "button" : "div";
@@ -242,6 +242,75 @@ function useChartCursor(count, valid = () => true) {
     onPointerLeave: (e) => { if (e.pointerType === "mouse") setCur(null); },
   };
   return [cur, setCur, props];
+}
+
+/* PAY_PARTS — the three parts every total splits into, in the same order
+   and colours on Home, Shifts and History. */
+const PAY_PARTS = [
+  { key: "allow", label: "Allowance", field: "allowanceSubtotal", color: "var(--sp1)" },
+  { key: "base", label: "Base", field: "baseSubtotal", color: "var(--am)" },
+  { key: "extra", label: "Extra", field: "extraSubtotal", color: "var(--sp2)" },
+];
+
+/* SplitBar — a total as one stacked bar of its parts. Parts are split by a
+   2px surface gap (no strokes), the bar reveals left to right on mount and
+   each part slides to its new share when the numbers change. `focus` dims
+   every part but that one; onFocusPart reports the part under the pointer. */
+function SplitBar({ totals, focus, onFocusPart, height = 8, delay = 0.3 }) {
+  const parts = PAY_PARTS.map((p) => ({ ...p, value: Math.max(0, Number(totals?.[p.field]) || 0) }));
+  const shown = parts.filter((p) => p.value > 0);
+  return (
+    <div className="nsc-reveal-x" aria-hidden onPointerLeave={onFocusPart && (() => onFocusPart(null))} style={{
+      display: "flex", gap: shown.length > 1 ? 2 : 0, height, borderRadius: height / 2, overflow: "hidden",
+      background: shown.length ? "transparent" : "var(--bg-2)", animationDelay: `${delay}s`,
+    }}>
+      {shown.map((p) => (
+        <div key={p.key} title={`${p.label} ${fmt(p.value)}`}
+          onPointerEnter={onFocusPart && ((e) => { if (e.pointerType === "mouse") onFocusPart(p.key); })}
+          onPointerDown={onFocusPart && (() => onFocusPart(p.key))}
+          style={{
+            flex: `${p.value} 1 0`, minWidth: 3, background: p.color,
+            opacity: focus && focus !== p.key ? 0.3 : 1,
+            transition: "flex-grow 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease",
+          }} />
+      ))}
+    </div>
+  );
+}
+
+/* useFoldAway — remove a list row after it folds shut, so the rows below
+   slide up instead of jumping. Returns [isLeaving(id), remove(id)]; a second
+   tap while a row is folding is ignored. */
+function useFoldAway(onRemove, ms = 220) {
+  const [leaving, setLeaving] = useStateC([]);
+  const busy = useRefC(new Set());
+  const remove = (id) => {
+    if (busy.current.has(id)) return;
+    if (prefersReducedMotion()) { onRemove(id); return; }
+    busy.current.add(id);
+    setLeaving((l) => [...l, id]);
+    setTimeout(() => {
+      onRemove(id);
+      busy.current.delete(id);
+      setLeaving((l) => l.filter((x) => x !== id));
+    }, ms);
+  };
+  return [(id) => leaving.includes(id), remove];
+}
+
+/* AnimatedRow — one row of a list: rises in a beat after the row above it and
+   folds away when `leaving`. The gap below it lives inside the fold, so it
+   closes too. */
+function AnimatedRow({ index = 0, leaving, gap = 8, children }) {
+  return (
+    <div className={"nsc-row" + (leaving ? " is-leaving" : "")}>
+      <div>
+        <div className="nsc-row-in" style={{ paddingBottom: gap, animationDelay: `${Math.min(index, 8) * 40 + 80}ms` }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* Collapse — animate height open/closed via grid-template-rows (no measuring).
@@ -497,6 +566,8 @@ function SaveRow({ status, onSave, onCopy }) {
   const state = status?.state || "none";
   const when = status?.at ? new Date(status.at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
   const save = () => {
+    // Re-saving an unchanged result would only move its "saved on" date.
+    if (state === "saved") { showToast("Already saved to History"); return; }
     onSave();
     showToast(state === "none" ? "Saved to History" : "Saved result updated");
   };
@@ -665,7 +736,7 @@ Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
   ModalFrame, ModalHead, PeriodNav, ChoiceCard,
-  AnimatedNumber, ChartTip, useChartCursor, sanitizeDecimal, useModalDismiss,
+  AnimatedNumber, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
   askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,
   copyText, downloadBlob,

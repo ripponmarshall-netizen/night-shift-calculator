@@ -153,33 +153,19 @@ function MonthlyBars({ monthly }) {
   );
 }
 
-/* Stacked bar of the year's pay. Segments are split by a 2px surface gap
-   (no strokes); pointing at a segment or its key spotlights it. */
+/* The year's pay split into its parts (the same bar Home and Shifts show
+   under their totals). Pointing at a part or its key spotlights it. */
 function Composition({ allow, base, extra, total }) {
   const [focus, setFocus] = useStateY(null);
   if (total <= 0) total = 1;
-  const parts = [
-    { key: "allow", label: "Allowance", value: allow, color: "var(--sp1)" },
-    { key: "base", label: "Base", value: base, color: "var(--am)" },
-    { key: "extra", label: "Extra", value: extra, color: "var(--sp2)" },
-  ];
-  const shown = parts.filter((p) => p.value > 0);
+  const sums = { allowanceSubtotal: allow, baseSubtotal: base, extraSubtotal: extra };
   const dim = (k) => (focus && focus !== k ? 0.3 : 1);
   return (
     <div onPointerLeave={() => setFocus(null)}>
-      <div className="nsc-reveal-x" style={{
-        display: "flex", gap: 2, height: 12, borderRadius: 6, overflow: "hidden",
-        background: shown.length ? "transparent" : "var(--bg-2)", animationDelay: "0.45s",
-      }}>
-        {shown.map((p) => (
-          <div key={p.key} onPointerEnter={() => setFocus(p.key)} onPointerDown={() => setFocus(p.key)}
-            title={`${p.label} ${fmt(p.value)}`}
-            style={{ flex: `${p.value} 1 0`, minWidth: 3, background: p.color, opacity: dim(p.key), transition: "opacity 0.15s ease" }} />
-        ))}
-      </div>
+      <SplitBar totals={sums} focus={focus} onFocusPart={setFocus} height={12} delay={0.45} />
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, gap: 8, flexWrap: "wrap" }}>
-        {parts.map((p) => (
-          <CompKey key={p.key} color={p.color} label={p.label} value={p.value} pct={(p.value / total) * 100}
+        {PAY_PARTS.map((p) => (
+          <CompKey key={p.key} color={p.color} label={p.label} value={sums[p.field]} pct={(sums[p.field] / total) * 100}
             opacity={dim(p.key)} onEnter={() => setFocus(p.key)} />
         ))}
       </div>

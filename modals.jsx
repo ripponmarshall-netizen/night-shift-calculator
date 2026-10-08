@@ -274,7 +274,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
         inputMode="decimal" value={raw} placeholder={String(std)}
         onChange={(e) => onChange(keyName, e.target.value)}
         aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`}
-        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit", textAlign: "right" }}
+        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit", textAlign: "right" }}
       />
       <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
     </div>
@@ -476,6 +476,11 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
     setRatesHistory([...others, entry]);
     setDate("");
   };
+  // Past periods are worked out with these rates, so a delete can be undone.
+  const [isLeaving, remove] = useFoldAway((e) => {
+    setRatesHistory((prev) => prev.filter((x) => x !== e));
+    showToast("Past rates deleted", { action: { label: "Undo", onClick: () => setRatesHistory((prev) => (prev.includes(e) ? prev : [...prev, e])) } });
+  });
   return (
     <div>
       <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
@@ -490,22 +495,24 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
           No history yet — current rates apply to all periods.
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {list.map((e) => (
-            <div key={`${e.effectiveFrom}-${ratesHistory.indexOf(e)}`} style={{
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-              padding: "10px 12px",
-              background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 10,
-            }}>
-              <div>
-                <div className="mono" style={{ fontSize: 11.5, color: "var(--ink)" }}>Effective from {effDate(e.effectiveFrom).toLocaleDateString()}</div>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", marginTop: 2 }}>
-                  SP1 {fmt(e.rates.sp1)} · SP2 {fmt(e.rates.sp2)} · Meal {fmt(e.rates.meal)}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {list.map((e, i) => (
+            <AnimatedRow key={`${e.effectiveFrom}-${ratesHistory.indexOf(e)}`} index={i} leaving={isLeaving(e)}>
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+                padding: "10px 6px 10px 14px",
+                background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 12,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: "var(--ink)" }}>From {effDate(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>
+                    SP1 {fmt(e.rates.sp1)} · SP2 {fmt(e.rates.sp2)} · Meal {fmt(e.rates.meal)}
+                  </div>
                 </div>
+                {/* Delete by identity: `list` is sorted, so its index doesn't match ratesHistory's. */}
+                <button onClick={() => remove(e)} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", flexShrink: 0 }} aria-label="Delete these rates" title="Delete">✕</button>
               </div>
-              {/* Delete by identity: `list` is sorted, so its index doesn't match ratesHistory's. */}
-              <button onClick={() => setRatesHistory(ratesHistory.filter((x) => x !== e))} style={iconBtn()} aria-label="Delete">✕</button>
-            </div>
+            </AnimatedRow>
           ))}
         </div>
       )}
@@ -581,7 +588,7 @@ function RateInput({ label, value, onChange, error, unit }) {
             width: "100%", background: "var(--bg-2)",
             border: `1px solid ${error ? "color-mix(in oklab, var(--warn) 55%, var(--line))" : "var(--line)"}`,
             borderRadius: 10, padding: `9px ${unit && !pre ? 30 : 12}px 9px ${pre ? 24 : 12}px`,
-            color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit",
+            color: "var(--ink)", fontSize: 16, fontFamily: "inherit",
           }}
         />
       </div>

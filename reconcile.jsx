@@ -19,7 +19,8 @@ const RECON_LINES = [
 function reconTotals(recon, estimate) {
   const r = recon || {};
   const lineSum = RECON_LINES.reduce((a, l) => a + (Number(r[l.k]) || 0), 0);
-  const hasGrand = r.grand != null && r.grand !== "";
+  // A lone "." while typing isn't a number yet.
+  const hasGrand = r.grand != null && r.grand !== "" && Number.isFinite(Number(r.grand));
   const total = hasGrand ? Number(r.grand) || 0 : lineSum;
   return { total, hasGrand, hasTotal: hasGrand || lineSum !== 0, variance: total - (Number(estimate) || 0) };
 }
@@ -54,7 +55,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
           <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
         </ModalHead>
 
-        <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
+        <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
           Enter what you were <span style={{ color: "var(--ink)" }}>actually paid</span> per line. Empty rows are skipped. Variance is shown vs the estimated amount.
         </div>
 
@@ -62,7 +63,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
 
         {lines.map((l) => {
           const a = Number(actual[l.k]);
-          const hasActual = actual[l.k] !== "";
+          const hasActual = actual[l.k] !== "" && Number.isFinite(a);
           const variance = hasActual ? a - l.expected : 0;
           const varianceColor = !hasActual ? "var(--ink-faint)"
             : Math.abs(variance) < 0.01 ? "var(--ok)"
@@ -87,7 +88,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                   style={{
                     width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
                     borderRadius: 8, padding: "8px 8px 8px 18px", color: "var(--ink)",
-                    fontSize: 16, outline: "none", fontFamily: "inherit",
+                    fontSize: 16, fontFamily: "inherit",
                   }}
                 />
               </div>
@@ -117,7 +118,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
                 style={{
                   width: "100%", background: "var(--bg-1)", border: "1px solid var(--line)",
                   borderRadius: 8, padding: "8px 8px 8px 18px", color: "var(--ink)",
-                  fontSize: 16, outline: "none", fontFamily: "inherit",
+                  fontSize: 16, fontFamily: "inherit",
                 }}
               />
             </div>
@@ -142,7 +143,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
             style={{
               width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
               borderRadius: 10, padding: "10px 12px", color: "var(--ink)",
-              fontSize: 16, outline: "none", fontFamily: "inherit",
+              fontSize: 16, fontFamily: "inherit",
               resize: "vertical", minHeight: 60,
             }}
           />
