@@ -26,7 +26,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       {list.length > 0 && <YTDDashboard snapshots={list} />}
       <Card>
-        <SectionHead title="Saved periods" subtitle={`${list.length} saved`} right={
+        <SectionHead title="Saved periods" subtitle={list.length ? `${list.length} saved` : null} right={
           list.length > 0 && <button onClick={onClear} style={ghostBtn()}>Clear all</button>
         } />
 
@@ -188,7 +188,8 @@ function EmptyState({ onBack }) {
 }
 
 function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   const t = snap.totals || {};
   const copy = () => {
     const net = netApplies(t, snap.tax) ? estimateNet(t, snap.tax).net : null;
@@ -204,34 +205,13 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
     }
   };
   const recon = snap.reconcile;
-  // Same rule as the pay slip check: the typed total when there is one,
-  // otherwise the sum of the lines that were filled in.
-  const RECON_LINES = ["sp1", "sp2", "meal", "taxi", "monthlyBasic", "compulsory", "holidayPay", "overtimePay"];
-  const reconLineSum = recon ? RECON_LINES.reduce((a, k) => a + (Number(recon[k]) || 0), 0) : 0;
-  const reconHasGrand = !!recon && recon.grand != null && recon.grand !== "";
-  const reconTotal = reconHasGrand ? Number(recon.grand) || 0 : reconLineSum;
-  const reconHasTotal = reconHasGrand || reconLineSum !== 0;
-  const reconVar = reconTotal - (Number(t.grand) || 0);
+  // Same rule as the pay slip check itself.
+  const { total: reconTotal, hasGrand: reconHasGrand, hasTotal: reconHasTotal, variance: reconVar } = reconTotals(recon, t.grand);
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center", padding: "0 12px 12px",
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-sheet" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 540,
-        background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 18,
-        marginBottom: `calc(96px + var(--safe-bottom))`,
-        outline: "none",
-      }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-          <div>
-            <div className="label">Saved result</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>{snap.period}</div>
-            <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString()}</div>
-          </div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+    <ModalFrame dismiss={dismiss} sheet zIndex={80} maxWidth={540} label={`Saved result, ${snap.period}`}>
+        <ModalHead eyebrow="Saved result" title={snap.period} onClose={close}>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString()}</div>
+        </ModalHead>
 
         <Row label="Allowance" muted />
         <Row label="SP1" value={fmt(t.sp1)} />
@@ -301,8 +281,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
             )}
           </div>
         )}
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 

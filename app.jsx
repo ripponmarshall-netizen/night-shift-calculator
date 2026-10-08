@@ -38,19 +38,17 @@ function App() {
   const [highlightDays, setHighlightDays] = useState(null);
   const [clipboard, setClipboard] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [heroVisible, setHeroVisible] = useState(false);
+  // Whether the Shifts screen's own total is on screen: null until it has
+  // been measured, so the floating total doesn't flash in on arrival.
+  const [heroVisible, setHeroVisible] = useState(null);
 
   const period = useMemo(() => periodFor(fromYmd(periodAnchor)), [periodAnchor]);
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
   const ratesEffectiveLabel = useMemo(() => {
-    if (!ratesHistory || ratesHistory.length === 0) return "Current rates";
-    const sorted = [...ratesHistory].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
-    for (const e of sorted) {
-      if (effDate(e.effectiveFrom) <= period.start) {
-        return "Rates effective " + effDate(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" });
-      }
-    }
-    return "Current rates";
+    const e = rateEntryAt(period, ratesHistory);
+    return e
+      ? "Rates effective " + effDate(e.effectiveFrom).toLocaleDateString("en-US", { month: "short", year: "numeric" })
+      : "Current rates";
   }, [ratesHistory, period]);
 
   // The app is on screen: hand the loading screen over to the logo, which
@@ -96,13 +94,16 @@ function App() {
   };
 
   const saveSnapshot = () => {
+    // The per-day hour maps only drive the calendar; History never reads
+    // them, so they'd just bloat every saved period in storage.
+    const { dayHours, dayHolidayHours, ...kept } = totals;
     const snap = {
       at: new Date().toISOString(),
       period: periodLabel(period),
       periodKey: periodKey(period),
       mode,
       basicDistance,
-      totals: stripFunctions(totals),
+      totals: { ...kept, rates: { ...totals.rates } },
       counts,
       basePay,
       tax: { ...tax },
@@ -160,15 +161,7 @@ function App() {
   const saveTemplate = (tpl) => setTemplates((prev) => [...prev, tpl]);
   const deleteTemplate = (id) => setTemplates((prev) => prev.filter((t) => t.id !== id));
   const applyTemplateToPeriod = (tpl, opts) => {
-    const fill = applyTemplate(tpl, period, { preserve: opts?.preserve, existing: entries });
-    setEntries((prev) => {
-      const next = { ...prev };
-      for (const [k, v] of Object.entries(fill)) {
-        if (opts?.preserve && prev[k] && (prev[k].am7 || prev[k].pm3 || prev[k].pm10)) continue;
-        next[k] = v;
-      }
-      return next;
-    });
+    setEntries((prev) => fillDays(prev, applyTemplate(tpl, period), !!opts?.preserve));
   };
 
   /* reconciliation */
@@ -194,7 +187,7 @@ function App() {
   /* clipboard (long-press to copy day shifts) */
   const copyDay = (key) => {
     const e = entries[key];
-    if (!e || (!e.am7 && !e.pm3 && !e.pm10)) return false;
+    if (!hasShifts(e)) return false;
     setClipboard({ srcKey: key, entry: { ...e, dist: { ...e.dist }, ...(e.hours ? { hours: { ...e.hours } } : {}), ...(e.duty ? { duty: { ...e.duty } } : {}) } });
     return true;
   };
@@ -215,11 +208,16 @@ function App() {
     });
     if (!ok) return;
     // Monthly pay is kept: it applies to every period, not just this one.
-    const before = { entries, counts };
+    // Undo puts back only this period's days, so edits made elsewhere while
+    // the toast is up survive.
+    const before = {};
+    for (const d of periodDays(period)) if (entries[ymd(d)]) before[ymd(d)] = entries[ymd(d)];
+    const beforeCounts = counts;
     setEntries((prev) => clearPeriodEntries(prev, period));
     setCounts({ pm3: "", pm10: "", am7: "" });
     showToast("Period reset", { action: { label: "Undo", onClick: () => {
-      setEntries(before.entries); setCounts(before.counts);
+      setEntries((cur) => ({ ...clearPeriodEntries(cur, period), ...before }));
+      setCounts(beforeCounts);
     } } });
   };
 
@@ -289,7 +287,8 @@ function App() {
      leaving Home pushes one history entry, moving between other screens
      replaces it, and returning Home pops it (so Back from Home exits). */
   const go = (v) => {
-    if (v === view) return;
+    // Tapping the screen you're on takes you back to its top.
+    if (v === view) { window.scrollTo?.({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" }); return; }
     const h = window.history;
     const onStack = h?.state && h.state[NAV_KEY] && h.state[NAV_KEY] !== "home";
     if (v === "home") {
@@ -309,11 +308,13 @@ function App() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
+  // Each screen opens at its top, not at the scroll position the last
+  // screen was left at.
+  useEffect(() => { window.scrollTo?.(0, 0); }, [view]);
 
   const openCalc = (m) => {
     if (m === "basic" || m === "advanced") setMode(m);
     go("calc");
-    window.scrollTo?.(0, 0);
   };
 
   const applyAutofill = (opts) => {
@@ -329,14 +330,7 @@ function App() {
       // new off days would linger as extras and still be paid.
       setEntries((prev) => mergePeriodFill(prev, period, fill, !opts.preserve));
     } else {
-      setEntries((prev) => {
-        const next = { ...prev };
-        for (const [k, v] of Object.entries(fill)) {
-          if (opts.preserve && prev[k] && (prev[k].am7 || prev[k].pm3 || prev[k].pm10)) continue;
-          next[k] = v;
-        }
-        return next;
-      });
+      setEntries((prev) => fillDays(prev, fill, opts.preserve));
     }
     setAutofillOpen(false);
   };
@@ -456,8 +450,8 @@ function App() {
         activeTab={view}
         onTab={go}
         total={totals.grand}
-        totalShort={Number(totals.monthlyBasic) > 0 ? "Est. gross" : Number(totals.compulsory) > 0 ? "Est. pay" : "Allowances"}
-        showTotal={view === "calc" && !heroVisible}
+        totalShort={totalLabel(totals, true)}
+        showTotal={view === "calc" && heroVisible === false}
         hasInputs={totals.totalHours > 0}
         snapshotCount={snapshots.length}
         totalChipRef={totalChipRef}
@@ -472,7 +466,11 @@ function App() {
           defaultDist={mode === "advanced" ? defaultDist : basicDistance}
           onClose={() => setOpenDay(null)}
           onChange={(updater) => setEntry(openDay, updater)}
-          onClear={() => { setEntries((p) => { const n = { ...p }; delete n[openDay]; return n; }); setOpenDay(null); }}
+          onClear={() => {
+            const key = openDay, prev = entries[key];
+            setEntries((p) => { const n = { ...p }; delete n[key]; return n; });
+            if (hasShifts(prev)) showToast("Day cleared", { action: { label: "Undo", onClick: () => setEntries((p) => ({ ...p, [key]: prev })) } });
+          }}
         />
       )}
 
@@ -511,7 +509,6 @@ function App() {
         />
       )}
 
-      <GlobalStyle />
       <ToastHost />
       <ConfirmHost />
     </div>
@@ -664,8 +661,8 @@ function BasePayFold({ basePay, setBasePay }) {
   return (
     <FoldRow title="Your monthly pay" detail={detail} warn={!(monthly > 0)} open={open} onToggle={() => setOpen((o) => !o)}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <MoneyInput label="Monthly basic" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
-        <MoneyInput label="Compulsory assignment" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
+        <RateInput label="Monthly basic" unit="$" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
+        <RateInput label="Compulsory assignment" unit="$" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
       </div>
     </FoldRow>
   );
@@ -727,26 +724,6 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
         }}
       />
     </div>
-  );
-}
-
-function MoneyInput({ label, value, onChange }) {
-  return (
-    <label style={{ display: "block" }}>
-      <div className="label" style={{ marginBottom: 6 }}>{label}</div>
-      <div style={{ position: "relative" }}>
-        <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--ink-faint)", fontSize: 14 }}>$</span>
-        <input
-          inputMode="decimal" value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="0.00"
-          style={{
-            width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10,
-            padding: "10px 12px 10px 24px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit"
-          }}
-        />
-      </div>
-    </label>
   );
 }
 
@@ -946,38 +923,6 @@ function HistoryIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7v5l3.5 2"/>
   </svg>;
-}
-
-/* ============ Global style (desktop layout, flash) ============ */
-function GlobalStyle() {
-  return (
-    <style>{`
-      .calc-grid { display: block; }
-      @media (min-width: 1024px) {
-        .calc-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-          gap: 16px;
-          align-items: start;
-        }
-        /* Header (12 + 44 + 12 + 1px border) plus the 16px gap above the columns. */
-        .calc-left { position: sticky; top: calc(var(--safe-top) + 85px); }
-      }
-      .total-chip.flash { animation: chipFlash 0.5s ease-out; }
-      @keyframes chipFlash {
-        0% { transform: scale(1); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.7); }
-        45% { transform: scale(1.06); box-shadow: 0 0 0 8px color-mix(in oklab, var(--accent) 25%, transparent), 0 12px 32px -16px rgba(0,0,0,0.7); }
-        100% { transform: scale(1); box-shadow: 0 12px 32px -16px rgba(0,0,0,0.7); }
-      }
-    `}</style>
-  );
-}
-
-/* ============ helpers ============ */
-function stripFunctions(obj) {
-  // Just spread the totals plain
-  const { rates, ...rest } = obj;
-  return { ...rest, rates: { ...rates } };
 }
 
 /* mount */

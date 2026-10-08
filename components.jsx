@@ -28,17 +28,20 @@ function SectionHead({ title, subtitle, right }) {
 
 function Row({ label, value, muted, faint, top, onClick, formula }) {
   if (muted) return <div className="mono" style={{ fontSize: 10.5, color: "var(--ink-faint)", textTransform: "uppercase", letterSpacing: "0.1em", marginTop: top ? 14 : 6, marginBottom: 4 }}>{label}</div>;
+  // A row with math behind it is a real button, so it works by keyboard too.
   const interactive = !!formula;
+  const Tag = interactive ? "button" : "div";
   return (
-    <div
+    <Tag
+      type={interactive ? "button" : undefined}
       onClick={interactive ? onClick : undefined}
       title={interactive ? "Tap to see calculation" : undefined}
       style={{
-        display: "flex", justifyContent: "space-between", alignItems: "baseline",
-        padding: "6px 0",
-        borderBottom: "1px dashed var(--line-soft)",
+        display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8,
+        width: "100%", padding: "6px 0", margin: 0,
+        background: "transparent", border: "none", borderBottom: "1px dashed var(--line-soft)",
+        color: "inherit", font: "inherit", textAlign: "left",
         cursor: interactive ? "pointer" : "default",
-        position: "relative",
       }}
     >
       <span style={{ fontSize: 13.5, color: faint ? "var(--ink-faint)" : "var(--ink-dim)", display: "flex", alignItems: "center", gap: 6 }}>
@@ -46,7 +49,7 @@ function Row({ label, value, muted, faint, top, onClick, formula }) {
         {interactive && <span style={{ fontSize: 10, color: "var(--ink-faint)", opacity: 0.7 }}>ƒ</span>}
       </span>
       <span className="mono" style={{ fontSize: 13.5, color: faint ? "var(--ink-faint)" : "var(--ink)" }}>{value}</span>
-    </div>
+    </Tag>
   );
 }
 
@@ -144,6 +147,14 @@ function ghostBtn() {
     color: "var(--ink)", fontSize: 13, cursor: "pointer", fontWeight: 500, fontFamily: "inherit",
   };
 }
+/* Underlined text button (inline links, Change / Hide toggles). */
+function linkBtn(fontSize = "inherit") {
+  return {
+    background: "transparent", border: "none", padding: 0, color: "var(--ink-dim)",
+    fontSize, cursor: "pointer", fontFamily: "inherit",
+    textDecoration: "underline", textUnderlineOffset: 3,
+  };
+}
 function accentBtn() {
   return {
     padding: "10px 14px", borderRadius: 10, border: "none",
@@ -239,8 +250,8 @@ function ToastHost() {
     setToast(null);
   };
   return (
-    <div aria-live="polite" style={{
-      position: "fixed", left: 0, right: 0, bottom: "calc(120px + var(--safe-bottom))",
+    <div aria-live="polite" className="nsc-toast-wrap" style={{
+      position: "fixed", left: 0, right: 0,
       display: "flex", justifyContent: "center", zIndex: 90, pointerEvents: "none", padding: "0 16px",
     }}>
       <div key={toast.id} className="nsc-toast" style={{
@@ -288,15 +299,7 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
   const { ref: dialogRef, closing, close } = useModalDismiss(() => onDone(resultRef.current));
   const answer = (ok) => { resultRef.current = ok; close(); };
   return (
-    <div onClick={() => answer(false)} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 95, background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-label={title}
-        className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
-          width: "100%", maxWidth: 380, background: "var(--bg-1)", border: "1px solid var(--line)",
-          borderRadius: 16, padding: 18, outline: "none",
-        }}>
+    <ModalFrame dismiss={{ ref: dialogRef, closing, close: () => answer(false) }} zIndex={95} maxWidth={380} role="alertdialog" label={title}>
         <div style={{ fontSize: 17, fontWeight: 600 }}>{title}</div>
         {body && <div style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.5, marginTop: 6 }}>{body}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 18, justifyContent: "flex-end" }}>
@@ -305,8 +308,72 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
             ? { ...primaryBtn(), background: "var(--holiday)", color: "#fff" }
             : primaryBtn()}>{confirmLabel || "OK"}</button>
         </div>
+    </ModalFrame>
+  );
+}
+
+/* ModalFrame — the dimmed backdrop and the dialog card every modal shares.
+   Pass the useModalDismiss() result as `dismiss`. sheet: a bottom sheet above
+   the tab bar; otherwise a centred dialog. Both scroll inside when tall. */
+function ModalFrame({ dismiss, sheet, zIndex = 70, maxWidth = 520, role = "dialog", label, style, children }) {
+  const { ref, closing, close } = dismiss;
+  const c = closing ? " is-closing" : "";
+  return (
+    <div onClick={close} className={"nsc-backdrop" + (sheet ? " is-bottom" : "") + c} style={{ zIndex }}>
+      <div ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()} role={role} aria-modal="true" aria-label={label}
+        className={"nsc-modal " + (sheet ? "nsc-sheet" : "nsc-center") + c} style={{ maxWidth, ...style }}>
+        {children}
       </div>
     </div>
+  );
+}
+
+/* ModalHead — small label, title, optional lines under it, and a close
+   button, as every modal opens. */
+function ModalHead({ eyebrow, title, onClose, children }) {
+  return (
+    <div style={{ display: "flex", alignItems: eyebrow || children ? "flex-start" : "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
+      <div style={{ minWidth: 0 }}>
+        {eyebrow && <div className="label">{eyebrow}</div>}
+        <div style={{ fontSize: eyebrow ? 17 : 18, fontWeight: 600, marginTop: eyebrow ? 2 : 0 }}>{title}</div>
+        {children}
+      </div>
+      <button onClick={onClose} style={{ ...iconBtn(), flexShrink: 0 }} aria-label="Close">✕</button>
+    </div>
+  );
+}
+
+/* PeriodNav — the pay period with previous / next buttons (Home and Shifts). */
+function PeriodNav({ period, onShift, style }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, ...style }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="label">Pay period</div>
+        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
+      </div>
+      <button onClick={() => onShift(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
+      <button onClick={() => onShift(1)} style={iconBtn()} aria-label="Next period">›</button>
+    </div>
+  );
+}
+
+/* ChoiceCard — one of a few big tappable options (setup wizard, Auto-fill).
+   color: an optional shift colour swatch beside the title. */
+function ChoiceCard({ active, onClick, title, detail, color }) {
+  return (
+    <button onClick={onClick} aria-pressed={active} style={{
+      padding: "12px 14px", borderRadius: 12, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+      background: active ? "color-mix(in oklab, var(--accent) 12%, var(--bg-2))" : "var(--bg-2)",
+      border: `1.5px solid ${active ? "var(--accent)" : "var(--line)"}`,
+      color: "var(--ink)", display: "flex", flexDirection: "column", gap: 4,
+      transition: "background 0.15s, border-color 0.15s, transform 0.12s",
+    }}>
+      <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600 }}>
+        {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />}
+        {title}
+      </span>
+      <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{detail}</span>
+    </button>
   );
 }
 
@@ -361,11 +428,12 @@ function DutySummary({ totals, style }) {
 }
 
 /* totalLabel — what the big number actually is. Without a monthly basic
-   there's no base pay or overtime, so calling it "gross pay" would mislead. */
-function totalLabel(t) {
-  if (Number(t?.monthlyBasic) > 0) return "Estimated gross pay";
-  if (Number(t?.compulsory) > 0) return "Estimated pay (basic not set)";
-  return "Estimated allowances";
+   there's no base pay or overtime, so calling it "gross pay" would mislead.
+   short: the floating total's few-word version. */
+function totalLabel(t, short) {
+  if (Number(t?.monthlyBasic) > 0) return short ? "Est. gross" : "Estimated gross pay";
+  if (Number(t?.compulsory) > 0) return short ? "Est. pay" : "Estimated pay (basic not set)";
+  return short ? "Allowances" : "Estimated allowances";
 }
 
 /* netApplies — whether an "after tax" figure means anything. Deductions
@@ -406,11 +474,7 @@ function SaveRow({ status, onSave, onCopy }) {
    credit and contact read the same everywhere. The rates line shows when
    Settings can be opened from it; About is left out on the About screen. */
 function AppFooter({ ratesEffective, onOpenSettings, onAbout }) {
-  const link = {
-    background: "transparent", border: "none", padding: 0, color: "var(--ink-dim)",
-    fontSize: "inherit", cursor: "pointer", fontFamily: "inherit",
-    textDecoration: "underline", textUnderlineOffset: 3,
-  };
+  const link = linkBtn();
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
   return (
     <footer className="nsc-footer" style={{ maxWidth: 560, margin: "0 auto", padding: "6px 20px 0", textAlign: "center", fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.7 }}>
@@ -551,7 +615,8 @@ function useModalDismiss(onClose) {
 
 Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
-  iconBtn, primaryBtn, ghostBtn, accentBtn,
+  iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
+  ModalFrame, ModalHead, PeriodNav, ChoiceCard,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
   askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,

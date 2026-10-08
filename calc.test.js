@@ -33,6 +33,12 @@ const {
   DUTY_KEYS,
   DUTY_TYPES,
   toICS,
+  hasShifts,
+  fillDays,
+  rateEntryAt,
+  applyTemplate,
+  extractTemplateFromWeek,
+  fmtH0,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -974,6 +980,58 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
       toICS({ [PLAIN]: withDuty({ pm3: 1 }, { pm3: "exchangeLeave" }) }),
     ),
   );
+}
+
+// Shared helpers: hasShifts, fillDays, rateEntryAt, templates, ICS timezone.
+{
+  assert.ok(!hasShifts(null));
+  assert.ok(!hasShifts({ holiday: true }));
+  assert.ok(hasShifts({ pm10: true }));
+  assert.strictEqual(fmtH0(183.333), "183.33");
+  assert.strictEqual(fmtH0(7.5), "7.5");
+
+  // fillDays: keep leaves logged days alone; never touches other days.
+  const logged = { a: { pm3: true }, b: { holiday: true }, z: { am7: true } };
+  const fill = { a: { am7: true }, b: { pm10: true } };
+  const kept = fillDays(logged, fill, true);
+  assert.deepStrictEqual(kept.a, { pm3: true });
+  assert.deepStrictEqual(kept.b, { pm10: true }); // holiday-only day is empty
+  assert.deepStrictEqual(kept.z, { am7: true });
+  assert.deepStrictEqual(fillDays(logged, fill, false).a, { am7: true });
+  assert.deepStrictEqual(logged.a, { pm3: true }); // input not mutated
+
+  // rateEntryAt agrees with ratesAt, and is null before the first entry.
+  const hist = [
+    { effectiveFrom: "2026-04-01", rates: { sp1: 1 } },
+    { effectiveFrom: "2026-06-01", rates: { sp1: 2 } },
+  ];
+  const may = periodFor(fromYmd("2026-05-20"));
+  assert.strictEqual(rateEntryAt(may, hist).rates.sp1, 1);
+  assert.strictEqual(rateEntryAt(periodFor(fromYmd("2026-02-20")), hist), null);
+  assert.strictEqual(rateEntryAt(may, []), null);
+
+  // Templates: a day holding only a holiday override isn't the weekday's
+  // pattern; the next one with shifts is.
+  const tp = periodFor(fromYmd("2026-05-20")); // May 16 (Sat) – Jun 15
+  const tdays = extractTemplateFromWeek(
+    {
+      "2026-05-18": { holiday: true }, // Monday, no shifts
+      "2026-05-25": { am7: true, dist: { am7: "L" } }, // next Monday
+    },
+    tp,
+  );
+  assert.ok(tdays[1].am7);
+  assert.strictEqual(Object.keys(tdays).length, 1);
+  const applied = applyTemplate({ days: tdays }, tp);
+  assert.ok(applied["2026-05-18"].am7 && applied["2026-06-15"].am7);
+  assert.strictEqual(applied["2026-05-18"].dist.am7, "L");
+  assert.strictEqual(Object.keys(applied).length, 5); // 5 Mondays
+
+  // ICS declares the timezone its events use.
+  const ics = toICS({ [PLAIN]: { pm10: true } });
+  assert.ok(/BEGIN:VTIMEZONE\r\nTZID:America\/Jamaica/.test(ics));
+  assert.ok(/TZOFFSETTO:-0500/.test(ics));
+  assert.ok(/DTEND;TZID=America\/Jamaica:20260521T070000/.test(ics));
 }
 
 console.log("calc tests passed");

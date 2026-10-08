@@ -566,8 +566,37 @@ button:focus-visible {
   }
 }
 
+/* Modals: a dimmed backdrop (no blur: re-blurring the whole screen on
+   every frame of the fade made sheets stutter on mid-range phones) and one
+   card style. Centred dialogs scroll inside when tall. */
 .nsc-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   animation: nscFadeIn 0.18s ease-out;
+}
+.nsc-backdrop.is-bottom {
+  align-items: flex-end;
+  padding: 0 12px 12px;
+}
+.nsc-modal {
+  width: 100%;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  outline: none;
+  box-shadow: var(--shadow);
+}
+.nsc-center {
+  max-height: 88vh;
+  max-height: 88dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .nsc-backdrop.is-closing {
   animation: nscFadeOut 0.18s ease-in forwards;
@@ -582,6 +611,7 @@ button:focus-visible {
    height to what's left of the screen and scroll inside, or the top of a
    tall sheet (all three shifts, per-shift taxi) goes off-screen on phones. */
 .nsc-sheet {
+  margin-bottom: calc(96px + var(--safe-bottom));
   max-height: calc(100vh - 120px - var(--safe-top) - var(--safe-bottom));
   max-height: calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom));
   overflow-y: auto;
@@ -595,6 +625,13 @@ button:focus-visible {
 }
 .nsc-toast {
   animation: nscToastIn 0.4s cubic-bezier(0.32, 1.3, 0.5, 1);
+}
+/* Toasts sit above the tab bar, and above the floating total when it's up. */
+.nsc-toast-wrap {
+  bottom: calc(120px + var(--safe-bottom));
+}
+:root:has(.total-chip) .nsc-toast-wrap {
+  bottom: calc(168px + var(--safe-bottom));
 }
 
 /* ----- premium motion -----
@@ -763,6 +800,14 @@ button:focus-visible {
 .nsc-hero {
   position: relative;
   overflow: hidden;
+  padding: 18px 16px;
+  border-radius: 14px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent) 16%, transparent),
+    color-mix(in oklab, var(--accent) 6%, transparent)
+  );
+  border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent);
 }
 .nsc-sheen {
   position: absolute;
@@ -797,6 +842,38 @@ button[role="tab"]:active,
   .nsc-day:hover,
   .nsc-pick:hover {
     filter: brightness(1.08);
+  }
+}
+
+/* Shifts screen: two columns on desktop, the calendar pinned while the
+   summary scrolls. Header (12 + 44 + 12 + 1px border) plus the 16px gap. */
+@media (min-width: 1024px) {
+  .calc-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+  }
+  .calc-left {
+    position: sticky;
+    top: calc(var(--safe-top) + 85px);
+  }
+}
+
+/* The floating total pulses when the period is saved. */
+.total-chip.flash {
+  animation: chipFlash 0.5s ease-out;
+}
+@keyframes chipFlash {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.06);
+    box-shadow:
+      0 0 0 8px color-mix(in oklab, var(--accent) 25%, transparent),
+      0 12px 32px -16px rgba(0, 0, 0, 0.7);
   }
 }
 

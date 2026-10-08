@@ -47,6 +47,17 @@ const isLeave = (v) => !!v && Object.prototype.hasOwnProperty.call(LEAVE_TYPES, 
 const isGivenAway = (v) => !!v && DUTY_TYPES[v]?.pay === "none";
 /* A shift that is ticked and actually worked (not given away). */
 const worksShift = (e, key) => !!(e && e[key]) && !isGivenAway(shiftDuty(e, key));
+/* Any shift ticked on a day (a day can carry only a holiday override). */
+const hasShifts = (e) => !!e && !!(e.am7 || e.pm3 || e.pm10);
+
+/* The three shifts in time order, with the label and colour every screen
+   uses for them. */
+const SHIFTS = [
+  { k: "am7", label: "7AM", color: "var(--am)" },
+  { k: "pm3", label: "3PM", color: "var(--sp1)" },
+  { k: "pm10", label: "10PM", color: "var(--sp2)" },
+];
+const SHIFT_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM" };
 
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
@@ -58,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.8";
+const APP_VERSION = "3.9";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -188,6 +199,8 @@ const fmtShort = (n) => {
   return v < 0 && s !== "$0" ? "−" + s : s;
 };
 const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* Hours without trailing zeros: 183, 7.5, 183.33. */
+const fmtH0 = (n) => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("en-JM", { maximumFractionDigits: 2 });
 
 /* ----- shareable plain-text summary -----
    One source of truth for the "Copy summary" text (used by the live view and
@@ -413,17 +426,25 @@ function totalsEntries(period, t, dist) {
   return out;
 }
 
+/* Write generated days into the saved map. keep=true leaves days that
+   already have shifts alone; otherwise each generated day replaces its date.
+   Days the fill doesn't cover are never touched. */
+function fillDays(entries, fill, keep) {
+  const out = { ...entries };
+  for (const [k, v] of Object.entries(fill)) {
+    if (keep && hasShifts(out[k])) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
 /* Merge generated entries into the saved map for one period. replace=true
    clears the period's days first (other periods are never touched);
    replace=false only fills days that have no shifts yet. */
 function mergePeriodFill(entries, period, fill, replace) {
-  const base = replace ? clearPeriodEntries(entries, period) : { ...entries };
-  for (const [k, v] of Object.entries(fill)) {
-    const cur = base[k];
-    if (!replace && cur && (cur.am7 || cur.pm3 || cur.pm10)) continue;
-    base[k] = v;
-  }
-  return base;
+  return replace
+    ? { ...clearPeriodEntries(entries, period), ...fill }
+    : fillDays(entries, fill, true);
 }
 
 /* ----- aggregate (calculation engine) ----- */
@@ -673,30 +694,28 @@ function estimateNet(totals, tx) {
 }
 
 /* ----- Rate history lookup ----- */
-function ratesAt(period, ratesHistory, currentRates) {
-  if (!ratesHistory || ratesHistory.length === 0) return currentRates;
-  const target = period.start;
-  // Newest date first; on a date tie the entry saved last wins (an older
-  // backup can still hold two entries for one date).
+/* The Past rates entry in force for a period, or null when none covers it
+   (the current rates apply). Newest date first; on a date tie the entry
+   saved last wins (an older backup can still hold two entries for one date). */
+function rateEntryAt(period, ratesHistory) {
+  if (!ratesHistory || ratesHistory.length === 0) return null;
   const sorted = ratesHistory
     .map((entry, i) => ({ entry, i }))
     .sort((a, b) => effDate(b.entry.effectiveFrom) - effDate(a.entry.effectiveFrom) || b.i - a.i);
-  for (const { entry } of sorted) {
-    if (effDate(entry.effectiveFrom) <= target) return entry.rates;
-  }
-  return currentRates;
+  const hit = sorted.find(({ entry }) => effDate(entry.effectiveFrom) <= period.start);
+  return hit ? hit.entry : null;
+}
+function ratesAt(period, ratesHistory, currentRates) {
+  return rateEntryAt(period, ratesHistory)?.rates || currentRates;
 }
 
 /* ----- Templates ----- */
 // Template shape: { id, name, days: { 0..6: { am7, pm3, pm10, dist: {am7,pm3,pm10} } } }
-function applyTemplate(template, period, opts) {
+function applyTemplate(template, period) {
   const out = {};
-  const days = periodDays(period);
-  for (const d of days) {
-    if (opts?.preserve && opts.existing && opts.existing[ymd(d)] && (opts.existing[ymd(d)].am7 || opts.existing[ymd(d)].pm3 || opts.existing[ymd(d)].pm10)) continue;
-    const dow = d.getDay();
-    const t = template.days[dow];
-    if (!t || (!t.am7 && !t.pm3 && !t.pm10)) continue;
+  for (const d of periodDays(period)) {
+    const t = template.days[d.getDay()];
+    if (!hasShifts(t)) continue;
     const e = blankDay();
     e.am7 = !!t.am7;
     e.pm3 = !!t.pm3;
@@ -707,27 +726,38 @@ function applyTemplate(template, period, opts) {
   return out;
 }
 
+/* Day-of-week pattern from the period: the first day of each weekday that
+   has shifts (a day holding only a holiday override doesn't count). */
 function extractTemplateFromWeek(entries, period) {
-  // Take week starting Monday from period; build day-of-week pattern from first 7 days with data
-  const days = periodDays(period);
   const tdays = {};
-  for (const d of days) {
+  for (const d of periodDays(period)) {
     const dow = d.getDay();
     const e = entries[ymd(d)];
-    if (!e) continue;
-    if (tdays[dow]) continue; // first occurrence wins
+    if (!hasShifts(e) || tdays[dow]) continue;
     tdays[dow] = { am7: !!e.am7, pm3: !!e.pm3, pm10: !!e.pm10, dist: { ...(e.dist || {}) } };
   }
   return tdays;
 }
 
 /* ----- iCal export ----- */
-function toICS(entries, periodKeyOrAll) {
+function toICS(entries) {
+  // A TZID must be defined in the file itself (RFC 5545), or Apple Calendar
+  // and Outlook may read the times as floating or UTC. Jamaica keeps UTC−5
+  // all year, with no daylight saving.
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//Night Shift Calculator//EN",
     "CALSCALE:GREGORIAN",
+    "BEGIN:VTIMEZONE",
+    "TZID:America/Jamaica",
+    "BEGIN:STANDARD",
+    "DTSTART:19700101T000000",
+    "TZOFFSETFROM:-0500",
+    "TZOFFSETTO:-0500",
+    "TZNAME:EST",
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
   const stamp = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
   const fmtDt = (d, h, m) => {
@@ -780,16 +810,17 @@ function toICS(entries, periodKeyOrAll) {
 
 const _exports = {
   SHIFT_HOURS, PM10_TOTAL, stdHours, effHours,
-  LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
+  LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
+  SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
-  fmt, fmtShort, fmtH, summaryText,
+  fmt, fmtShort, fmtH, fmtH0, summaryText,
   blankDay, clearPeriodEntries, autofillPattern, aggregate,
-  rotationEntries, totalsError, totalsEntries, mergePeriodFill,
+  rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
-  calcTax, estimateNet, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
+  calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   loadState, saveState,
 };
 

@@ -3,7 +3,8 @@ const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
 function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, onClear }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
@@ -42,35 +43,21 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
     return { ...e, hours: Object.keys(hours).length ? hours : undefined };
   });
 
+  const title = date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  // Nothing to clear on a day with no shifts and no holiday override.
+  const canClear = hasShifts(entry) || entry.holiday != null;
+
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-end", justifyContent: "center",
-      padding: "0 12px 12px",
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-sheet" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 540,
-        background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 16,
-        marginBottom: `calc(96px + var(--safe-bottom))`,
-        outline: "none",
-      }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-          <div>
-            <div className="label">Edit day</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>
-              {date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+    <ModalFrame dismiss={dismiss} sheet zIndex={60} maxWidth={540} label={`Edit ${title}`} style={{ padding: 16 }}>
+        <ModalHead eyebrow="Edit day" title={title} onClose={close}>
+          {autoHolName && <div style={{ fontSize: 12.5, color: "var(--holiday)", marginTop: 2 }}>● {autoHolName}</div>}
+          {slot && (
+            <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 4 }}>
+              Rotation: <span style={{ color: "var(--ink)", fontWeight: 600 }}>{slot === "off" ? "Off day" : `${SHIFT_LABEL[slot]} day`}</span>
+              {slot === "off" ? " · any shift here is extra" : ""}
             </div>
-            {autoHolName && <div style={{ fontSize: 12.5, color: "var(--holiday)", marginTop: 2 }}>● {autoHolName}</div>}
-            {slot && (
-              <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 4 }}>
-                Rotation: <span style={{ color: "var(--ink)", fontWeight: 600 }}>{slot === "off" ? "Off day" : `${ROTATION_LABEL[slot]} day`}</span>
-                {slot === "off" ? " · any shift here is extra" : ""}
-              </div>
-            )}
-          </div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+          )}
+        </ModalHead>
 
         {DAY_SHIFTS.map((sh) => (
           <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} slot={slot}
@@ -89,7 +76,7 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
               <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{entry.holiday == null ? " · automatic" : " · set by you"}</span>
             </div>
             {!showHol && (
-              <button onClick={() => setShowHol(true)} style={linkBtn}>Change</button>
+              <button onClick={() => setShowHol(true)} style={linkBtn(13)}>Change</button>
             )}
           </div>
           {showHol && (
@@ -105,21 +92,20 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-          <button onClick={onClear} style={ghostBtn()}>Clear day</button>
+          {canClear && <button onClick={() => { onClear(); close(); }} style={ghostBtn()}>Clear day</button>}
           <div style={{ flex: 1 }} />
           <button onClick={close} style={primaryBtn()}>Done</button>
         </div>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
-const ROTATION_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM" };
-const DAY_SHIFTS = [
-  { k: "am7", label: "7AM shift", hours: "8h", color: "var(--am)" },
-  { k: "pm3", label: "3PM shift", hours: "7h", color: "var(--sp1)" },
-  { k: "pm10", label: "10PM shift", hours: "9h · crosses midnight", color: "var(--sp2)", hint: "total" },
-];
+const DAY_SHIFTS = SHIFTS.map((s) => ({
+  ...s,
+  label: `${s.label} shift`,
+  hours: s.k === "pm10" ? `${stdHours(s.k)}h · crosses midnight` : `${stdHours(s.k)}h`,
+  hint: s.k === "pm10" ? "total" : undefined,
+}));
 
 /* One shift in the day editor: the tick box, then (while it's on) its
    hours, taxi distance and duty, sliding open under it. */
@@ -144,7 +130,7 @@ function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }
               <DistRow value={entry.dist?.[sh.k] || "S"} onChange={onDist} />
             </Collapse>
           )}
-          <DutyRow value={duty} onChange={onDuty} shift={ROTATION_LABEL[sh.k]} />
+          <DutyRow value={duty} onChange={onDuty} shift={SHIFT_LABEL[sh.k]} />
         </div>
       </Collapse>
     </div>
@@ -182,7 +168,7 @@ function DutyRow({ value, onChange, shift }) {
           <span style={{ color: "var(--ink-dim)" }}>Duty: </span>
           <span style={{ fontWeight: 600 }}>{value ? DUTY_TYPES[value].label : "Regular shift"}</span>
         </span>
-        <button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={linkBtn}>{open ? "Hide" : "Change"}</button>
+        <button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={linkBtn(13)}>{open ? "Hide" : "Change"}</button>
       </div>
       <Collapse open={open}>
         <div role="radiogroup" aria-label={`Duty for the ${shift} shift`} style={{ paddingTop: 4 }}>
@@ -217,10 +203,6 @@ function DutyRow({ value, onChange, shift }) {
     </div>
   );
 }
-const linkBtn = {
-  background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer",
-  fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0,
-};
 
 /* extra: this shift isn't on the rotation for the day, so ticking it marks
    an extra shift (shown in the extra colour). */
@@ -291,7 +273,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
       <input
         inputMode="decimal" value={raw} placeholder={String(std)}
         onChange={(e) => onChange(keyName, e.target.value)}
-        aria-label={`Hours worked for ${ROTATION_LABEL[keyName]} shift`}
+        aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`}
         style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 16, outline: "none", fontFamily: "inherit", textAlign: "right" }}
       />
       <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
@@ -302,14 +284,10 @@ function HoursRow({ keyName, entry, onChange, hint }) {
 /* ============ Settings ============ */
 function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, ratesEffective, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
   const [tab, setTab] = useStateM("rates");
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{ width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 18, padding: 18, outline: "none" }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>Settings</div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+    <ModalFrame dismiss={dismiss} label="Settings">
+        <ModalHead title="Settings" onClose={dismiss.close} />
         <div style={{ marginBottom: 16 }}>
           <SegToggle fit options={[
             { v: "rates", l: "Rates" },
@@ -327,12 +305,9 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
           <DataTab onExport={onExport} onImport={onImport} onExportICS={onExportICS} onReset={onReset} />
         </div>
         <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 16, paddingTop: 12, textAlign: "center" }}>
-          <button onClick={onAbout} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3 }}>
-            About & disclaimers
-          </button>
+          <button onClick={onAbout} style={linkBtn(13)}>About & disclaimers</button>
         </div>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
@@ -617,7 +592,8 @@ function RateInput({ label, value, onChange, error, unit }) {
 
 /* ============ Autofill ============ */
 function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, onApply, onClose }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   const days = periodDays(period);
   const [startKey, setStartKey] = useStateM(ymd(period.start));
   // Rotation: any day the person works a 7AM, picked on the same calendar as
@@ -632,7 +608,6 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
   const preview = isRotation
     ? rotationEntries(period, am7Key, dist)
     : autofillPattern(period, { startKey, pattern, days: span, defaultDist: dist });
-  const hasShifts = (e) => !!e && (e.am7 || e.pm3 || e.pm10);
   const fillCount = Object.keys(preview).filter(
     (k) => !(preserve && hasShifts(existing?.[k]))
   ).length;
@@ -641,27 +616,17 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
   const replacesAll = isRotation && !preserve && loggedDays > 0;
 
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto",
-        background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 18, outline: "none",
-      }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 18, fontWeight: 600 }}>Auto-fill shifts</div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+    <ModalFrame dismiss={dismiss} label="Auto-fill shifts">
+        <ModalHead title="Auto-fill shifts" onClose={close} />
 
         <FieldLabel>Pattern</FieldLabel>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
-          <PatternCard active={isRotation} onClick={() => setPattern("rotation")}
-            title="Standard rotation" desc="4-day cycle with an off day" />
-          <PatternCard active={pattern === "am7"} onClick={() => setPattern("am7")} title="7AM only" desc="8h shifts" color="var(--am)" />
-          <PatternCard active={pattern === "pm3"} onClick={() => setPattern("pm3")} title="3PM only" desc="7h shifts" color="var(--sp1)" />
-          <PatternCard active={pattern === "pm10"} onClick={() => setPattern("pm10")} title="10PM only" desc="9h, crosses midnight" color="var(--sp2)" />
+          <ChoiceCard active={isRotation} onClick={() => setPattern("rotation")}
+            title="Standard rotation" detail="4-day cycle with an off day" />
+          {DAY_SHIFTS.map((sh) => (
+            <ChoiceCard key={sh.k} active={pattern === sh.k} onClick={() => setPattern(sh.k)}
+              title={`${SHIFT_LABEL[sh.k]} only`} detail={sh.hours} color={sh.color} />
+          ))}
         </div>
 
         {isRotation ? (
@@ -715,27 +680,7 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
             Apply
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function PatternCard({ active, onClick, title, desc, color }) {
-  return (
-    <button onClick={onClick} aria-pressed={active} style={{
-      padding: "12px 12px",
-      borderRadius: 10,
-      background: active ? "var(--bg-2)" : "transparent",
-      border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
-      color: "var(--ink)", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
-      display: "flex", flexDirection: "column", gap: 4,
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />}
-        <span style={{ fontSize: 13.5, fontWeight: 600 }}>{title}</span>
-      </div>
-      <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>{desc}</span>
-    </button>
+    </ModalFrame>
   );
 }
 
