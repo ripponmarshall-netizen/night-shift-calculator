@@ -23,7 +23,7 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   const deltaPct = g(prev) ? (delta / g(prev)) * 100 : 0;
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
+    <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       {list.length > 0 && <YTDDashboard snapshots={list} />}
       <Card>
         <SectionHead title="Saved periods" subtitle={`${list.length} saved`} right={
@@ -35,11 +35,11 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
               <div>
-                <div className="label" style={{  }}>Latest</div>
+                <div className="label">Latest</div>
                 <div className="mono" style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{fmt(g(latest))}</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div className="label" style={{  }}>vs previous</div>
+                <div className="label">vs previous</div>
                 <div className="mono" style={{
                   fontSize: 14, fontWeight: 600, marginTop: 2,
                   color: delta >= 0 ? "var(--ok)" : "var(--holiday)",
@@ -242,13 +242,15 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
         <Row label="Overtime pay (×1.5)" value={fmt(t.overtimePay)} />
         <Sub label="Extra Hours subtotal" value={fmt(t.extraSubtotal)} />
 
+        <DutySummary totals={t} style={{ marginTop: 14 }} />
+
         <div style={{
           marginTop: 14, padding: "16px",
           borderRadius: 12,
           background: "var(--ink)", color: "var(--bg)",
-          display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12,
+          display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "4px 12px", flexWrap: "wrap",
         }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>{totalLabel(t)}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{totalLabel(t)}</span>
           <span className="mono" style={{ fontSize: 26, fontWeight: 700 }}>{fmt(t.grand)}</span>
         </div>
 

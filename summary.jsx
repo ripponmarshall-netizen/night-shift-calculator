@@ -27,12 +27,14 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   return (
     <Card>
       {/* Hero total */}
-      <div ref={heroRef} style={{
+      <div ref={heroRef} className="nsc-hero" style={{
         marginBottom: 14, padding: "18px 16px",
         borderRadius: 14,
         background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
         border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
       }}>
+        {/* A light sweeps across whenever the total changes. */}
+        <span key={Math.round(est * 100)} className="nsc-sheen" aria-hidden />
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
@@ -88,6 +90,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
               : `Short (${totals.cal.shortPm3 + totals.cal.shortPm10}) × ${fmt(totals.rates.taxiShort)}\n+ Long (${totals.cal.longPm3 + totals.cal.longPm10}) × ${fmt(totals.rates.taxiLong)}${totals.taxiDeduct > 0 ? `\n− pair deduction ${fmt(totals.taxiDeduct)}` : ""}`,
             totals.taxi)} />
           {totals.taxiDeduct > 0 && <Row label={`Same-day pair deduction (×${totals.cal.sameDayPair})`} value={"− " + fmt(totals.taxiDeduct)} faint />}
+          {totals.leaveShifts > 0 && <Row label={`Shifts on leave (×${totals.leaveShifts})`} value="no allowance" faint />}
         </div>
       </Collapse>
 
@@ -111,6 +114,8 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
           <Row label="Overtime pay (×1.5)" value={fmt(totals.overtimePay)} formula onClick={() => showMath("Overtime pay", `${fmtH(totals.otHours)} hours × ${fmt(totals.hourlyRate)}/h × 1.5`, totals.overtimePay)} />
         </div>
       </Collapse>
+
+      <DutySummary totals={totals} style={{ marginTop: 8 }} />
 
       <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "8px 2px 0" }}>Tap a row to see the lines. Tap ƒ to see the math.</div>
 

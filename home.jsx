@@ -42,7 +42,7 @@ function HomeView(props) {
   const canQuickFill = !wizard && shiftDays === 0 && !!rotationAnchor;
 
   return (
-    <main style={{ maxWidth: 560, margin: "0 auto", padding: "16px 20px 0" }}>
+    <main className="nsc-view" style={{ maxWidth: 560, margin: "0 auto", padding: "16px 20px 0" }}>
       {canQuickFill && (
         <Card style={{ padding: 18, border: "1px solid color-mix(in oklab, var(--accent) 40%, var(--line-soft))" }}>
           <div style={{ fontSize: 16, fontWeight: 600 }}>New pay period</div>
@@ -115,11 +115,12 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
       <Card style={{ padding: 20 }}>
         <HomePeriod period={period} onShiftPeriod={onShiftPeriod} />
 
-        <div style={{
+        <div className="nsc-hero" style={{
           padding: "18px 16px", borderRadius: 14,
           background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
           border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
         }}>
+          <span key={Math.round(totals.grand * 100)} className="nsc-sheen" aria-hidden />
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
             <AnimatedNumber value={totals.grand} format={fmt} />
@@ -144,9 +145,11 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
         </div>
 
         <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
-          {shiftDays > 0 ? `${counts.join(" · ")} · ${fmtH0(totals.totalHours)}h` : "No shifts logged yet"}
+          {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtH0(totals.totalHours)}h` : "No shifts logged yet"}
           {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra</span></>}
           {totals.holidayHours > 0 && ` · ${fmtH0(totals.holidayHours)}h holiday`}
+          {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
+          {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
         </div>
 
         {totals.hasMismatch && (
@@ -249,10 +252,13 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: 4, margin: "10px 0 18px" }} aria-hidden>
         {steps.map((_, i) => (
-          <span key={i} style={{ height: 4, borderRadius: 2, background: i <= step ? "var(--accent)" : "var(--line)", transition: "background 0.2s" }} />
+          <span key={i} style={{ height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
+            <span style={{ display: "block", height: "100%", background: "var(--accent)", transformOrigin: "left", transform: `scaleX(${i <= step ? 1 : 0})`, transition: "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)" }} />
+          </span>
         ))}
       </div>
 
+      <div key={step} className="nsc-step">
       {step === 0 && (
         <>
           <WizardTitle title="What's your monthly pay?" sub="From your pay slip. Used for base pay and the hourly rate for overtime. Leave blank to see allowances only." />
@@ -303,6 +309,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
           </button>
         </>
       )}
+      </div>
 
       {last && (
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
@@ -422,10 +429,12 @@ function RotationPicker({ period, value, onChange }) {
               key={key}
               onClick={() => onChange(key)}
               aria-pressed={anchor}
+              className="nsc-pick"
               aria-label={`${key === todayKey ? "Today, " : ""}${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${sh ? sh.label : "off"}${hol ? `, ${hol}` : ""}${anchor ? ", chosen 7AM" : ""}`}
               style={{
                 position: "relative", padding: "5px 0 4px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
                 textAlign: "center", minWidth: 0,
+                transition: "background 0.25s, border-color 0.25s, transform 0.12s",
                 background: sh ? `color-mix(in oklab, ${sh.color} 20%, transparent)` : "var(--bg-2)",
                 border: anchor ? "2px solid var(--accent)" : `1px solid ${sh ? `color-mix(in oklab, ${sh.color} 50%, transparent)` : "var(--line-soft)"}`,
                 color: "var(--ink)",

@@ -59,27 +59,60 @@ function Sub({ label, value }) {
   );
 }
 
-/* wrap: lay options out as a wrapping row, so a long set (Settings tabs)
-   never hides options off-screen on a narrow phone. */
-function SegToggle({ options, value, onChange, small, full, wrap }) {
+/* wrap: lay options out as a wrapping row, so a long set never hides
+   options off-screen on a narrow phone. fit: one row whose options size to
+   their labels, wrapping into even rows when they don't fit (Settings tabs).
+   The active pill slides between options. */
+function SegToggle({ options, value, onChange, small, full, wrap, fit }) {
+  const rootRef = useRefC(null);
+  const [pill, setPill] = useStateC(null);
+  const activeIndex = options.findIndex((o) => o.v === value);
+  React.useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const measure = () => {
+      const el = root.querySelectorAll("[data-seg]")[activeIndex];
+      setPill(el ? { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight } : null);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(root);
+    return () => ro.disconnect();
+  }, [activeIndex, options.length]);
   return (
-    <div role="radiogroup" style={{
+    <div ref={rootRef} role="radiogroup" style={{
       ...(wrap
         ? { display: "inline-flex", flexWrap: "wrap", maxWidth: "100%" }
-        : { display: full ? "grid" : "inline-grid", gridAutoFlow: "column", gridAutoColumns: full ? "1fr" : undefined }),
+        : fit
+          ? { display: "flex", flexWrap: "wrap" }
+          : { display: full ? "grid" : "inline-grid", gridAutoFlow: "column", gridAutoColumns: full ? "1fr" : undefined }),
+      position: "relative", isolation: "isolate",
       background: "var(--bg-2)", border: "1px solid var(--line)",
       borderRadius: 10, padding: 3, gap: 2,
     }}>
+      {pill && (
+        <span aria-hidden className="nsc-seg-pill" style={{
+          position: "absolute", left: 0, top: 0, zIndex: -1,
+          width: pill.w, height: pill.h, borderRadius: 8, background: "var(--ink)",
+          transform: `translate(${pill.x}px, ${pill.y}px)`,
+        }} />
+      )}
       {options.map((o) => {
         const active = o.v === value;
         return (
-          <button key={o.v} role="radio" aria-checked={active} onClick={() => onChange(o.v)} style={{
-            padding: small ? "5px 10px" : "8px 14px",
+          <button key={String(o.v)} data-seg role="radio" aria-checked={active} onClick={() => onChange(o.v)} style={{
+            padding: small ? (fit ? "6px 8px" : "5px 10px") : "8px 14px",
+            // fit: options share each row; on a narrow phone they wrap into
+            // even rows instead of running off the edge.
+            flex: fit ? "1 1 auto" : undefined,
             borderRadius: 8, border: "none",
-            background: active ? "var(--ink)" : "transparent",
+            // Until the pill is measured, paint the active option directly.
+            background: active && !pill ? "var(--ink)" : "transparent",
             color: active ? "var(--bg)" : "var(--ink-dim)",
             fontSize: small ? 12 : 13, fontWeight: active ? 600 : 500,
             cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
+            transition: "color 0.2s ease",
           }}>{o.l}</button>
         );
       })}
@@ -152,15 +185,24 @@ function AnimatedNumber({ value, format, durationMs = 350 }) {
   return <span className="mono">{format(display)}</span>;
 }
 
-/* Collapse — animate height open/closed via grid-template-rows (no measuring) */
+/* Collapse — animate height open/closed via grid-template-rows (no measuring).
+   Closed content is inert, so Tab and screen readers skip what can't be seen;
+   once fully open, overflow is released so focus rings aren't clipped. */
 function Collapse({ open, children }) {
+  const [settled, setSettled] = useStateC(open);
+  useEffectC(() => {
+    if (!open) { setSettled(false); return; }
+    if (prefersReducedMotion()) { setSettled(true); return; }
+    const t = setTimeout(() => setSettled(true), 260);
+    return () => clearTimeout(t);
+  }, [open]);
   return (
-    <div style={{
+    <div className={"nsc-collapse" + (open ? " is-open" : "")} style={{
       display: "grid",
       gridTemplateRows: open ? "1fr" : "0fr",
-      transition: "grid-template-rows 0.22s ease",
+      transition: "grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1)",
     }}>
-      <div style={{ overflow: "hidden", minHeight: 0 }}>{children}</div>
+      <div inert={open ? undefined : ""} aria-hidden={open ? undefined : "true"} style={{ overflow: open && settled ? "visible" : "hidden", minHeight: 0 }}>{children}</div>
     </div>
   );
 }
@@ -264,6 +306,38 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
             : primaryBtn()}>{confirmLabel || "OK"}</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* DutySummary — leave and orderly shifts for a period's totals, as one row
+   of chips. Nothing when there are none (or for a legacy snapshot). */
+function DutySummary({ totals, style }) {
+  const d = totals?.duties || {};
+  const kinds = DUTY_KEYS.filter((k) => Number(d[k]) > 0);
+  if (!kinds.length) return null;
+  const leaveH = Number(totals.leaveHours) || 0;
+  return (
+    <div style={{ padding: "10px 12px", borderRadius: 12, background: "var(--bg-2)", border: "1px solid var(--line-soft)", ...style }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+        <span className="label">Leave & duties</span>
+        {leaveH > 0 && <span style={{ fontSize: 12, color: "var(--ink-faint)" }}><span className="mono">{fmtH(leaveH)}</span>h on leave</span>}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+        {kinds.map((k) => (
+          <span key={k} style={{
+            fontSize: 12, padding: "3px 9px", borderRadius: 999, color: "var(--ink)",
+            border: `1px ${isLeave(k) ? "dashed" : "solid"} var(--line)`, background: "var(--bg-1)",
+          }}>
+            {DUTY_TYPES[k].label} <span className="mono" style={{ fontWeight: 700 }}>× {d[k]}</span>
+          </span>
+        ))}
+      </div>
+      {Number(totals.leaveShifts) > 0 && (
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
+          Leave hours count as ordinary hours toward your total and overtime, never holiday ×2. No SP1, SP2, meal or taxi on those shifts.
+        </div>
+      )}
     </div>
   );
 }
@@ -462,6 +536,6 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn,
   AnimatedNumber, sanitizeDecimal, useModalDismiss,
   prefersReducedMotion, Collapse, showToast, ToastHost,
-  askConfirm, ConfirmHost, totalLabel, netApplies, SaveRow, AppFooter,
+  askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,
   copyText, downloadBlob,
 });

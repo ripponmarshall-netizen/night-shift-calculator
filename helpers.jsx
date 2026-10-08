@@ -13,6 +13,31 @@ function effHours(e, key) {
   const v = e && e.hours && e.hours[key];
   return (v == null || v === "" || !(Number(v) >= 0)) ? stdHours(key) : Number(v);
 }
+/* Per-shift duty marks. An entry may carry a sparse map
+   duty: { am7?, pm3?, pm10? } naming one of these keys; absent => a regular
+   shift. Leave keeps the shift's hours as ordinary hours (total and
+   overtime, never holiday ×2) but earns no SP1, SP2, meal or taxi. Orderly duty is worked as normal and
+   only recorded. */
+const LEAVE_TYPES = {
+  vacation: { label: "Vacation leave", short: "Vacation", code: "VL" },
+  departmental: { label: "Departmental leave", short: "Departmental", code: "DL" },
+  sick: { label: "Sick leave", short: "Sick", code: "SL" },
+  timeoff: { label: "Time off", short: "Time off", code: "TO" },
+};
+const DUTY_TYPES = {
+  orderly: { label: "Orderly duty", short: "Orderly", code: "ORD" },
+  ...LEAVE_TYPES,
+};
+const DUTY_KEYS = Object.keys(DUTY_TYPES);
+const LEAVE_KEYS = Object.keys(LEAVE_TYPES);
+/* The duty mark on one shift, or null for a regular shift (also for a shift
+   that isn't on, or an unknown value from an imported file). */
+function shiftDuty(e, key) {
+  const v = e && e[key] && e.duty && e.duty[key];
+  return v && Object.prototype.hasOwnProperty.call(DUTY_TYPES, v) ? v : null;
+}
+const isLeave = (v) => !!v && Object.prototype.hasOwnProperty.call(LEAVE_TYPES, v);
+
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
   sp2: 200,         // 8 hrs × $25/hr per 10PM shift
@@ -23,7 +48,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.5";
+const APP_VERSION = "3.6";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -201,9 +226,22 @@ function summaryText(totals, periodStr, net) {
       [`Overtime ×1.5 · ${fmtH(totals.otHours)}h`, fmt(totals.overtimePay)],
     ], fmt(totals.extraSubtotal)),
     "",
-    rule("═"),
-    row("GROSS TOTAL", fmt(totals.grand), 2),
   ];
+  // Leave and orderly duty: a record of the shifts, no money of their own.
+  const dutyItems = DUTY_KEYS
+    .filter((k) => Number(totals.duties?.[k]) > 0)
+    .map((k) => {
+      const n = Number(totals.duties[k]);
+      return [DUTY_TYPES[k].label, `${n} shift${n === 1 ? "" : "s"}`];
+    });
+  if (dutyItems.length) {
+    lines.push("LEAVE & DUTIES", ...dutyItems.map(([label, value]) => row(label, value, 2)));
+    if (Number(totals.leaveShifts) > 0) {
+      lines.push("  " + rule("─").slice(2), row(`Leave hours (no allowances)`, `${fmtH(totals.leaveHours)}h`, 2));
+    }
+    lines.push("");
+  }
+  lines.push(rule("═"), row("GROSS TOTAL", fmt(totals.grand), 2));
   if (net != null && Number.isFinite(net) && Math.round(net) !== Math.round(totals.grand)) {
     lines.push(row("Estimated Net", fmt(net), 2));
   }
@@ -381,6 +419,10 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   let shortPm3 = 0, longPm3 = 0, shortPm10 = 0, longPm10 = 0, shortAm7 = 0, longAm7 = 0;
   let totalHours = 0, holidayHours = 0;
   let sameDayPairLegSum = 0; // sum of actual leg rates for same-day 3PM+10PM pairs (advanced mode)
+  // Shifts per duty mark (leave types + orderly), and the hours on leave.
+  const duties = {};
+  for (const k of DUTY_KEYS) duties[k] = 0;
+  let leaveShifts = 0, leaveHours = 0;
 
   // Normalize rates so corrupted storage or imported data can never produce
   // negative pay or a divide-by-zero. threshold must stay > 0 (it divides).
@@ -420,24 +462,29 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     // Allowance credit (SP1/SP2/meal/taxi): a shift counts as a FULL shift only
     // when more than half its standard hours were worked. Half or less earns no
     // allowance, but the actual hours below still count toward totals/overtime.
-    const credit = {
-      am7:  e.am7  && effHours(e, "am7")  > stdHours("am7")  / 2,
-      pm3:  e.pm3  && effHours(e, "pm3")  > stdHours("pm3")  / 2,
-      pm10: e.pm10 && effHours(e, "pm10") > stdHours("pm10") / 2,
-    };
+    // A shift on leave earns no allowance either. Its hours count as ordinary
+    // hours (total and overtime), never holiday hours, even on a holiday.
+    const credit = {}, onLeave = {};
+    for (const k of ["am7", "pm3", "pm10"]) {
+      const duty = shiftDuty(e, k);
+      onLeave[k] = isLeave(duty);
+      if (duty) duties[duty]++;
+      if (e[k] && onLeave[k]) { leaveShifts++; leaveHours += effHours(e, k); }
+      credit[k] = !!e[k] && !onLeave[k] && effHours(e, k) > stdHours(k) / 2;
+    }
 
     if (e.am7) {
       if (credit.am7) cal7am++;
       const ha = effHours(e, "am7");
       h += ha;
-      if (isHol && firstSeg !== "am7") hHol += ha;
+      if (isHol && firstSeg !== "am7" && !onLeave.am7) hHol += ha;
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (e.pm3) {
       if (credit.pm3) calPm3++;
       const hp3 = effHours(e, "pm3");
       h += hp3;
-      if (isHol && firstSeg !== "pm3") hHol += hp3;
+      if (isHol && firstSeg !== "pm3" && !onLeave.pm3) hHol += hp3;
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
     if (e.pm10) {
@@ -450,7 +497,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       h += tot;
       // The carryover leg starts at 00:00 next day, so it is always that day's
       // first segment and never earns holiday pay; only the pre-midnight leg can.
-      if (isHol && firstSeg !== "pm10_start") hHol += startSeg;
+      if (isHol && firstSeg !== "pm10_start" && !onLeave.pm10) hHol += startSeg;
       if (credit.pm10) { if (e.dist?.pm10 === "L") longPm10++; else shortPm10++; }
       if (credit.pm10 && credit.pm3) {
         sameDayPair++;
@@ -523,6 +570,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     monthlyBasic, compulsory, baseSubtotal,
     totalHours, holidayHours, nonHolidayHours, otHours, hourlyRate,
     holidayPay, overtimePay, extraSubtotal,
+    duties, leaveShifts, leaveHours,
     grand,
     mismatch, hasMismatch,
     rates, mode, basicDistance,
@@ -674,6 +722,7 @@ function toICS(entries, periodKeyOrAll) {
     return `${y}${mo}${da}T${hh}${mm}00`;
   };
   const tz = "America/Jamaica";
+  const dutyNote = (e, k) => { const d = shiftDuty(e, k); return d ? ` (${DUTY_TYPES[d].label})` : ""; };
   for (const [key, e] of Object.entries(entries)) {
     if (!e) continue;
     const d = fromYmd(key);
@@ -684,7 +733,7 @@ function toICS(entries, periodKeyOrAll) {
         `DTSTAMP:${stamp}`,
         `DTSTART;TZID=${tz}:${fmtDt(d, 7)}`,
         `DTEND;TZID=${tz}:${fmtDt(d, 15)}`,
-        "SUMMARY:7AM shift",
+        `SUMMARY:7AM shift${dutyNote(e, "am7")}`,
         "END:VEVENT");
     }
     if (e.pm3) {
@@ -693,7 +742,7 @@ function toICS(entries, periodKeyOrAll) {
         `DTSTAMP:${stamp}`,
         `DTSTART;TZID=${tz}:${fmtDt(d, 15)}`,
         `DTEND;TZID=${tz}:${fmtDt(d, 22)}`,
-        "SUMMARY:3PM shift",
+        `SUMMARY:3PM shift${dutyNote(e, "pm3")}`,
         "END:VEVENT");
     }
     if (e.pm10) {
@@ -702,7 +751,7 @@ function toICS(entries, periodKeyOrAll) {
         `DTSTAMP:${stamp}`,
         `DTSTART;TZID=${tz}:${fmtDt(d, 22)}`,
         `DTEND;TZID=${tz}:${fmtDt(next, 7)}`,
-        "SUMMARY:10PM shift",
+        `SUMMARY:10PM shift${dutyNote(e, "pm10")}`,
         "END:VEVENT");
     }
   }
@@ -711,7 +760,8 @@ function toICS(entries, periodKeyOrAll) {
 }
 
 const _exports = {
-  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
+  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours,
+  LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,

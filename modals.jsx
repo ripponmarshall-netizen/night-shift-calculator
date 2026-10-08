@@ -14,13 +14,24 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
     // Turning on: use the distance in effect, in every mode, so a later switch
     // to "Varies" keeps a Long commuter's shifts Long.
     if (!e[k]) next.dist[k] = defaultDist || "S";
-    // turning off: drop any stale hours override so it can't silently re-apply
+    // turning off: drop any stale hours override or duty mark so neither can
+    // silently re-apply when the shift is ticked again
     if (e[k] && e.hours && e.hours[k] != null) {
       const hours = { ...e.hours };
       delete hours[k];
       next.hours = Object.keys(hours).length ? hours : undefined;
     }
+    if (e[k] && e.duty && e.duty[k] != null) {
+      const duty = { ...e.duty };
+      delete duty[k];
+      next.duty = Object.keys(duty).length ? duty : undefined;
+    }
     return next;
+  });
+  const setDuty = (k, v) => onChange((e) => {
+    const duty = { ...(e.duty || {}) };
+    if (v) duty[k] = v; else delete duty[k];
+    return { ...e, duty: Object.keys(duty).length ? duty : undefined };
   });
   const setHoliday = (v) => onChange((e) => ({ ...e, holiday: v }));
   const setDist = (k, v) => onChange((e) => ({ ...e, dist: { ...e.dist, [k]: v } }));
@@ -61,15 +72,11 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
           <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
 
-        <DayToggle label="7AM shift" hours="8h" color="var(--am)" active={entry.am7} extra={!!slot && slot !== "am7"} onClick={() => toggle("am7")} />
-        {entry.am7 && <HoursRow keyName="am7" entry={entry} onChange={setHours} />}
-        {mode === "advanced" && entry.am7 && <DistRow value={entry.dist.am7} onChange={(v) => setDist("am7", v)} />}
-        <DayToggle label="3PM shift" hours="7h" color="var(--sp1)" active={entry.pm3} extra={!!slot && slot !== "pm3"} onClick={() => toggle("pm3")} />
-        {entry.pm3 && <HoursRow keyName="pm3" entry={entry} onChange={setHours} />}
-        {mode === "advanced" && entry.pm3 && <DistRow value={entry.dist.pm3} onChange={(v) => setDist("pm3", v)} />}
-        <DayToggle label="10PM shift" hours="9h · crosses midnight" color="var(--sp2)" active={entry.pm10} extra={!!slot && slot !== "pm10"} onClick={() => toggle("pm10")} />
-        {entry.pm10 && <HoursRow keyName="pm10" entry={entry} onChange={setHours} hint="total" />}
-        {mode === "advanced" && entry.pm10 && <DistRow value={entry.dist.pm10} onChange={(v) => setDist("pm10", v)} />}
+        {DAY_SHIFTS.map((sh) => (
+          <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} slot={slot}
+            onToggle={() => toggle(sh.k)} onHours={setHours}
+            onDist={(v) => setDist(sh.k, v)} onDuty={(v) => setDuty(sh.k, v)} />
+        ))}
 
         <div style={{ height: 1, background: "var(--line-soft)", margin: "12px 0" }} />
 
@@ -82,7 +89,7 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
               <span style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>{entry.holiday == null ? " · automatic" : " · set by you"}</span>
             </div>
             {!showHol && (
-              <button onClick={() => setShowHol(true)} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0 }}>Change</button>
+              <button onClick={() => setShowHol(true)} style={linkBtn}>Change</button>
             )}
           </div>
           {showHol && (
@@ -108,36 +115,114 @@ function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, o
 }
 
 const ROTATION_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM" };
+const DAY_SHIFTS = [
+  { k: "am7", label: "7AM shift", hours: "8h", color: "var(--am)" },
+  { k: "pm3", label: "3PM shift", hours: "7h", color: "var(--sp1)" },
+  { k: "pm10", label: "10PM shift", hours: "9h · crosses midnight", color: "var(--sp2)", hint: "total" },
+];
+
+/* One shift in the day editor: the tick box, then (while it's on) its
+   hours, taxi distance and duty, sliding open under it. */
+function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }) {
+  const on = !!entry[sh.k];
+  const duty = shiftDuty(entry, sh.k);
+  return (
+    <div>
+      <DayToggle label={sh.label} hours={sh.hours} color={sh.color} active={on} duty={duty}
+        extra={!!slot && slot !== sh.k} onClick={onToggle} />
+      <Collapse open={on}>
+        <div style={{ paddingBottom: 2 }}>
+          <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
+          {mode === "advanced" && <DistRow value={entry.dist?.[sh.k] || "S"} onChange={onDist} />}
+          <DutyRow value={duty} onChange={onDuty} shift={ROTATION_LABEL[sh.k]} />
+        </div>
+      </Collapse>
+    </div>
+  );
+}
+
+/* Leave or orderly duty for one shift. Folded to one line like the holiday
+   setting; leave keeps the hours but drops SP1, SP2, meal and taxi. */
+const DUTY_OPTIONS = [{ v: null, l: "Regular" }, ...DUTY_KEYS.map((k) => ({ v: k, l: DUTY_TYPES[k].short }))];
+function DutyRow({ value, onChange, shift }) {
+  const [open, setOpen] = useStateM(!!value);
+  const leave = isLeave(value);
+  return (
+    <div style={{ margin: "0 0 10px", padding: "8px 10px", background: "var(--bg-2)", borderRadius: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minHeight: 24 }}>
+        <span style={{ fontSize: 13 }}>
+          <span style={{ color: "var(--ink-dim)" }}>Duty: </span>
+          <span style={{ fontWeight: 600 }}>{value ? DUTY_TYPES[value].label : "Regular shift"}</span>
+        </span>
+        <button onClick={() => setOpen((o) => !o)} aria-expanded={open} style={linkBtn}>{open ? "Hide" : "Change"}</button>
+      </div>
+      <Collapse open={open}>
+        <div role="radiogroup" aria-label={`Duty for the ${shift} shift`} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(88px, 1fr))", gap: 6, paddingTop: 8 }}>
+          {DUTY_OPTIONS.map((o) => {
+            const active = (value || null) === o.v;
+            return (
+              <button key={o.l} role="radio" aria-checked={active} onClick={() => onChange(o.v)} className="nsc-chip" style={{
+                padding: "8px 4px", borderRadius: 8, minWidth: 0,
+                border: `1px solid ${active ? "var(--ink)" : "var(--line)"}`,
+                background: active ? "var(--ink)" : "var(--bg-1)",
+                color: active ? "var(--bg)" : "var(--ink-dim)",
+                fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              }}>{o.l}</button>
+            );
+          })}
+        </div>
+      </Collapse>
+      <Collapse open={leave}>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.45, paddingTop: 6 }}>
+          On leave: the hours count as ordinary hours (never holiday ×2), but no SP1, SP2, meal or taxi for this shift.
+        </div>
+      </Collapse>
+    </div>
+  );
+}
+const linkBtn = {
+  background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer",
+  fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0,
+};
 
 /* extra: this shift isn't on the rotation for the day, so ticking it marks
    an extra shift (shown in the extra colour). */
-function DayToggle({ label, hours, color, active, extra, onClick }) {
+function DayToggle({ label, hours, color, active, extra, duty, onClick }) {
   if (extra) color = "var(--extra)";
+  const leave = active && isLeave(duty);
   return (
-    <button onClick={onClick} aria-pressed={active} style={{
+    <button onClick={onClick} aria-pressed={active} className="nsc-daytoggle" style={{
       display: "flex", alignItems: "center", gap: 12,
       width: "100%", padding: "12px 12px",
       background: active ? "color-mix(in oklab, " + color + " 14%, transparent)" : "var(--bg-2)",
       border: `1px solid ${active ? "color-mix(in oklab, " + color + " 50%, transparent)" : "var(--line)"}`,
       borderRadius: 10, color: "var(--ink)",
       marginBottom: 8, cursor: "pointer", textAlign: "left",
-      transition: "background 0.12s, border-color 0.12s",
+      transition: "background 0.18s, border-color 0.18s, transform 0.12s",
       fontFamily: "inherit",
     }}>
-      <span style={{
-        width: 22, height: 22, borderRadius: 6,
+      <span className={"nsc-check" + (active ? " is-on" : "")} style={{
+        width: 22, height: 22, borderRadius: 6, flexShrink: 0,
         border: `1.5px solid ${active ? color : "var(--line)"}`,
         background: active ? color : "transparent",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        {active && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6.5L4.8 9L10 3.5" stroke="var(--bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        {active && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path className="nsc-tick" d="M2 6.5L4.8 9L10 3.5" stroke="var(--bg)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
       </span>
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>
           {label}
           {extra && active && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: "var(--extra)" }}>EXTRA</span>}
+          {active && duty && (
+            <span className="nsc-pop" style={{
+              marginLeft: 8, fontSize: 11, fontWeight: 600, padding: "1px 7px", borderRadius: 999, whiteSpace: "nowrap",
+              color: leave ? "var(--ink)" : color,
+              border: `1px solid ${leave ? "var(--line)" : "color-mix(in oklab, " + color + " 50%, transparent)"}`,
+            }}>{DUTY_TYPES[duty].label}</span>
+          )}
         </div>
-        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{hours}</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{leave ? `${hours} · no allowances` : hours}</div>
       </div>
     </button>
   );
@@ -145,7 +230,7 @@ function DayToggle({ label, hours, color, active, extra, onClick }) {
 
 function DistRow({ value, onChange }) {
   return (
-    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, margin: "-4px 0 8px 38px" }}>
+    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, margin: "0 0 8px 38px" }}>
       <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>Taxi</span>
       <SegToggle small options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={value} onChange={onChange} />
     </div>
@@ -159,7 +244,7 @@ function HoursRow({ keyName, entry, onChange, hint }) {
   const std = stdHours(keyName);
   const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, margin: "-4px 0 8px 38px" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, margin: "0 0 8px 38px" }}>
       <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
         Hours worked{hint ? ` · ${hint}` : ""}
       </span>
@@ -186,7 +271,7 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
           <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
         </div>
         <div style={{ marginBottom: 16 }}>
-          <SegToggle wrap options={[
+          <SegToggle fit options={[
             { v: "rates", l: "Rates" },
             { v: "tax", l: "Tax" },
             { v: "history", l: "Past rates" },
@@ -425,9 +510,9 @@ function ThemeTab({ theme, setTheme }) {
     <div>
       <div className="label" style={{ marginBottom: 12 }}>Appearance</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#0f1013", ink: "#f2f2f4", accent: "#e8a661" }} />
-        <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#faf9f7", ink: "#1a1815", accent: "#a06226" }} />
-        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #0f1013 0%, #0f1013 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#a1a1aa", accent: "#c98a44" }} />
+        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#161513", ink: "#f5f3ee", accent: "#e4875f" }} />
+        <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#faf9f7", ink: "#1a1815", accent: "#a8502c" }} />
+        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #161513 0%, #161513 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#aba79c", accent: "#c66c45" }} />
       </div>
       <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 10 }}>
         Auto follows your phone's light or dark setting.
