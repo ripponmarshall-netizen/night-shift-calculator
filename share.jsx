@@ -16,15 +16,15 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   const isDark = theme !== "light";
   const colors = isDark ? {
-    bg: "#0f1013",
-    card: "#17181c",
-    section: "#1f2025",
-    line: "#2a2b33",
-    ink: "#f4f4f5",
-    dim: "#a1a1aa",
-    faint: "#6b6b73",
-    accent: "#e8a661",
-    accentInk: "#0b0b0c",
+    bg: "#161513",
+    card: "#1d1c19",
+    section: "#252420",
+    line: "#36342e",
+    ink: "#f5f3ee",
+    dim: "#aba79c",
+    faint: "#7f7b71",
+    accent: "#e4875f",
+    accentInk: "#141414",
     sp1: "#7eb3e0",
     sp2: "#a48cd8",
     am: "#86c69d",
@@ -35,8 +35,8 @@ function renderSnapshotCanvas(snap, theme = "dark") {
     line: "#d8d4cb",
     ink: "#1a1815",
     dim: "#6a665f",
-    faint: "#93908a",
-    accent: "#a06226",
+    faint: "#767368",
+    accent: "#a8502c",
     accentInk: "#ffffff",
     sp1: "#3d72b3",
     sp2: "#7757c0",
@@ -107,6 +107,12 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   y = drawSection(ctx, "Extra Hours", snap.totals.extraSubtotal, pad + 50, y, W - 2 * pad - 100, colors.sp2, colors);
   drawLine(ctx, `Holiday hours · ${fmtH(snap.totals.holidayHours)}h`, fmt(snap.totals.holidayPay), pad + 70, y, W - 2 * pad - 140, colors); y += 38;
   drawLine(ctx, `OT hours · ${fmtH(snap.totals.otHours)}h`, fmt(snap.totals.overtimePay), pad + 70, y, W - 2 * pad - 140, colors); y += 50;
+
+  // Leave: a record only (its hours are already in the totals above).
+  const leaveN = Number(snap.totals.leaveShifts) || 0;
+  if (leaveN > 0 && y < H - pad - 110) {
+    drawLine(ctx, `On leave · ${leaveN} shift${leaveN === 1 ? "" : "s"} · ${fmtH(snap.totals.leaveHours)}h`, "no allowance", pad + 70, y, W - 2 * pad - 140, colors);
+  }
 
   // footer
   ctx.fillStyle = colors.faint;

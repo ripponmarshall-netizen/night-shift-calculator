@@ -66,7 +66,7 @@ function App() {
       // wrong theme); keep the two in step.
       document.documentElement.setAttribute("data-theme", resolved);
       const meta = document.getElementById("theme-color-meta");
-      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#0f1013");
+      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#161513");
     };
     apply();
     if (theme === "auto" && mq) {
@@ -119,7 +119,7 @@ function App() {
   const saveStatus = useMemo(() => {
     const saved = snapshots.find((s) => s.periodKey === periodKey(period));
     if (!saved) return { state: "none" };
-    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours"];
+    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "leaveShifts"];
     const same = keys.every((k) => Math.abs((Number(saved.totals?.[k]) || 0) - (Number(totals[k]) || 0)) < 0.005);
     return { state: same ? "saved" : "changed", at: saved.at };
   }, [snapshots, period, totals]);
@@ -187,7 +187,7 @@ function App() {
   const copyDay = (key) => {
     const e = entries[key];
     if (!e || (!e.am7 && !e.pm3 && !e.pm10)) return false;
-    setClipboard({ srcKey: key, entry: { ...e, dist: { ...e.dist } } });
+    setClipboard({ srcKey: key, entry: { ...e, dist: { ...e.dist }, ...(e.hours ? { hours: { ...e.hours } } : {}), ...(e.duty ? { duty: { ...e.duty } } : {}) } });
     return true;
   };
   const pasteDay = (key) => {
@@ -538,7 +538,7 @@ function CalcView(props) {
   } = props;
 
   return (
-    <main className="calc-grid" style={{ maxWidth: 1180, margin: "0 auto", padding: "16px 20px 0" }}>
+    <main className="calc-grid nsc-view" style={{ maxWidth: 1180, margin: "0 auto", padding: "16px 20px 0" }}>
       <div className="calc-left" id="calendar-section">
         <Calendar
           period={period}
@@ -741,7 +741,7 @@ function AboutView({ onBack }) {
   const strong = { color: "var(--ink)" };
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
+    <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       <Card>
         <SectionHead title="About" subtitle="WCO JFB Night Shift Calculator" />
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
@@ -785,6 +785,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
     { id: "calc", label: "Shifts", icon: ShiftsIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
   ];
+  const activeIndex = tabs.findIndex((t) => t.id === activeTab);
 
   return (
     <nav aria-label="Main" style={{
@@ -796,7 +797,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
       {/* Live total — floats above the tabs while logging shifts */}
       {showTotal && (
         <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
-          <div ref={totalChipRef} className="total-chip" style={{
+          <div ref={totalChipRef} className="total-chip nsc-float-in" style={{
             background: "var(--surface-translucent)",
             backdropFilter: "blur(24px) saturate(140%)",
             WebkitBackdropFilter: "blur(24px) saturate(140%)",
@@ -828,7 +829,19 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
           gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
           gap: 4,
           boxShadow: "0 16px 40px -16px rgba(0,0,0,0.6)",
+          position: "relative", isolation: "isolate",
         }}>
+          {/* One highlight that glides to the active tab. Each column is
+              (100% − padding − gaps) / n wide, so moving by its own width
+              plus one gap lands it on the next tab. */}
+          {activeIndex >= 0 && (
+            <span aria-hidden className="nsc-tab-pill" style={{
+              position: "absolute", top: 5, bottom: 5, left: 5, zIndex: -1,
+              width: `calc((100% - 10px - ${(tabs.length - 1) * 4}px) / ${tabs.length})`,
+              transform: `translateX(calc(${activeIndex} * (100% + 4px)))`,
+              borderRadius: 15, background: "color-mix(in oklab, var(--accent) 16%, transparent)",
+            }} />
+          )}
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -843,7 +856,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
                   padding: "9px 6px 7px",
                   border: "none",
                   borderRadius: 15,
-                  background: active ? "color-mix(in oklab, var(--accent) 16%, transparent)" : "transparent",
+                  background: "transparent",
                   color: active ? "var(--accent)" : "var(--ink-dim)",
                   cursor: "pointer",
                   transition: "background 0.18s, color 0.18s",
@@ -898,7 +911,8 @@ function GlobalStyle() {
           gap: 16px;
           align-items: start;
         }
-        .calc-left { position: sticky; top: 96px; }
+        /* Header (12 + 44 + 12 + 1px border) plus the 16px gap above the columns. */
+        .calc-left { position: sticky; top: calc(var(--safe-top) + 85px); }
       }
       .total-chip.flash { animation: chipFlash 0.5s ease-out; }
       @keyframes chipFlash {

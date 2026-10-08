@@ -25,6 +25,10 @@ const {
   extraShiftKeys,
   rotationStats,
   am7InPeriod,
+  shiftDuty,
+  isLeave,
+  LEAVE_KEYS,
+  toICS,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -752,6 +756,80 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
       estimateNet({ grand: 200000 }, DEFAULT_TAX).net -
         calcTax(200000, DEFAULT_TAX).net,
     ) < 0.005,
+  );
+}
+
+// Leave and orderly duty, marked per shift.
+{
+  const withDuty = (opts, duty) => ({ ...D(opts), duty });
+  const base = agg({ [PLAIN]: D({ pm3: 1, pm10: 1 }) });
+
+  // Every leave type: hours kept, no SP1/SP2/meal/taxi for that shift.
+  for (const kind of LEAVE_KEYS) {
+    const r = agg({ [PLAIN]: withDuty({ pm3: 1 }, { pm3: kind }) });
+    assert.strictEqual(r.sp1, 0, kind);
+    assert.strictEqual(r.meal, 0, kind);
+    assert.strictEqual(r.taxi, 0, kind);
+    assert.strictEqual(r.cal.pm3, 0, kind);
+    assert.strictEqual(r.totalHours, 7, kind);
+    assert.strictEqual(r.leaveHours, 7, kind);
+    assert.strictEqual(r.leaveShifts, 1, kind);
+    assert.strictEqual(r.duties[kind], 1, kind);
+    assert.ok(isLeave(kind));
+  }
+
+  // Leave on one shift of a 3PM+10PM day: the 10PM keeps its SP2, meal
+  // and taxi, and with no paid pair there's no same-day taxi deduction.
+  let r = agg({ [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { pm3: "sick" }) });
+  assert.strictEqual(r.sp1, 0);
+  holNear(r.sp2, HOL_RATES.sp2);
+  holNear(r.meal, HOL_RATES.meal);
+  holNear(r.taxi, HOL_RATES.taxiShort);
+  assert.strictEqual(r.cal.sameDayPair, 0);
+  assert.strictEqual(r.totalHours, base.totalHours);
+
+  // Leave hours still count toward overtime.
+  const many = {};
+  for (let i = 0; i < 20; i++) {
+    const k = ymd(new Date(2026, 4, 24 + i)); // clear of Labour Day
+    many[k] = withDuty({ pm10: 1 }, { pm10: "vacation" });
+  }
+  r = agg(many);
+  assert.strictEqual(r.totalHours, 180);
+  holNear(r.otHours, 180 - 173.33);
+  assert.strictEqual(r.sp2, 0);
+  assert.strictEqual(r.leaveShifts, 20);
+
+  // Orderly duty is a worked shift: allowances paid as normal.
+  r = agg({
+    [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { pm3: "orderly", pm10: "orderly" }),
+  });
+  holNear(r.grand, base.grand);
+  assert.strictEqual(r.duties.orderly, 2);
+  assert.strictEqual(r.leaveShifts, 0);
+
+  // A mark on a shift that isn't on, or an unknown value, is ignored.
+  r = agg({
+    [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { am7: "sick", pm3: "bogus" }),
+  });
+  holNear(r.grand, base.grand);
+  assert.strictEqual(r.leaveShifts, 0);
+  assert.strictEqual(
+    shiftDuty(withDuty({ pm3: 1 }, { am7: "sick" }), "am7"),
+    null,
+  );
+
+  // Summary text lists leave; calendar export names it.
+  r = agg({ [PLAIN]: withDuty({ pm3: 1, pm10: 1 }, { pm3: "sick" }) });
+  const txt = summaryText(r, "May 16 – Jun 15, 2026", null);
+  assert.ok(/LEAVE & DUTIES/.test(txt));
+  assert.ok(/Sick leave\s+1 shift/.test(txt));
+  assert.ok(!/NaN|undefined/.test(txt));
+  assert.ok(!/LEAVE & DUTIES/.test(summaryText(base, "x", null)));
+  assert.ok(
+    /SUMMARY:3PM shift \(Sick leave\)/.test(
+      toICS({ [PLAIN]: withDuty({ pm3: 1 }, { pm3: "sick" }) }),
+    ),
   );
 }
 

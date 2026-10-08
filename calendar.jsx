@@ -19,6 +19,8 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
   const todayKey = ymd(new Date());
   // Legend entries only for what this period actually shows.
   const anyHoliday = days.some((d) => { const e = entries[ymd(d)]; return e?.holiday == null ? isJamaicaHoliday(d) : e.holiday; });
+  const leaveCount = totals.leaveShifts || 0;
+  const orderlyCount = totals.duties?.orderly || 0;
 
   const grid = (
     <>
@@ -47,7 +49,10 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const isPasteTarget = canCopy && !!clipboard && !has;
           const isToday = key === todayKey;
           const dateStr = (isToday ? "Today, " : "") + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-          const shiftList = CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (extras.includes(s.k) ? "extra " : "") + s.label);
+          const shiftList = CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => {
+            const duty = shiftDuty(e, s.k);
+            return (extras.includes(s.k) ? "extra " : "") + s.label + (duty ? ` (${DUTY_TYPES[duty].label})` : "");
+          });
           const ariaLabel = has
             ? `${dateStr}: ${shiftList.join(", ")}, ${fmtH0(hours)} hours${isHol ? ", holiday" : ""}`
             : `${dateStr}: ${isOff ? "off day" : "no shifts"}${isHol ? ", holiday" : ""}`;
@@ -62,7 +67,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 else onOpenDay(d);
               }}
               onLongPress={() => { if (canCopy && has && !clipboard) copyDay(key); }}
-              className={isHighlighted ? "pulse-day" : ""}
+              className={"nsc-day" + (isHighlighted ? " pulse-day" : "")}
               style={{
                 position: "relative",
                 minHeight: 54,
@@ -82,7 +87,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 alignItems: "stretch",
                 gap: 3,
                 cursor: "pointer",
-                transition: "background 0.12s, border-color 0.12s",
+                transition: "background 0.2s, border-color 0.2s, transform 0.12s",
                 overflow: "hidden",
                 fontFamily: "inherit",
                 WebkitTouchCallout: "none",
@@ -96,7 +101,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, justifyContent: "center" }}>
                 {CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (
-                  <ShiftChip key={s.k} label={s.label} color={s.color} extra={extras.includes(s.k)} long={mode === "advanced" && e.dist?.[s.k] === "L"} />
+                  <ShiftChip key={s.k} label={s.label} color={s.color} extra={extras.includes(s.k)} duty={shiftDuty(e, s.k)} long={mode === "advanced" && e.dist?.[s.k] === "L"} />
                 ))}
                 {isOff && <span style={{ fontSize: 10.5, color: "var(--ink-faint)", textAlign: "center" }}>Off</span>}
               </div>
@@ -116,18 +121,22 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         <Legend color="var(--sp2)" label="10PM" />
         {stats.extra > 0 && <Legend color="var(--extra)" label="Extra" />}
         {anyHoliday && <Legend color="var(--holiday)" label="Holiday" dot />}
+        {leaveCount > 0 && <Legend outline label="Leave" />}
+        {orderlyCount > 0 && <Legend code="ORD" label="Orderly" />}
         <div style={{ flex: 1 }} />
         {/* Home prints the same counts above its calendar. */}
         {!compact && <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
           <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
           {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra</>}
+          {leaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{leaveCount}</span> leave</>}
           {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(totals.totalHours)}</span>h
         </div>}
       </div>
 
-      {totals.holidayHours > 0 && (
-        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: compact ? "6px 0 0" : "0 16px 12px" }}>
-          * includes holiday hours (paid ×2)
+      {(totals.holidayHours > 0 || leaveCount > 0) && (
+        <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: compact ? "6px 0 0" : "0 16px 12px", lineHeight: 1.5 }}>
+          {totals.holidayHours > 0 && <div>* includes holiday hours (paid ×2)</div>}
+          {leaveCount > 0 && <div>Leave (VL vacation · DL departmental · SL sick · TO time off): hours count, no allowances.</div>}
         </div>
       )}
     </>
@@ -218,19 +227,26 @@ function fmtH0(n) {
 }
 
 /* One shift on a calendar day: a labelled chip, so colour is never the only
-   cue. Extra shifts (outside the rotation) use the extra colour and a "+". */
-function ShiftChip({ label, color, extra, long }) {
+   cue. Extra shifts (outside the rotation) use the extra colour and a "+".
+   Leave shows as a dashed outline with its code (VL, DL, SL, TO), since it
+   earns no allowance; orderly duty is a solid chip labelled ORD. */
+function ShiftChip({ label, color, extra, long, duty }) {
   const bg = extra ? "var(--extra)" : color;
+  const leave = isLeave(duty);
+  const text = duty ? DUTY_TYPES[duty].code : (extra ? "+" : "") + label;
   return (
-    <span className="mono" style={{
+    <span className="mono nsc-chip-in" style={{
       position: "relative", display: "block", textAlign: "center",
       // Shrinks a little on 320px phones so "10PM" fits a seventh of the width.
-      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: "16px", letterSpacing: "-0.03em",
-      borderRadius: 4, background: bg, color: "var(--chip-ink)",
+      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: leave ? "14px" : "16px", letterSpacing: "-0.03em",
+      borderRadius: 4,
+      background: leave ? `color-mix(in oklab, ${bg} 16%, transparent)` : bg,
+      border: leave ? `1px dashed ${bg}` : "none",
+      color: leave ? "var(--ink)" : "var(--chip-ink)",
       overflow: "hidden", whiteSpace: "nowrap",
     }}>
-      {long && <span aria-hidden style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4.5px)" }} />}
-      <span style={{ position: "relative" }}>{extra ? "+" : ""}{label}</span>
+      {long && !leave && <span aria-hidden style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(45deg, transparent 0 3px, rgba(0,0,0,0.22) 3px 4.5px)" }} />}
+      <span style={{ position: "relative" }}>{text}</span>
     </span>
   );
 }
@@ -314,12 +330,17 @@ function DayButton({ ariaLabel, onTap, onLongPress, hasShifts, isClipboardActive
   );
 }
 
-function Legend({ color, label, dot }) {
+function Legend({ color, label, dot, outline, code }) {
+  const mark = dot
+    ? { width: 8, height: 8, borderRadius: "50%", background: color }
+    : outline
+      ? { width: 14, height: 8, borderRadius: 2, border: "1px dashed var(--ink-dim)" }
+      : { width: 14, height: 4, borderRadius: 2, background: color };
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={dot
-        ? { width: 8, height: 8, borderRadius: "50%", background: color }
-        : { width: 14, height: 4, borderRadius: 2, background: color }} />
+      {code
+        ? <span className="mono" style={{ fontSize: 9.5, fontWeight: 700, padding: "0 4px", borderRadius: 3, background: "var(--ink-dim)", color: "var(--bg)" }}>{code}</span>
+        : <span style={mark} />}
       <span style={{ fontSize: 12, color: "var(--ink-dim)" }}>{label}</span>
     </div>
   );

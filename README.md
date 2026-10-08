@@ -14,6 +14,7 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 - **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
 - **Base pay** — Monthly Basic + Compulsory Assignment
 - **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
+- **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, or orderly duty. Leave keeps the shift's hours (total, overtime and holiday hours) but drops its SP1, SP2, meal and taxi. Orderly duty is paid as a normal shift and only recorded
 - **Estimated net** — JM tax model (NIS, NHT, Education Tax, PAYE bands, optional pension). Meal and taxi allowances are tax-free, so deductions are worked out on the rest of the gross
 
 ---
@@ -73,7 +74,8 @@ The phone's **Back** button returns to Home from any other screen. The app alway
 The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**.
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
-2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured bands show shift type; bar height scales with hours.
+2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type.
+   - **Duty** (under each ticked shift → Change): Regular, Orderly, Vacation, Departmental, Sick or Time off. Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); orderly as a solid **ORD** chip. The summary lists them under **Leave & duties**.
 3. **Pick a taxi distance** under the calendar:
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.
