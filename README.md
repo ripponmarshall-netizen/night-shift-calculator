@@ -38,8 +38,8 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 | `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                                   |
 | `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                                     |
 | `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                       |
-| `ytd.jsx`        | Year-to-date dashboard (totals, hours, OT, composition bar, monthly bars)                                                          |
-| `snapshots.jsx`  | Snapshot history list, sparkline, deltas, detail view                                                                              |
+| `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                 |
+| `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                  |
 | `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                          |
 | `app.jsx`        | Root component — state, persistence, 3-tab taskbar, header, taxi-distance card, two-column desktop layout                          |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                   |
