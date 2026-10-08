@@ -1,5 +1,4 @@
 /* ytd.jsx — Year-to-date dashboard */
-const { useMemo: useMemoYtd } = React;
 
 function YTDDashboard({ snapshots }) {
   const year = new Date().getFullYear();
@@ -9,7 +8,7 @@ function YTDDashboard({ snapshots }) {
   const periodYear = (s) => (s.periodKey ? fromYmd(s.periodKey).getFullYear() : new Date(s.at).getFullYear());
   const thisYear = snapshots.filter((s) => periodYear(s) === year);
 
-  const stats = useMemoYtd(() => {
+  const stats = (() => {
     // Legacy/imported snapshots may omit newer totals fields; coerce so a single
     // missing value can't turn an entire reduce (and the whole dashboard) into NaN.
     const f = (s, k) => Number(s.totals?.[k]) || 0;
@@ -28,7 +27,7 @@ function YTDDashboard({ snapshots }) {
       monthly[m] += f(s, "grand");
     }
     return { total, hours, holHours, otHours, sumAllow, sumBase, sumExtra, biggest, monthly };
-  }, [thisYear]);
+  })();
 
   if (thisYear.length === 0) return null;
 
@@ -91,7 +90,7 @@ function YTDDashboard({ snapshots }) {
           display: "flex", justifyContent: "space-between", alignItems: "baseline",
         }}>
           <div>
-            <div className="label" style={{  }}>Biggest period</div>
+            <div className="label">Biggest period</div>
             <div style={{ fontSize: 13.5, marginTop: 2 }}>{stats.biggest.period}</div>
           </div>
           <div className="mono" style={{ fontSize: 16, fontWeight: 700 }}>{fmt(Number(stats.biggest.totals?.grand) || 0)}</div>

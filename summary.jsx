@@ -19,22 +19,18 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const heroRef = useRefS(null);
   useEffectS(() => {
     const el = heroRef.current;
-    if (!el || !onHeroVisible || typeof IntersectionObserver === "undefined") return;
+    if (!el || !onHeroVisible) return;
+    if (typeof IntersectionObserver === "undefined") { onHeroVisible(false); return; }
     const io = new IntersectionObserver(([e]) => onHeroVisible(e.isIntersecting), { threshold: 0.4 });
     io.observe(el);
-    return () => { io.disconnect(); onHeroVisible(false); };
+    return () => { io.disconnect(); onHeroVisible(null); };
   }, []);
   const noBasic = !(Number(totals.monthlyBasic) > 0);
 
   return (
     <Card>
       {/* Hero total */}
-      <div ref={heroRef} className="nsc-hero" style={{
-        marginBottom: 14, padding: "18px 16px",
-        borderRadius: 14,
-        background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
-        border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-      }}>
+      <div ref={heroRef} className="nsc-hero" style={{ marginBottom: 14 }}>
         {/* A light sweeps across whenever the total changes. */}
         <span key={Math.round(est * 100)} className="nsc-sheen" aria-hidden />
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
@@ -43,9 +39,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
             <AnimatedNumber value={est} format={fmt} />
           </div>
           {netApplies(totals, tax) && (
-            <button onClick={() => setShowNet((v) => !v)} style={{
-              background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12, padding: 0, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit",
-            }}>
+            <button onClick={() => setShowNet((v) => !v)} aria-expanded={showNet} style={linkBtn(12.5)}>
               {showNet ? "Hide net" : `Show est. net (${fmt(net)})`}
             </button>
           )}
@@ -55,7 +49,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
             Base pay, overtime and tax aren't included until you add your monthly basic below.
           </div>
         )}
-        {showNet && netApplies(totals, tax) && (
+        <Collapse open={showNet && netApplies(totals, tax)}>
           <div style={{
             marginTop: 12, padding: "10px 12px",
             background: "color-mix(in oklab, var(--bg-2) 60%, transparent)",
@@ -77,7 +71,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
               Meal and taxi ({fmt(taxBreak.exempt)}) are tax-free, so deductions are on {fmt(taxBreak.taxable)}. JM brackets: NIS, NHT, Education Tax, PAYE. Verify in Settings.
             </div>
           </div>
-        )}
+        </Collapse>
       </div>
 
       <SecHeader title="Allowance" subtotal={totals.allowanceSubtotal} open={openSec.allow} onToggle={() => toggle("allow")} accent="var(--sp1)" />
@@ -132,7 +126,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
 
 function SecHeader({ title, subtotal, open, onToggle, accent }) {
   return (
-    <button onClick={onToggle} style={{
+    <button onClick={onToggle} aria-expanded={open} style={{
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
       width: "100%", padding: "10px 12px",
       background: open ? "var(--bg-2)" : "transparent",
@@ -143,6 +137,7 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
       marginBottom: 4,
       textAlign: "left",
       fontFamily: "inherit",
+      transition: "background 0.18s",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ width: 6, height: 16, borderRadius: 2, background: accent }} />
@@ -162,17 +157,10 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
 }
 
 function MathPopover({ label, formula, value, unit, onClose }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.5)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 380,
-        background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 14, padding: 18, outline: "none",
-      }}>
+    <ModalFrame dismiss={dismiss} zIndex={80} maxWidth={380} label={label}>
         <div className="label">How this is calculated</div>
         <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{label}</div>
         <pre className="mono" style={{
@@ -190,8 +178,7 @@ function MathPopover({ label, formula, value, unit, onClose }) {
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
           <button onClick={close} style={primaryBtn()}>Got it</button>
         </div>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 

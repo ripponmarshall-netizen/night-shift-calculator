@@ -4,19 +4,8 @@
    and the preview runs the same aggregate() the calculator uses. */
 const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH } = React;
 
-const HOME_SHIFTS = {
-  am7: { label: "7AM", color: "var(--am)" },
-  pm3: { label: "3PM", color: "var(--sp1)" },
-  pm10: { label: "10PM", color: "var(--sp2)" },
-};
-
 function periodShiftDays(entries, period) {
-  let n = 0;
-  for (const d of periodDays(period)) {
-    const e = entries[ymd(d)];
-    if (e && (e.am7 || e.pm3 || e.pm10)) n++;
-  }
-  return n;
+  return periodDays(period).filter((d) => hasShifts(entries[ymd(d)])).length;
 }
 
 function HomeView(props) {
@@ -27,6 +16,14 @@ function HomeView(props) {
   useEffectH(() => {
     onWizardChange?.(wizard);
     return () => onWizardChange?.(false);
+  }, [wizard]);
+  // Opening or finishing setup swaps the whole card, so start at the top
+  // (finishing from the foot of the tall rotation step otherwise lands
+  // halfway down the result).
+  const first = React.useRef(true);
+  useEffectH(() => {
+    if (first.current) { first.current = false; return; }
+    window.scrollTo?.(0, 0);
   }, [wizard]);
   const shiftDays = periodShiftDays(entries, period);
   // A saved rotation runs on into every period, so an empty new period can be
@@ -65,25 +62,11 @@ function HomeView(props) {
   );
 }
 
-/* ----- period switcher shared by Home states ----- */
-function HomePeriod({ period, onShiftPeriod }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="label">Pay period</div>
-        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
-      </div>
-      <button onClick={() => onShiftPeriod(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
-      <button onClick={() => onShiftPeriod(1)} style={iconBtn()} aria-label="Next period">›</button>
-    </div>
-  );
-}
-
 /* ----- empty period: invite to start ----- */
 function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
   return (
     <Card style={{ padding: 20 }}>
-      <HomePeriod period={period} onShiftPeriod={onShiftPeriod} />
+      <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
       <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.015em", marginTop: 8 }}>
         {firstRun ? "Work out your pay" : "Nothing logged for this period yet"}
       </div>
@@ -113,13 +96,9 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
   return (
     <>
       <Card style={{ padding: 20 }}>
-        <HomePeriod period={period} onShiftPeriod={onShiftPeriod} />
+        <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
 
-        <div className="nsc-hero" style={{
-          padding: "18px 16px", borderRadius: 14,
-          background: "linear-gradient(180deg, color-mix(in oklab, var(--accent) 16%, transparent), color-mix(in oklab, var(--accent) 6%, transparent))",
-          border: "1px solid color-mix(in oklab, var(--accent) 30%, transparent)",
-        }}>
+        <div className="nsc-hero">
           <span key={Math.round(totals.grand * 100)} className="nsc-sheen" aria-hidden />
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
@@ -133,7 +112,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           {!(Number(totals.monthlyBasic) > 0) && (
             <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
               Base pay and overtime aren't included.{" "}
-              <button onClick={onUpdate} style={{ ...homeInlineBtn, color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
+              <button onClick={onUpdate} style={{ ...linkBtn(), color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
             </div>
           )}
         </div>
@@ -202,6 +181,12 @@ const blankTotals = { pm3: "", pm10: "", am7: "", pairs: "" };
 
 function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, ratesEffective, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
   const [step, setStep] = useStateH(0);
+  // Each step starts at its question, not part-way down the last step.
+  const cardRef = React.useRef(null);
+  useEffectH(() => {
+    const el = cardRef.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+  }, [step]);
   const [draft, setDraft] = useStateH(() => ({
     monthly: basePay.monthly || "",
     compulsory: basePay.compulsory || "",
@@ -245,12 +230,13 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
   };
 
   return (
+    <div ref={cardRef} style={{ scrollMarginTop: 90 }}>
     <Card style={{ padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div className="label">
           Step {step + 1} of {steps.length} · {steps[step]}
         </div>
-        <button onClick={onDone} style={homeInlineBtn}>Cancel</button>
+        <button onClick={onDone} style={linkBtn()}>Cancel</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: 4, margin: "10px 0 18px" }} aria-hidden>
         {steps.map((_, i) => (
@@ -316,7 +302,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       {last && (
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
           {ratesEffective === "Current rates" ? "Using the current JFB rates" : `Using ${ratesEffective.toLowerCase()}`}: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)}.{" "}
-          <button onClick={onOpenSettings} style={homeInlineBtn}>Check rates</button>
+          <button onClick={onOpenSettings} style={linkBtn()}>Check rates</button>
         </div>
       )}
 
@@ -349,6 +335,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
         </div>
       </div>
     </Card>
+    </div>
   );
 }
 
@@ -358,21 +345,6 @@ function WizardTitle({ title, sub }) {
       <h2 style={{ margin: 0, fontSize: 21, fontWeight: 700, letterSpacing: "-0.015em" }}>{title}</h2>
       {sub && <div style={{ fontSize: 13.5, color: "var(--ink-dim)", lineHeight: 1.5, marginTop: 6 }}>{sub}</div>}
     </div>
-  );
-}
-
-function ChoiceCard({ active, onClick, title, detail }) {
-  return (
-    <button onClick={onClick} aria-pressed={active} style={{
-      padding: "14px 14px", borderRadius: 12, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
-      background: active ? "color-mix(in oklab, var(--accent) 12%, var(--bg-2))" : "var(--bg-2)",
-      border: `1.5px solid ${active ? "var(--accent)" : "var(--line)"}`,
-      color: "var(--ink)", display: "flex", flexDirection: "column", gap: 4,
-      transition: "background 0.12s, border-color 0.12s",
-    }}>
-      <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
-      <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{detail}</span>
-    </button>
   );
 }
 
@@ -422,8 +394,7 @@ function RotationPicker({ period, value, onChange }) {
         {days.map((d) => {
           const key = ymd(d);
           const e = preview[key];
-          const k = e ? (e.am7 ? "am7" : e.pm3 ? "pm3" : "pm10") : null;
-          const sh = k ? HOME_SHIFTS[k] : null;
+          const sh = e ? SHIFTS.find((s) => e[s.k]) : null;
           const anchor = key === value;
           const hol = holidayName(d);
           return (
@@ -479,7 +450,7 @@ function TotalsPicker({ values, onChange, error }) {
         {showPairs ? (
           <Stepper label="Days with a 3PM and a 10PM" hint="back-to-back · no taxi on these days" value={values.pairs} onChange={(v) => setK("pairs", v)} />
         ) : (
-          <button onClick={() => setShowPairs(true)} style={{ ...homeInlineBtn, justifySelf: "start", fontSize: 12 }}>
+          <button onClick={() => setShowPairs(true)} style={{ ...linkBtn(), justifySelf: "start", fontSize: 12 }}>
             + Worked a 3PM and 10PM on the same day?
           </button>
         )}
@@ -517,16 +488,6 @@ function Stepper({ label, hint, color, value, onChange }) {
 
 const numStr = (v) => String(Math.max(0, Math.trunc(Number(v) || 0)));
 
-const homeLinkBtn = {
-  display: "block", width: "100%", marginTop: 12, padding: "8px 4px",
-  background: "transparent", border: "none", color: "var(--ink-dim)",
-  fontSize: 13, cursor: "pointer", fontFamily: "inherit", textAlign: "center",
-  textDecoration: "underline", textUnderlineOffset: 3,
-};
-const homeInlineBtn = {
-  background: "transparent", border: "none", padding: 0, color: "var(--ink-dim)",
-  fontSize: "inherit", cursor: "pointer", fontFamily: "inherit",
-  textDecoration: "underline", textUnderlineOffset: 3,
-};
+const homeLinkBtn = { ...linkBtn(13), display: "block", width: "100%", marginTop: 12, padding: "8px 4px", textAlign: "center" };
 
 Object.assign(window, { HomeView, RotationPicker });

@@ -1,42 +1,44 @@
 /* reconcile.jsx — pay slip reconciliation: enter actual amounts, see variance */
-const { useState: useStateR, useMemo: useMemoR } = React;
+const { useState: useStateR } = React;
+
+/* The pay-slip lines, in pay-slip order. */
+const RECON_LINES = [
+  { k: "sp1", label: "SP1 — 3PM" },
+  { k: "sp2", label: "SP2 — 10PM" },
+  { k: "meal", label: "Meal" },
+  { k: "taxi", label: "Taxi" },
+  { k: "monthlyBasic", label: "Monthly Basic" },
+  { k: "compulsory", label: "Compulsory assign." },
+  { k: "holidayPay", label: "Holiday pay (×2)" },
+  { k: "overtimePay", label: "Overtime (×1.5)" },
+];
+
+/* What the pay slip says in total: the typed "Pay slip total" when there is
+   one (an explicit 0 counts), otherwise the sum of the lines filled in.
+   hasTotal: anything was entered to compare against. */
+function reconTotals(recon, estimate) {
+  const r = recon || {};
+  const lineSum = RECON_LINES.reduce((a, l) => a + (Number(r[l.k]) || 0), 0);
+  const hasGrand = r.grand != null && r.grand !== "";
+  const total = hasGrand ? Number(r.grand) || 0 : lineSum;
+  return { total, hasGrand, hasTotal: hasGrand || lineSum !== 0, variance: total - (Number(estimate) || 0) };
+}
 
 function ReconcileModal({ snapshot, onSave, onClose }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   const t = snapshot.totals || {};
-  const existing = snapshot.reconcile || {};
-  const [actual, setActual] = useStateR({
-    sp1: existing.sp1 ?? "",
-    sp2: existing.sp2 ?? "",
-    meal: existing.meal ?? "",
-    taxi: existing.taxi ?? "",
-    monthlyBasic: existing.monthlyBasic ?? "",
-    compulsory: existing.compulsory ?? "",
-    holidayPay: existing.holidayPay ?? "",
-    overtimePay: existing.overtimePay ?? "",
-    grand: existing.grand ?? "",
-    notes: existing.notes ?? "",
+  const [actual, setActual] = useStateR(() => {
+    const existing = snapshot.reconcile || {};
+    const out = {};
+    for (const k of [...RECON_LINES.map((l) => l.k), "grand", "notes"]) out[k] = existing[k] ?? "";
+    return out;
   });
   const set = (k, v) => setActual((p) => ({ ...p, [k]: k === "notes" ? v : sanitizeDecimal(v) }));
 
-  const lines = [
-    { k: "sp1", label: "SP1 — 3PM", expected: t.sp1 },
-    { k: "sp2", label: "SP2 — 10PM", expected: t.sp2 },
-    { k: "meal", label: "Meal", expected: t.meal },
-    { k: "taxi", label: "Taxi", expected: t.taxi },
-    { k: "monthlyBasic", label: "Monthly Basic", expected: t.monthlyBasic },
-    { k: "compulsory", label: "Compulsory assign.", expected: t.compulsory },
-    { k: "holidayPay", label: "Holiday pay (×2)", expected: t.holidayPay },
-    { k: "overtimePay", label: "Overtime (×1.5)", expected: t.overtimePay },
-  ].map((l) => ({ ...l, expected: Number(l.expected) || 0 })); // legacy snapshots can miss a field
-
-  const totalActualPerLine = lines.reduce((sum, l) => sum + (Number(actual[l.k]) || 0), 0);
-  // Use the explicit "Pay slip total" when entered (honoring an explicit 0),
-  // otherwise fall back to the sum of the per-line actuals.
-  const actualGrand = actual.grand !== "" ? Number(actual.grand) || 0 : totalActualPerLine;
-  const totalVariance = actualGrand - (Number(t.grand) || 0);
-  // There's a total to compare whenever the user entered the grand or any line.
-  const hasTotal = actual.grand !== "" || totalActualPerLine !== 0;
+  // Legacy snapshots can miss a field.
+  const lines = RECON_LINES.map((l) => ({ ...l, expected: Number(t[l.k]) || 0 }));
+  const { variance: totalVariance, hasTotal } = reconTotals(actual, t.grand);
 
   const save = () => {
     // Nothing typed: don't mark the period as checked against a pay slip.
@@ -47,23 +49,10 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
   };
 
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={{
-      position: "fixed", inset: 0, zIndex: 80, background: "rgba(0,0,0,0.55)",
-      backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-    }}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
-        width: "100%", maxWidth: 560, maxHeight: "88vh", overflow: "auto",
-        background: "var(--bg-1)", border: "1px solid var(--line)",
-        borderRadius: 18, padding: 18, outline: "none",
-      }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div className="label">Pay slip check</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>What were you actually paid?</div>
-            <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
-          </div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+    <ModalFrame dismiss={dismiss} zIndex={85} maxWidth={560} label="Pay slip check">
+        <ModalHead eyebrow="Pay slip check" title="What were you actually paid?" onClose={close}>
+          <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-faint)", marginTop: 2 }}>{snapshot.period}</div>
+        </ModalHead>
 
         <div className="mono" style={{ fontSize: 11.5, color: "var(--ink-dim)", marginBottom: 12, lineHeight: 1.5 }}>
           Enter what you were <span style={{ color: "var(--ink)" }}>actually paid</span> per line. Empty rows are skipped. Variance is shown vs the estimated amount.
@@ -105,7 +94,7 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
               <div className="mono recon-var" style={{
                 textAlign: "right", fontSize: 12, color: varianceColor, fontWeight: 600,
               }}>
-                {hasActual ? (Math.abs(variance) < 0.01 ? "✓ match" : `${variance >= 0 ? "+" : ""}${fmt(variance)}`) : "—"}
+                {hasActual ? (Math.abs(variance) < 0.01 ? "✓ match" : `${variance >= 0 ? "+" : ""}${fmt(variance)}`) : null}
               </div>
             </div>
           );
@@ -161,11 +150,10 @@ function ReconcileModal({ snapshot, onSave, onClose }) {
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
           <button onClick={close} style={ghostBtn()}>Cancel</button>
-          <button onClick={save} style={accentBtn()}>Save reconciliation</button>
+          <button onClick={save} style={accentBtn()}>Save pay slip check</button>
         </div>
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
-Object.assign(window, { ReconcileModal });
+Object.assign(window, { ReconcileModal, reconTotals });

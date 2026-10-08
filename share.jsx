@@ -191,21 +191,15 @@ function downloadSnapshotImage(snap, theme) {
   }, "image/png");
 }
 
+/* Safari only allows clipboard.write() during the tap itself, so it's
+   called straight away with a promise of the PNG rather than after the
+   canvas has been encoded (which Safari rejects as not user-initiated). */
 async function copySnapshotImage(snap, theme) {
-  const canvas = renderSnapshotCanvas(snap, theme);
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(async (blob) => {
-      if (!blob) return reject();
-      try {
-        if (navigator.clipboard && window.ClipboardItem) {
-          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          resolve(true);
-        } else {
-          reject(new Error("Clipboard image not supported"));
-        }
-      } catch (e) { reject(e); }
-    }, "image/png");
+  if (!navigator.clipboard?.write || !window.ClipboardItem) throw new Error("Clipboard image not supported");
+  const png = new Promise((resolve, reject) => {
+    renderSnapshotCanvas(snap, theme).toBlob((b) => (b ? resolve(b) : reject(new Error("No image"))), "image/png");
   });
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
 }
 
 Object.assign(window, { renderSnapshotCanvas, downloadSnapshotImage, copySnapshotImage });

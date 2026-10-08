@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v29";
+const CACHE = "ns-calculator-v30";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
@@ -52,7 +52,10 @@ self.addEventListener("install", (e) => {
       .open(CACHE)
       .then((cache) =>
         Promise.all([
-          precache(cache, ASSETS),
+          // "reload" skips the browser's HTTP cache. Without it a deploy can
+          // precache a stale copy of a file next to fresh ones, mixing old
+          // and new code in one cache version.
+          precache(cache, ASSETS, { cache: "reload" }),
           precache(cache, CDN_ASSETS, { mode: "cors", credentials: "omit" }),
         ]),
       )
@@ -101,11 +104,7 @@ self.addEventListener("fetch", (e) => {
   }
 
   // App shell document: network-first
-  if (
-    url.pathname.endsWith("/index.html") ||
-    url.pathname === "/" ||
-    url.pathname.endsWith("/")
-  ) {
+  if (url.pathname.endsWith("/index.html") || url.pathname.endsWith("/")) {
     e.respondWith(
       fetch(e.request)
         .then((response) => {

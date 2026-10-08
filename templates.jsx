@@ -1,10 +1,11 @@
 /* templates.jsx — save/apply/manage day-of-week templates */
-const { useState: useStateT, useMemo: useMemoT } = React;
+const { useState: useStateT } = React;
 
 const DAY_NAMES = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
 function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, period, onClose }) {
-  const { ref: dialogRef, closing, close } = useModalDismiss(onClose);
+  const dismiss = useModalDismiss(onClose);
+  const { close } = dismiss;
   const [mode, setMode] = useStateT("apply"); // apply | save
   const [selected, setSelected] = useStateT(templates[0]?.id || null);
   const [newName, setNewName] = useStateT("");
@@ -31,17 +32,8 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
   };
 
   return (
-    <div onClick={close} className={"nsc-backdrop" + (closing ? " is-closing" : "")} style={modalBackdrop}>
-      <div ref={dialogRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" className={"nsc-modal nsc-center" + (closing ? " is-closing" : "")} style={{
-        ...modalCard, maxWidth: 520, maxHeight: "88vh", overflow: "auto", outline: "none",
-      }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-          <div>
-            <div className="label" style={{  }}>Templates</div>
-            <div style={{ fontSize: 17, fontWeight: 600, marginTop: 2 }}>Weekly patterns</div>
-          </div>
-          <button onClick={close} style={iconBtn()} aria-label="Close">✕</button>
-        </div>
+    <ModalFrame dismiss={dismiss} label="Templates">
+        <ModalHead eyebrow="Templates" title="Weekly patterns" onClose={close} />
 
         <div style={{ marginBottom: 14 }}>
           <SegToggle
@@ -79,7 +71,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
                     </label>
                     <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
                       <button onClick={close} style={ghostBtn()}>Cancel</button>
-                      <button onClick={() => { onApply(selectedTpl, { preserve }); onClose(); }} style={accentBtn()}>
+                      <button onClick={() => { onApply(selectedTpl, { preserve }); showToast(`Applied ${selectedTpl.name}`); close(); }} style={accentBtn()}>
                         Apply to this period
                       </button>
                     </div>
@@ -99,7 +91,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
               placeholder="e.g. Standard rotation"
               style={{
                 width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)",
-                borderRadius: 10, padding: "10px 12px", color: "var(--ink)", fontSize: 14,
+                borderRadius: 10, padding: "10px 12px", color: "var(--ink)", fontSize: 16,
                 outline: "none", fontFamily: "inherit",
               }}
             />
@@ -109,8 +101,7 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
             </div>
           </>
         )}
-      </div>
-    </div>
+    </ModalFrame>
   );
 }
 
@@ -176,14 +167,4 @@ function TemplatePreview({ dows, small }) {
   );
 }
 
-const modalBackdrop = {
-  position: "fixed", inset: 0, zIndex: 70, background: "rgba(0,0,0,0.55)",
-  backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16,
-};
-const modalCard = {
-  width: "100%",
-  background: "var(--bg-1)", border: "1px solid var(--line)",
-  borderRadius: 18, padding: 18,
-};
-
-Object.assign(window, { TemplatesModal, DAY_NAMES });
+Object.assign(window, { TemplatesModal });

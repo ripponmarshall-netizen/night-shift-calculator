@@ -1,11 +1,4 @@
 /* calendar.jsx — period calendar with labelled shift chips, rotation off days / extras, warning highlights */
-const { useState: useStateCal } = React;
-
-const CAL_SHIFTS = [
-  { k: "am7", label: "7AM", color: "var(--am)" },
-  { k: "pm3", label: "3PM", color: "var(--sp1)" },
-  { k: "pm10", label: "10PM", color: "var(--sp2)" },
-];
 
 /* compact: Home's version — no tools, period nav or copy/paste; tap a day to
    edit it. The full version adds Auto-fill, Templates and long-press copy. */
@@ -38,7 +31,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const key = ymd(d);
           const e = entries[key];
           const isHol = e?.holiday == null ? isJamaicaHoliday(d) : e.holiday;
-          const has = !!e && (e.am7 || e.pm3 || e.pm10);
+          const has = hasShifts(e);
           const slot = rotationSlot(key, rotationAnchor);
           const extras = extraShiftKeys(e, slot);
           const isOff = slot === "off" && !has;
@@ -46,14 +39,14 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           const holidayHrs = totals.dayHolidayHours[key] || 0;
           // Hours differ from the standard ones (a short shift, or a shift
           // given away): show the day's real total under the chips.
-          const partial = has && CAL_SHIFTS.some((s) => e[s.k] && (!worksShift(e, s.k) || effHours(e, s.k) !== stdHours(s.k)));
+          const partial = has && SHIFTS.some((s) => e[s.k] && (!worksShift(e, s.k) || effHours(e, s.k) !== stdHours(s.k)));
           const isHighlighted = highlight && highlight.has(key);
           const canCopy = !compact && !!copyDay;
           const isClipboardSource = canCopy && clipboard && clipboard.srcKey === key;
           const isPasteTarget = canCopy && !!clipboard && !has;
           const isToday = key === todayKey;
           const dateStr = (isToday ? "Today, " : "") + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
-          const shiftList = CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => {
+          const shiftList = SHIFTS.filter((s) => e?.[s.k]).map((s) => {
             const duty = shiftDuty(e, s.k);
             return (extras.includes(s.k) ? "extra " : "") + s.label + (duty ? ` (${DUTY_TYPES[duty].label})` : "");
           });
@@ -104,7 +97,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 {isHol && <span title={holidayName(d) || "Holiday"} style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--holiday)" }} />}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, justifyContent: "center" }}>
-                {CAL_SHIFTS.filter((s) => e?.[s.k]).map((s) => (
+                {SHIFTS.filter((s) => e?.[s.k]).map((s) => (
                   <ShiftChip key={s.k} label={s.label} color={s.color} extra={extras.includes(s.k)} duty={shiftDuty(e, s.k)} long={mode === "advanced" && e.dist?.[s.k] === "L"} />
                 ))}
                 {isOff && <span style={{ fontSize: 10.5, color: "var(--ink-faint)", textAlign: "center" }}>Off</span>}
@@ -155,16 +148,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
 
   return (
     <Card style={{ padding: 0, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px 8px", flexWrap: "wrap", gap: 8 }}>
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div className="label">Pay period</div>
-          <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
-        </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => onShift(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
-          <button onClick={() => onShift(1)} style={iconBtn()} aria-label="Next period">›</button>
-        </div>
-      </div>
+      <PeriodNav period={period} onShift={onShift} style={{ padding: "14px 16px 8px" }} />
 
       <div style={{ padding: "0 16px 10px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <button onClick={onAutofill} style={{ ...ghostBtn(), padding: "7px 11px", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -192,7 +176,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         }}>
           <span style={{ fontSize: 13, color: "var(--ink)", flex: 1 }}>
             Copied. Tap empty days to paste
-            <span style={{ color: "var(--ink-faint)" }}> ({CAL_SHIFTS.filter((s) => clipboard.entry[s.k]).map((s) => s.label).join(" + ")})</span>
+            <span style={{ color: "var(--ink-faint)" }}> ({SHIFTS.filter((s) => clipboard.entry[s.k]).map((s) => s.label).join(" + ")})</span>
           </span>
           <button onClick={cancelCopy} style={{ ...ghostBtn(), padding: "4px 10px", fontSize: 12 }}>Done</button>
         </div>
@@ -203,7 +187,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
       {rotationAnchor && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>
           <span style={{ flex: 1 }}>Rotation saved: 7AM → 3PM → 10PM → Off. Shifts outside it show as <span style={{ color: "var(--extra)", fontWeight: 600 }}>extra</span>.</span>
-          <button onClick={onClearRotation} style={{ background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 12.5, cursor: "pointer", fontFamily: "inherit", textDecoration: "underline", textUnderlineOffset: 3, padding: 0, whiteSpace: "nowrap" }}>Stop</button>
+          <button onClick={onClearRotation} style={{ ...linkBtn(), whiteSpace: "nowrap" }}>Stop</button>
         </div>
       )}
 
@@ -228,11 +212,6 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
       )}
     </Card>
   );
-}
-
-/* Hours without trailing zeros: 183, 7.5, 183.33. */
-function fmtH0(n) {
-  return (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("en-JM", { maximumFractionDigits: 2 });
 }
 
 /* One shift on a calendar day: a labelled chip, so colour is never the only
@@ -358,4 +337,4 @@ function Legend({ color, label, dot, outline, dotted, code }) {
   );
 }
 
-Object.assign(window, { Calendar, ShiftChip, TodayDate, fmtH0 });
+Object.assign(window, { Calendar, ShiftChip, TodayDate });
