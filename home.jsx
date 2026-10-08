@@ -92,6 +92,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
     [totals.cal.pm10, "10PM"],
     [totals.cal.am7, "7AM"],
   ].filter(([n]) => n > 0).map(([n, l]) => `${n} × ${l}`);
+  const [part, setPart] = useStateH(null);
 
   return (
     <>
@@ -102,7 +103,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           <span key={Math.round(totals.grand * 100)} className="nsc-sheen" aria-hidden />
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
           <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
-            <AnimatedNumber value={totals.grand} format={fmt} />
+            <AnimatedNumber value={totals.grand} format={fmt} from={0} durationMs={900} />
           </div>
           {netApplies(totals, tax) && Math.round(net) !== Math.round(totals.grand) && (
             <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 2 }}>
@@ -115,12 +116,25 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
               <button onClick={onUpdate} style={{ ...linkBtn(), color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
             </div>
           )}
+          {totals.grand > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <SplitBar totals={totals} focus={part} onFocusPart={setPart} />
+            </div>
+          )}
         </div>
 
-        <div style={{ marginTop: 12 }}>
-          <HomeLine color="var(--sp1)" label="Allowances" hint="SP1, SP2, meal, taxi" value={totals.allowanceSubtotal} />
-          <HomeLine color="var(--am)" label="Base pay" hint="basic + compulsory" value={totals.baseSubtotal} />
-          <HomeLine color="var(--sp2)" label="Extra hours" hint="overtime + holiday" value={totals.extraSubtotal} />
+        <div style={{ marginTop: 12 }} onPointerLeave={() => setPart(null)}>
+          {[
+            ["allow", "Allowances", "SP1, SP2, meal, taxi"],
+            ["base", "Base pay", "basic + compulsory"],
+            ["extra", "Extra hours", "overtime + holiday"],
+          ].map(([k, label, hint]) => {
+            const p = PAY_PARTS.find((x) => x.key === k);
+            return (
+              <HomeLine key={k} color={p.color} label={label} hint={hint} value={totals[p.field]}
+                dim={part && part !== k} onEnter={() => setPart(k)} />
+            );
+          })}
         </div>
 
         <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
@@ -163,15 +177,18 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
   );
 }
 
-function HomeLine({ color, label, hint, value }) {
+function HomeLine({ color, label, hint, value, dim, onEnter }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: "1px dashed var(--line-soft)" }}>
+    <div onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter(); }} style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: "1px dashed var(--line-soft)",
+      opacity: dim ? 0.45 : 1, transition: "opacity 0.15s ease",
+    }}>
       <span style={{ width: 6, height: 18, borderRadius: 2, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{hint}</div>
       </div>
-      <span className="mono" style={{ fontSize: 14.5, fontWeight: 600 }}>{fmt(value)}</span>
+      <span style={{ fontSize: 14.5, fontWeight: 600 }}><AnimatedNumber value={value} format={fmt} from={0} durationMs={900} /></span>
     </div>
   );
 }
@@ -357,7 +374,7 @@ function HomeMoney({ label, value, onChange }) {
         <input
           inputMode="decimal" value={value} placeholder="0.00"
           onChange={(e) => onChange(e.target.value)}
-          style={{ width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 12, padding: "13px 14px 13px 28px", color: "var(--ink)", fontSize: 17, outline: "none", fontFamily: "inherit" }}
+          style={{ width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 12, padding: "13px 14px 13px 28px", color: "var(--ink)", fontSize: 17, fontFamily: "inherit" }}
         />
       </div>
     </label>
@@ -386,12 +403,12 @@ function RotationPicker({ period, value, onChange }) {
       <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 3, marginBottom: 10, lineHeight: 1.45 }}>
         Your rotation (7AM → 3PM → 10PM → Off) fills the whole period from that day, before and after it. Check the days below match your roster. It's saved for next period too.
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }} role="group" aria-label="Rotation calendar">
+      <div className="nsc-cascade" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }} role="group" aria-label="Rotation calendar">
         {["S", "M", "T", "W", "T", "F", "S"].map((w, i) => (
           <div key={"h" + i} className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", textAlign: "center", padding: "2px 0" }}>{w}</div>
         ))}
         {Array.from({ length: lead }).map((_, i) => <div key={"b" + i} />)}
-        {days.map((d) => {
+        {days.map((d, di) => {
           const key = ymd(d);
           const e = preview[key];
           const sh = e ? SHIFTS.find((s) => e[s.k]) : null;
@@ -405,6 +422,7 @@ function RotationPicker({ period, value, onChange }) {
               className="nsc-pick"
               aria-label={`${key === todayKey ? "Today, " : ""}${d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}: ${sh ? sh.label : "off"}${hol ? `, ${hol}` : ""}${anchor ? ", chosen 7AM" : ""}`}
               style={{
+                "--i": lead + di,
                 position: "relative", padding: "5px 0 4px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
                 textAlign: "center", minWidth: 0,
                 transition: "background 0.25s, border-color 0.25s, transform 0.12s",
@@ -479,7 +497,7 @@ function Stepper({ label, hint, color, value, onChange }) {
         inputMode="numeric" value={value} placeholder="0"
         onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
         aria-label={label}
-        style={{ width: 52, textAlign: "center", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 4px", color: "var(--ink)", fontSize: 17, outline: "none", fontFamily: "inherit" }}
+        style={{ width: 52, textAlign: "center", background: "var(--bg-1)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 4px", color: "var(--ink)", fontSize: 17, fontFamily: "inherit" }}
       />
       <button onClick={() => bump(1)} style={btn} aria-label={`More ${label}`}>+</button>
     </div>

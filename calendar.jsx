@@ -25,9 +25,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: compact ? "0 0 12px" : "0 12px 14px" }}>
+      <div className="nsc-cascade" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, padding: compact ? "0 0 12px" : "0 12px 14px" }}>
         {Array.from({ length: leadBlanks }).map((_, i) => <div key={"b" + i} />)}
-        {days.map((d) => {
+        {days.map((d, di) => {
           const key = ymd(d);
           const e = entries[key];
           const isHol = e?.holiday == null ? isJamaicaHoliday(d) : e.holiday;
@@ -66,6 +66,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
               onLongPress={() => { if (canCopy && has && !clipboard) copyDay(key); }}
               className={"nsc-day" + (isHighlighted ? " pulse-day" : "")}
               style={{
+                "--i": leadBlanks + di,
                 position: "relative",
                 minHeight: 54,
                 borderRadius: 11,

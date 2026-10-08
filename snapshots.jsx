@@ -1,5 +1,5 @@
 /* snapshots.jsx — history list with sparkline */
-const { useState: useStateSn, useMemo: useMemoSn, useRef: useRefSn } = React;
+const { useState: useStateSn, useMemo: useMemoSn } = React;
 
 function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcile }) {
   // Track the open snapshot by id and look it up live, so a reconciliation
@@ -28,20 +28,8 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   const deltaPct = g(prev) ? (delta / g(prev)) * 100 : 0;
 
   // A deleted row folds away before it leaves the list (the app's Undo toast
-  // still covers it). The ref guards a second tap while it's folding.
-  const [leaving, setLeaving] = useStateSn([]);
-  const leavingRef = useRefSn(new Set());
-  const remove = (at) => {
-    if (leavingRef.current.has(at)) return;
-    if (prefersReducedMotion()) { onDelete(at); return; }
-    leavingRef.current.add(at);
-    setLeaving((l) => [...l, at]);
-    setTimeout(() => {
-      onDelete(at);
-      leavingRef.current.delete(at);
-      setLeaving((l) => l.filter((x) => x !== at));
-    }, 220);
-  };
+  // still covers it).
+  const [isLeaving, remove] = useFoldAway(onDelete);
 
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
@@ -92,16 +80,10 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
               const prevSnap = sortedDesc[i + 1];
               const raw = prevSnap ? g(s) - g(prevSnap) : 0;
               const d = Math.abs(raw) < 0.005 ? 0 : raw;
-              // The gap lives inside the folding wrapper so it folds away too.
               return (
-                <div key={s.at} className={"nsc-row" + (leaving.includes(s.at) ? " is-leaving" : "")}>
-                  <div>
-                    <div className="nsc-row-in" style={{ paddingBottom: 8, animationDelay: `${Math.min(i, 8) * 40 + 80}ms` }}>
-                      <SnapRow snap={s} delta={d}
-                        onOpen={() => setSelectedAt(s.at)} onDelete={() => remove(s.at)} />
-                    </div>
-                  </div>
-                </div>
+                <AnimatedRow key={s.at} index={i} leaving={isLeaving(s.at)}>
+                  <SnapRow snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => remove(s.at)} />
+                </AnimatedRow>
               );
             })}
           </div>
@@ -285,6 +267,8 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
           <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString()}</div>
         </ModalHead>
 
+        <div style={{ marginBottom: 6 }}><SplitBar totals={t} height={8} delay={0.2} /></div>
+
         <Row label="Allowance" muted />
         <Row label="SP1" value={fmt(t.sp1)} />
         <Row label="SP2" value={fmt(t.sp2)} />
@@ -314,7 +298,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
           display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "4px 12px", flexWrap: "wrap",
         }}>
           <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>{totalLabel(t)}</span>
-          <span className="mono" style={{ fontSize: 26, fontWeight: 700 }}>{fmt(t.grand)}</span>
+          <span style={{ fontSize: 26, fontWeight: 700 }}><AnimatedNumber value={Number(t.grand) || 0} format={fmt} from={0} durationMs={700} /></span>
         </div>
 
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>

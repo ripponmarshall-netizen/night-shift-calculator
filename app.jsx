@@ -720,7 +720,7 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
           background: "var(--bg-2)",
           border: `1px solid ${flag ? "color-mix(in oklab, var(--warn) 50%, var(--line))" : "var(--line)"}`,
           borderRadius: 10, padding: "10px 12px", color: "var(--ink)",
-          fontSize: 16, outline: "none", fontFamily: "inherit",
+          fontSize: 16, fontFamily: "inherit",
         }}
       />
     </div>
@@ -893,7 +893,8 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
                 <Icon />
                 <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500 }}>{t.label}</span>
                 {t.badge > 0 && !active && (
-                  <span className="mono" style={{
+                  // Keyed by the count, so it pops when a period is saved.
+                  <span key={t.badge} className="mono nsc-pop" style={{
                     position: "absolute", top: 5, right: "calc(50% - 22px)",
                     fontSize: 9, fontWeight: 700,
                     padding: "1px 5px", borderRadius: 999,

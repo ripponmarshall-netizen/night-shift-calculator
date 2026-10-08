@@ -5,6 +5,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const [openSec, setOpenSec] = useStateS({ allow: false, base: false, extra: false });
   const [math, setMath] = useStateS(null);
   const [showNet, setShowNet] = useStateS(false);
+  const [part, setPart] = useStateS(null);
   const est = totals.grand;
   const taxBreak = estimateNet(totals, tax);
   const net = taxBreak.net;
@@ -36,7 +37,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
-            <AnimatedNumber value={est} format={fmt} />
+            <AnimatedNumber value={est} format={fmt} from={0} durationMs={900} />
           </div>
           {netApplies(totals, tax) && (
             <button onClick={() => setShowNet((v) => !v)} aria-expanded={showNet} style={linkBtn(12.5)}>
@@ -47,6 +48,11 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         {noBasic && (
           <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
             Base pay, overtime and tax aren't included until you add your monthly basic below.
+          </div>
+        )}
+        {est > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <SplitBar totals={totals} focus={part} onFocusPart={setPart} />
           </div>
         )}
         <Collapse open={showNet && netApplies(totals, tax)}>
@@ -74,7 +80,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         </Collapse>
       </div>
 
-      <SecHeader title="Allowance" subtotal={totals.allowanceSubtotal} open={openSec.allow} onToggle={() => toggle("allow")} accent="var(--sp1)" />
+      <SecHeader dim={part && part !== "allow"} onEnter={() => setPart("allow")} onLeave={() => setPart(null)} title="Allowance" subtotal={totals.allowanceSubtotal} open={openSec.allow} onToggle={() => toggle("allow")} accent="var(--sp1)" />
       <Collapse open={openSec.allow}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
           <Row label="SP1 — 3PM" value={fmt(totals.sp1)} formula onClick={() => showMath("SP1 — 3PM allowance", `${n(totals.cal.pm3, "shift")} × ${fmt(totals.rates.sp1)} per shift`, totals.sp1)} />
@@ -91,7 +97,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         </div>
       </Collapse>
 
-      <SecHeader title="Base Pay" subtotal={totals.baseSubtotal} open={openSec.base} onToggle={() => toggle("base")} accent="var(--am)" />
+      <SecHeader dim={part && part !== "base"} onEnter={() => setPart("base")} onLeave={() => setPart(null)} title="Base Pay" subtotal={totals.baseSubtotal} open={openSec.base} onToggle={() => toggle("base")} accent="var(--am)" />
       <Collapse open={openSec.base}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
           <Row label="Monthly Basic" value={fmt(totals.monthlyBasic)} />
@@ -100,7 +106,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         </div>
       </Collapse>
 
-      <SecHeader title="Extra Hours" subtotal={totals.extraSubtotal} open={openSec.extra} onToggle={() => toggle("extra")} accent="var(--sp2)" />
+      <SecHeader dim={part && part !== "extra"} onEnter={() => setPart("extra")} onLeave={() => setPart(null)} title="Extra Hours" subtotal={totals.extraSubtotal} open={openSec.extra} onToggle={() => toggle("extra")} accent="var(--sp2)" />
       <Collapse open={openSec.extra}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
           <Row label="Total hours" value={fmtH(totals.totalHours)} />
@@ -124,9 +130,9 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   );
 }
 
-function SecHeader({ title, subtotal, open, onToggle, accent }) {
+function SecHeader({ title, subtotal, open, onToggle, accent, dim, onEnter, onLeave }) {
   return (
-    <button onClick={onToggle} aria-expanded={open} style={{
+    <button onClick={onToggle} aria-expanded={open} onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter?.(); }} onPointerLeave={onLeave} style={{
       display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
       width: "100%", padding: "10px 12px",
       background: open ? "var(--bg-2)" : "transparent",
@@ -137,14 +143,15 @@ function SecHeader({ title, subtotal, open, onToggle, accent }) {
       marginBottom: 4,
       textAlign: "left",
       fontFamily: "inherit",
-      transition: "background 0.18s",
+      opacity: dim ? 0.45 : 1,
+      transition: "background 0.18s, opacity 0.15s ease",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ width: 6, height: 16, borderRadius: 2, background: accent }} />
         <span style={{ fontSize: 13.5, fontWeight: 500 }}>{title}</span>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span className="mono" style={{ fontSize: 13.5, fontWeight: 600 }}>{fmt(subtotal)}</span>
+        <span style={{ fontSize: 13.5, fontWeight: 600 }}><AnimatedNumber value={subtotal} format={fmt} from={0} durationMs={900} /></span>
         <span style={{
           fontSize: 12, color: "var(--ink-faint)",
           transition: "transform 0.18s",
@@ -169,7 +176,6 @@ function MathPopover({ label, formula, value, unit, onClose }) {
           borderRadius: 8, color: "var(--ink-dim)",
           fontSize: 12, lineHeight: 1.5,
           whiteSpace: "pre-wrap", wordBreak: "break-word",
-          fontFamily: "inherit",
         }}>{formula}</pre>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 12 }}>
           <span className="label">Result</span>

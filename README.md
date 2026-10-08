@@ -26,25 +26,25 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 
 The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen (a fire truck) while the scripts load; once the app mounts, the truck dashes off, the app logo draws in, and the logo and title fly up into the header while the page drops in beneath them (a plain fade with reduced motion).
 
-| File             | Purpose                                                                                                                            |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `index.html`     | App shell, script loaders, service-worker registration                                                                             |
-| `styles.css`     | Theme tokens (dark + light), typography, base reset                                                                                |
-| `helpers.jsx`    | Date utilities, JM holidays (Easter computus), aggregate engine, JM tax model, rate history, templates, iCal export, storage       |
-| `components.jsx` | Shared primitives (Card, SegToggle, buttons, ModalFrame, PeriodNav, ChoiceCard, AnimatedNumber), toasts with Undo, confirm, footer |
-| `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup, saved as you type), Auto-fill                                             |
-| `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                       |
-| `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips             |
-| `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                                   |
-| `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                                     |
-| `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                       |
-| `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                 |
-| `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                  |
-| `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                          |
-| `app.jsx`        | Root component — state, persistence, 3-tab taskbar, header, taxi-distance card, two-column desktop layout                          |
-| `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                   |
-| `manifest.json`  | PWA manifest                                                                                                                       |
-| `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                         |
+| File             | Purpose                                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `index.html`     | App shell, script loaders, service-worker registration                                                                                                                         |
+| `styles.css`     | Theme tokens (dark + light), typography, base reset                                                                                                                            |
+| `helpers.jsx`    | Date utilities, JM holidays (Easter computus), aggregate engine, JM tax model, rate history, templates, iCal export, storage                                                   |
+| `components.jsx` | Shared primitives (Card, SegToggle, buttons, ModalFrame, PeriodNav, ChoiceCard, AnimatedNumber, SplitBar, chart cursor, animated list rows), toasts with Undo, confirm, footer |
+| `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup, saved as you type), Auto-fill                                                                                         |
+| `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                                                                   |
+| `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips                                                         |
+| `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                                                                               |
+| `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                                                                                 |
+| `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                                                                   |
+| `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                                                             |
+| `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                                                              |
+| `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
+| `app.jsx`        | Root component — state, persistence, 3-tab taskbar, header, taxi-distance card, two-column desktop layout                                                                      |
+| `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
+| `manifest.json`  | PWA manifest                                                                                                                                                                   |
+| `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |
 
 State persists in `localStorage` under `nsc:v3`. No data leaves the device.
 
