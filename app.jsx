@@ -172,9 +172,10 @@ function App() {
   /* ICS export */
   const exportICS = () => {
     const periodEntries = {};
+    // A day holding only a holiday override has no shifts to export.
     for (const d of periodDays(period)) {
       const k = ymd(d);
-      if (entries[k]) periodEntries[k] = entries[k];
+      if (hasShifts(entries[k])) periodEntries[k] = entries[k];
     }
     if (Object.keys(periodEntries).length === 0) {
       showToast("No shifts logged for this period yet");
@@ -227,7 +228,8 @@ function App() {
   };
   const importJson = () => {
     const inp = document.createElement("input");
-    inp.type = "file"; inp.accept = "application/json";
+    // Some Android pickers grey out .json files that are only matched by type.
+    inp.type = "file"; inp.accept = "application/json,.json";
     inp.onchange = async () => {
       const f = inp.files?.[0]; if (!f) return;
       try {
@@ -303,7 +305,12 @@ function App() {
     setView(v);
   };
   useEffect(() => {
-    try { window.history.replaceState({ ...(window.history.state || {}), [NAV_KEY]: "home" }, ""); } catch {}
+    try {
+      // A reload can land on an entry a modal or setup held; nothing's open now.
+      const st = { ...(window.history.state || {}), [NAV_KEY]: "home" };
+      delete st.nscLayer;
+      window.history.replaceState(st, "");
+    } catch {}
     const onPop = (e) => setView((e.state && e.state[NAV_KEY]) || "home");
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -341,7 +348,7 @@ function App() {
     setHighlightDays(allKeys);
     setTimeout(() => setHighlightDays(null), 3000);
     const cal = document.getElementById("calendar-section");
-    if (cal) cal.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (cal) cal.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
   };
 
   /* Taxi distance: "S"/"L" apply one distance to every shift (Quick mode);
@@ -485,7 +492,7 @@ function App() {
           onReset={reset}
           onExport={exportJson}
           onImport={importJson}
-          onAbout={() => { setSettingsOpen(false); go("about"); }}
+          onAbout={() => go("about")}
           onClose={() => setSettingsOpen(false)}
         />
       )}
@@ -552,7 +559,8 @@ function CalcView(props) {
 
   return (
     <main className="calc-grid nsc-view" style={{ maxWidth: 1180, margin: "0 auto", padding: "16px 20px 0" }}>
-      <div className="calc-left" id="calendar-section">
+      {/* Scrolled to from "Show me the calendar": land below the sticky header. */}
+      <div className="calc-left" id="calendar-section" style={{ scrollMarginTop: "calc(var(--safe-top) + 80px)" }}>
         <Calendar
           period={period}
           entries={entries}
@@ -621,7 +629,10 @@ function DistanceCard({ mode, basicDistance, onChange, totals }) {
             </div>
           </>
         ) : (
-          <>Each 3PM and 10PM shift pays <span className="mono" style={{ color: "var(--ink)" }}>{fmt(value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)}</span> taxi this period.</>
+          <>
+            Each 3PM and 10PM shift pays <span className="mono" style={{ color: "var(--ink)" }}>{fmt(value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort)}</span> taxi this period.
+            {c.sameDayPair > 0 && " A day with both a 3PM and a 10PM pays none."}
+          </>
         )}
       </div>
     </Card>
@@ -660,7 +671,7 @@ function BasePayFold({ basePay, setBasePay }) {
     : "Not set";
   return (
     <FoldRow title="Your monthly pay" detail={detail} warn={!(monthly > 0)} open={open} onToggle={() => setOpen((o) => !o)}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
         <RateInput label="Monthly basic" unit="$" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
         <RateInput label="Compulsory assignment" unit="$" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
       </div>

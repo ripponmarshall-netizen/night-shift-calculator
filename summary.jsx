@@ -36,7 +36,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         <span key={Math.round(est * 100)} className="nsc-sheen" aria-hidden />
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 30, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
+          <div style={{ fontSize: "clamp(24px, 7.6vw, 30px)", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
             <AnimatedNumber value={est} format={fmt} from={0} durationMs={900} />
           </div>
           {netApplies(totals, tax) && (

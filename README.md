@@ -70,7 +70,7 @@ If you leave your monthly pay blank, the big number is labelled **Estimated allo
 
 After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
 
-The phone's **Back** button returns to Home from any other screen. The app always opens on today's pay period.
+The phone's **Back** button closes an open dialog or the Home setup first, then returns to Home from any other screen. The app always opens on today's pay period.
 
 ### The detailed way (Shifts)
 

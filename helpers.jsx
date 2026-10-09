@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.11";
+const APP_VERSION = "3.12";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";

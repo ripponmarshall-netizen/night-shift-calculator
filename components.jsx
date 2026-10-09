@@ -435,8 +435,14 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
 function ModalFrame({ dismiss, sheet, zIndex = 70, maxWidth = 520, role = "dialog", label, style, children }) {
   const { ref, closing, close } = dismiss;
   const c = closing ? " is-closing" : "";
+  // Only a press that starts on the backdrop closes the modal. A text
+  // selection dragged out of a field ends with a click on the backdrop too.
+  const downOnBackdrop = useRefC(false);
   return (
-    <div onClick={close} className={"nsc-backdrop" + (sheet ? " is-bottom" : "") + c} style={{ zIndex }}>
+    <div
+      onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (e.target === e.currentTarget && downOnBackdrop.current) close(); }}
+      className={"nsc-backdrop" + (sheet ? " is-bottom" : "") + c} style={{ zIndex }}>
       <div ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()} role={role} aria-modal="true" aria-label={label}
         className={"nsc-modal " + (sheet ? "nsc-sheet" : "nsc-center") + c} style={{ maxWidth, ...style }}>
         {children}
@@ -673,19 +679,80 @@ function sanitizeDecimal(v) {
    Tab focus-traps pull focus back and forth. */
 const MODAL_EXIT_MS = 180;
 const modalStack = [];
+
+/* Back-button layers. A modal, or Home's setup, holds one history entry while
+   it's open, so the phone's Back button closes it instead of changing the
+   screen underneath (or, from Home, leaving the app). Closing one from its
+   own buttons takes the entry off again; that history.back() is swallowed
+   here, ahead of App's popstate handler, so App doesn't read it as a move.
+   Layers close newest first, so the top layer always owns the top entry. */
+const backLayers = [];
+let pendingPops = 0;
+let popWaiters = [];
+const settlePops = () => { const w = popWaiters; popWaiters = []; w.forEach((fn) => fn()); };
+// Registered before App mounts, so it runs ahead of App's own listener.
+window.addEventListener("popstate", (e) => {
+  if (pendingPops > 0) {
+    pendingPops--;
+    e.stopImmediatePropagation();
+    if (pendingPops === 0) settlePops();
+    return;
+  }
+  const top = backLayers[backLayers.length - 1];
+  if (!top || !top.pushed) return;
+  backLayers.pop();
+  top.pushed = false;
+  e.stopImmediatePropagation();
+  top.onBack();
+});
+function openBackLayer(onBack) {
+  const layer = { onBack, pushed: false };
+  try {
+    window.history.pushState({ ...(window.history.state || {}), nscLayer: backLayers.length + 1 }, "");
+    layer.pushed = true;
+  } catch {}
+  backLayers.push(layer);
+  return layer;
+}
+/* Close a layer from the UI. Resolves once its entry is off the history
+   (at once when Back already took it), so a screen change made after it
+   lands on the right entry. */
+function closeBackLayer(layer) {
+  const i = backLayers.indexOf(layer);
+  if (i !== -1) backLayers.splice(i, 1);
+  if (layer.pushed) {
+    layer.pushed = false;
+    pendingPops++;
+    try { window.history.back(); } catch { pendingPops--; }
+  }
+  if (pendingPops === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    popWaiters.push(resolve);
+    // Backstop: if the browser never reports the pop, don't let the count
+    // swallow the person's next real Back.
+    setTimeout(() => { if (pendingPops > 0) { pendingPops = 0; settlePops(); } }, 600);
+  });
+}
+
 function useModalDismiss(onClose) {
   const cbRef = useRefC(onClose);
   cbRef.current = onClose;
   const dialogRef = useRefC(null);
   const [closing, setClosing] = useStateC(false);
   const closingRef = useRefC(false);
+  const layerRef = useRefC(null);
 
   const close = () => {
     if (closingRef.current) return;
     closingRef.current = true;
-    if (prefersReducedMotion()) { cbRef.current?.(); return; }
+    // onClose waits until this modal's Back entry is gone, so a screen it
+    // opens (Settings → About) is pushed onto the right entry.
+    const left = layerRef.current ? closeBackLayer(layerRef.current) : Promise.resolve();
+    layerRef.current = null;
+    const finish = () => left.then(() => cbRef.current?.());
+    if (prefersReducedMotion()) { finish(); return; }
     setClosing(true);
-    setTimeout(() => cbRef.current?.(), MODAL_EXIT_MS);
+    setTimeout(finish, MODAL_EXIT_MS);
   };
   const closeRef = useRefC(close);
   closeRef.current = close;
@@ -694,6 +761,7 @@ function useModalDismiss(onClose) {
     const prevFocus = document.activeElement;
     const token = {};
     modalStack.push(token);
+    layerRef.current = openBackLayer(() => closeRef.current?.());
     const focusables = () => {
       const root = dialogRef.current;
       if (!root) return [];
@@ -726,10 +794,14 @@ function useModalDismiss(onClose) {
       modalStack.splice(modalStack.indexOf(token), 1);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      // Unmounted without close() (its screen went away): drop its entry.
+      if (layerRef.current) { closeBackLayer(layerRef.current); layerRef.current = null; }
       prevFocus?.focus?.();
     };
   }, []);
-  return { ref: dialogRef, closing, close };
+  // closingRef flips in the same tap as close(), so a modal can freeze its
+  // content for the exit before the state update lands.
+  return { ref: dialogRef, closing: closing || closingRef.current, close };
 }
 
 Object.assign(window, {
@@ -737,6 +809,7 @@ Object.assign(window, {
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
   ModalFrame, ModalHead, PeriodNav, ChoiceCard,
   AnimatedNumber, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
+  openBackLayer, closeBackLayer,
   prefersReducedMotion, Collapse, showToast, ToastHost,
   askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,
   copyText, downloadBlob,

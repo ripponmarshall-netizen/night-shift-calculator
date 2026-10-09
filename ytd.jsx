@@ -44,7 +44,8 @@ function YTDDashboard({ snapshots }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 16 }}>
         <KpiTile label="Earned YTD" value={count(stats.total, fmt)} wide
           sub={thisYear.length > 1 ? `avg ${fmt(stats.total / thisYear.length)} per period` : null} />
-        <KpiTile label="Hours worked" value={count(stats.hours, hrs1)} small />
+        {/* Total, not "worked": it includes leave hours. */}
+        <KpiTile label="Total hours" value={count(stats.hours, hrs1)} small />
         <KpiTile label="Holiday hours" value={count(stats.holHours, hrs1)} small />
         <KpiTile label="OT hours" value={count(stats.otHours, hrs1)} small />
       </div>
