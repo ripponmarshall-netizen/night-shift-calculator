@@ -2,9 +2,14 @@
 const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
-function DayModal({ dayKey, entry, mode, slot, defaultDist, onClose, onChange, onClear }) {
+function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, onChange, onClear }) {
   const dismiss = useModalDismiss(onClose);
   const { close } = dismiss;
+  // While the sheet slides away (after Clear day, say), keep showing the day
+  // as it was, so its rows don't fold shut and drop the sheet mid-exit.
+  const shown = React.useRef(liveEntry);
+  if (!dismiss.closing) shown.current = liveEntry;
+  const entry = shown.current;
   const date = fromYmd(dayKey);
   const autoHolName = holidayName(date);
   const isAutoHoliday = !!autoHolName;
@@ -284,7 +289,10 @@ function HoursRow({ keyName, entry, onChange, hint }) {
 /* ============ Settings ============ */
 function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, ratesEffective, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
   const [tab, setTab] = useStateM("rates");
-  const dismiss = useModalDismiss(onClose);
+  // About opens once Settings has closed (with its exit, and its Back entry
+  // gone), so About's own entry lands where Back expects it.
+  const toAbout = React.useRef(false);
+  const dismiss = useModalDismiss(() => { onClose(); if (toAbout.current) onAbout(); });
   return (
     <ModalFrame dismiss={dismiss} label="Settings">
         <ModalHead title="Settings" onClose={dismiss.close} />
@@ -305,7 +313,7 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
           <DataTab onExport={onExport} onImport={onImport} onExportICS={onExportICS} onReset={onReset} />
         </div>
         <div style={{ borderTop: "1px solid var(--line-soft)", marginTop: 16, paddingTop: 12, textAlign: "center" }}>
-          <button onClick={onAbout} style={linkBtn(13)}>About & disclaimers</button>
+          <button onClick={() => { toAbout.current = true; dismiss.close(); }} style={linkBtn(13)}>About & disclaimers</button>
         </div>
     </ModalFrame>
   );
@@ -373,7 +381,8 @@ function RatesTab({ rates, setRates, ratesEffective }) {
           The period you're viewing uses a saved rate from Past rates ({ratesEffective.replace("Rates effective ", "from ")}). Changes here only apply to periods before your first saved rate. To change this period, save a new entry in Past rates.
         </div>
       )}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      {/* Inputs line up along each row even when one label wraps. */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
         <RateInput label="SP1 (3PM, per shift)" unit="$" value={draft.sp1} onChange={(v) => set("sp1", v)} error={errors.sp1} />
         <RateInput label="SP2 (10PM, per shift)" unit="$" value={draft.sp2} onChange={(v) => set("sp2", v)} error={errors.sp2} />
         <RateInput label="Meal (per shift)" unit="$" value={draft.meal} onChange={(v) => set("meal", v)} error={errors.meal} />
@@ -443,7 +452,7 @@ function TaxTab({ tax, setTax }) {
       </label>
       {draft.enabled && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10, alignItems: "end" }}>
             {field("nis", "NIS", "%")}
             {field("nisCapMonthly", "NIS cap (monthly)", "$")}
             {field("nht", "NHT", "%")}
@@ -467,6 +476,11 @@ function TaxTab({ tax, setTax }) {
 function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
   const [date, setDate] = useStateM("");
   const list = [...(ratesHistory || [])].sort((a, b) => effDate(b.effectiveFrom) - effDate(a.effectiveFrom));
+  // Keyed by date (plus a count for an old backup's same-date pair), not by
+  // position in ratesHistory: a delete shifts positions, and the rows after
+  // it would remount and rise in again.
+  const seen = {};
+  const rowKey = (e) => { const d = String(e.effectiveFrom); seen[d] = (seen[d] || 0) + 1; return `${d}#${seen[d]}`; };
   const addEntry = () => {
     if (!date) { showToast("Pick the date these rates started first"); return; }
     const entry = { effectiveFrom: date, rates: { ...currentRates } };
@@ -497,7 +511,7 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column" }}>
           {list.map((e, i) => (
-            <AnimatedRow key={`${e.effectiveFrom}-${ratesHistory.indexOf(e)}`} index={i} leaving={isLeaving(e)}>
+            <AnimatedRow key={rowKey(e)} index={i} leaving={isLeaving(e)}>
               <div style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
                 padding: "10px 6px 10px 14px",

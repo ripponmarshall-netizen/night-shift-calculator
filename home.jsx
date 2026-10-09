@@ -17,6 +17,28 @@ function HomeView(props) {
     onWizardChange?.(wizard);
     return () => onWizardChange?.(false);
   }, [wizard]);
+  // Setup holds a history entry while it's open, so the phone's Back button
+  // cancels it instead of leaving the app from Home.
+  const wizardLayer = React.useRef(null);
+  useEffectH(() => {
+    if (!wizard) return;
+    const layer = openBackLayer(() => setWizard(false));
+    wizardLayer.current = layer;
+    return () => {
+      if (wizardLayer.current !== layer) return;
+      wizardLayer.current = null;
+      closeBackLayer(layer);
+    };
+  }, [wizard]);
+  // Close setup from its own buttons. `then` (a screen change) waits until
+  // setup's entry is off the history, so it's pushed onto the right one.
+  const closeWizard = (then) => {
+    const layer = wizardLayer.current;
+    wizardLayer.current = null;
+    const left = layer ? closeBackLayer(layer) : Promise.resolve();
+    if (typeof then !== "function") { setWizard(false); return; }
+    left.then(() => { setWizard(false); then(); });
+  };
   // Opening or finishing setup swaps the whole card, so start at the top
   // (finishing from the foot of the tall rotation step otherwise lands
   // halfway down the result).
@@ -52,7 +74,7 @@ function HomeView(props) {
         </Card>
       )}
       {wizard ? (
-        <SetupWizard {...props} shiftDays={shiftDays} onDone={() => setWizard(false)} />
+        <SetupWizard {...props} shiftDays={shiftDays} onDone={closeWizard} />
       ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor ? (
         <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
       ) : (
@@ -102,7 +124,8 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
         <div className="nsc-hero">
           <span key={Math.round(totals.grand * 100)} className="nsc-sheen" aria-hidden />
           <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
-          <div style={{ fontSize: 34, fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
+          {/* Scales down on narrow phones, so a six-figure total stays inside the card. */}
+          <div style={{ fontSize: "clamp(26px, 8.6vw, 34px)", fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
             <AnimatedNumber value={totals.grand} format={fmt} from={0} durationMs={900} />
           </div>
           {netApplies(totals, tax) && Math.round(net) !== Math.round(totals.grand) && (
@@ -253,7 +276,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
         <div className="label">
           Step {step + 1} of {steps.length} · {steps[step]}
         </div>
-        <button onClick={onDone} style={linkBtn()}>Cancel</button>
+        <button onClick={() => onDone()} style={linkBtn()}>Cancel</button>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: 4, margin: "10px 0 18px" }} aria-hidden>
         {steps.map((_, i) => (
@@ -309,7 +332,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
             </div>
           )}
 
-          <button onClick={() => { onDone(); onOpenCalc(); }} style={homeLinkBtn}>
+          <button onClick={() => onDone(() => onOpenCalc())} style={homeLinkBtn}>
             Different schedule? Log day by day on the calendar →
           </button>
         </>

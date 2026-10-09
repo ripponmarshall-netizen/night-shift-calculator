@@ -226,11 +226,15 @@ function ShiftChip({ label, color, extra, long, duty }) {
   const pay = duty ? DUTY_TYPES[duty].pay : "full";
   const outline = pay !== "full";
   const text = duty ? DUTY_TYPES[duty].code : (extra ? "+" : "") + label;
+  // "+10PM" is a character wider than any other chip, so it gets a touch
+  // smaller and tighter, or it clips to "+10P" on phones under ~360px.
+  const wide = text.length > 4;
   return (
     <span className="mono nsc-chip-in" style={{
       position: "relative", display: "block", textAlign: "center",
       // Shrinks a little on 320px phones so "10PM" fits a seventh of the width.
-      fontSize: "clamp(9px, 2.9vw, 10.5px)", fontWeight: 700, lineHeight: outline ? "14px" : "16px", letterSpacing: "-0.03em",
+      fontSize: wide ? "clamp(8px, 2.5vw, 10.5px)" : "clamp(9px, 2.9vw, 10.5px)",
+      fontWeight: 700, lineHeight: outline ? "14px" : "16px", letterSpacing: wide ? "-0.06em" : "-0.03em",
       borderRadius: 4,
       background: pay === "hours" ? `color-mix(in oklab, ${bg} 16%, transparent)` : pay === "none" ? "transparent" : bg,
       border: pay === "hours" ? `1px dashed ${bg}` : pay === "none" ? "1px dotted var(--ink-faint)" : "none",

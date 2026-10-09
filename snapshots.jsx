@@ -42,7 +42,9 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
         {/* Sparkline */}
         {sortedAsc.length >= 2 && (
           <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 8 }}>
+            {/* On a narrow phone the change wraps under the total rather than
+                running out of the box. */}
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "6px 12px", marginBottom: 8 }}>
               <div>
                 <div className="label">{trendAt == null ? "Latest" : latest.period}</div>
                 <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>
@@ -51,11 +53,11 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
                 {/* The counting number is too chatty to announce; read the settled value instead. */}
                 <span aria-live="polite" style={srOnly}>{trendAt == null ? "" : `${latest.period}: ${fmt(g(latest))}`}</span>
               </div>
-              <div style={{ textAlign: "right" }}>
+              <div style={{ textAlign: "right", marginLeft: "auto" }}>
                 <div className="label">vs previous</div>
                 {/* Under a cent either way reads as no change, not a green ▲. */}
                 <div className="mono" style={{
-                  fontSize: 14, fontWeight: 600, marginTop: 2,
+                  fontSize: 14, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap",
                   color: Math.abs(delta) < 0.005 ? "var(--ink-dim)" : delta > 0 ? "var(--ok)" : "var(--holiday)",
                 }}>
                   {!prev ? "First saved"
