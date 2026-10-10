@@ -108,8 +108,12 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(e.request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
+          // Only a good page replaces the cached shell; a 404/5xx would
+          // otherwise be what opens next time the phone is offline.
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE).then((cache) => cache.put("./index.html", copy));
+          }
           return response;
         })
         .catch(() =>

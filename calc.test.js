@@ -1034,4 +1034,103 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.ok(/DTEND;TZID=America\/Jamaica:20260521T070000/.test(ics));
 }
 
-console.log("calc tests passed");
+// ----- Service worker -----
+let swChecks = Promise.resolve();
+// Offline start needs every file index.html loads to be precached, and the
+// precache list must only name files that exist (a typo is a silent miss).
+{
+  const fs = require("fs");
+  const path = require("path");
+  const vm = require("vm");
+  const swSrc = fs.readFileSync(path.join(__dirname, "sw.js"), "utf8");
+  const assets = JSON.parse(
+    swSrc.match(/const ASSETS = (\[[\s\S]*?\]);/)[1].replace(/,\s*\]/, "]"),
+  );
+  for (const a of assets) {
+    if (a === "./") continue;
+    assert.ok(
+      fs.existsSync(path.join(__dirname, a)),
+      `sw.js precaches missing file ${a}`,
+    );
+  }
+  const html = fs.readFileSync(path.join(__dirname, "index.html"), "utf8");
+  const local = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map((m) => m[1])
+    .filter((u) => !/^https?:/.test(u));
+  for (const u of local) {
+    assert.ok(
+      assets.includes("./" + u.replace(/^\.\//, "")),
+      `index.html loads ${u} but sw.js doesn't precache it`,
+    );
+  }
+
+  // The app shell is network-first. A failed response (404/5xx during a
+  // deploy) must not replace the cached index.html, or the next offline start
+  // opens an error page instead of the app.
+  const handlers = {};
+  const puts = [];
+  const cache = {
+    put: (k, v) => {
+      puts.push([k, v]);
+      return Promise.resolve();
+    },
+  };
+  const ctx = {
+    self: {
+      addEventListener: (t, fn) => {
+        handlers[t] = fn;
+      },
+      location: { origin: "https://x.test" },
+    },
+    caches: {
+      open: () => Promise.resolve(cache),
+      match: () => Promise.resolve(undefined),
+    },
+    URL,
+    Promise,
+    fetch: null,
+  };
+  vm.runInNewContext(swSrc, ctx);
+  const navigate = async (status) => {
+    puts.length = 0;
+    ctx.fetch = () =>
+      Promise.resolve({
+        ok: status >= 200 && status < 300,
+        status,
+        clone() {
+          return this;
+        },
+      });
+    let responded;
+    handlers.fetch({
+      request: { method: "GET", url: "https://x.test/night-shift-calculator/" },
+      respondWith: (p) => {
+        responded = p;
+      },
+    });
+    await responded;
+    await new Promise((r) => setTimeout(r, 0));
+    return puts.length;
+  };
+  swChecks = (async () => {
+    assert.strictEqual(await navigate(200), 1, "a good index.html is cached");
+    assert.strictEqual(
+      await navigate(404),
+      0,
+      "a 404 index.html is not cached",
+    );
+    assert.strictEqual(
+      await navigate(503),
+      0,
+      "a 503 index.html is not cached",
+    );
+  })();
+}
+
+swChecks.then(
+  () => console.log("calc tests passed"),
+  (err) => {
+    console.error(err);
+    process.exitCode = 1;
+  },
+);
