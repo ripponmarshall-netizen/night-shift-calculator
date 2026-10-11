@@ -39,6 +39,8 @@ const {
   applyTemplate,
   extractTemplateFromWeek,
   fmtH0,
+  blankDay,
+  DEFAULT_RATES,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -995,7 +997,45 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   const fill = { a: { am7: true }, b: { pm10: true } };
   const kept = fillDays(logged, fill, true);
   assert.deepStrictEqual(kept.a, { pm3: true });
-  assert.deepStrictEqual(kept.b, { pm10: true }); // holiday-only day is empty
+  // A holiday-only day has no shifts, so it is filled, but its holiday
+  // override is the person's own choice and must survive the fill (losing it
+  // silently adds or removes holiday ×2 pay).
+  assert.deepStrictEqual(kept.b, { pm10: true, holiday: true });
+  const offHol = fillDays(
+    { b: { holiday: false } },
+    { b: { pm10: true, holiday: null } },
+    true,
+  );
+  assert.strictEqual(offHol.b.holiday, false);
+  assert.ok(offHol.b.pm10);
+  // Fill-generated days still get no override of their own.
+  assert.strictEqual(
+    fillDays({}, { c: { am7: true, holiday: null } }, true).c.holiday,
+    null,
+  );
+  // Through mergePeriodFill (keep mode) and the pay engine: a day marked as a
+  // holiday before an auto-fill still pays holiday hours afterwards.
+  {
+    const p = periodFor(fromYmd("2026-06-20"));
+    const fill = { "2026-06-17": { ...blankDay(), am7: true, pm3: true } };
+    const merged = mergePeriodFill(
+      { "2026-06-17": { holiday: true } },
+      p,
+      fill,
+      false,
+    );
+    assert.strictEqual(merged["2026-06-17"].holiday, true);
+    const r = aggregate(
+      merged,
+      p,
+      "basic",
+      "S",
+      {},
+      { monthly: 173330 },
+      DEFAULT_RATES,
+    );
+    assert.strictEqual(r.holidayHours, 7); // 3PM is the 2nd shift
+  }
   assert.deepStrictEqual(kept.z, { am7: true });
   assert.deepStrictEqual(fillDays(logged, fill, false).a, { am7: true });
   assert.deepStrictEqual(logged.a, { pm3: true }); // input not mutated
