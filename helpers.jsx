@@ -428,12 +428,15 @@ function totalsEntries(period, t, dist) {
 
 /* Write generated days into the saved map. keep=true leaves days that
    already have shifts alone; otherwise each generated day replaces its date.
-   Days the fill doesn't cover are never touched. */
+   Days the fill doesn't cover are never touched. With keep, a day holding
+   only a holiday override is filled but keeps that override (it's the
+   person's own choice; dropping it would silently change holiday pay). */
 function fillDays(entries, fill, keep) {
   const out = { ...entries };
   for (const [k, v] of Object.entries(fill)) {
-    if (keep && hasShifts(out[k])) continue;
-    out[k] = v;
+    const cur = out[k];
+    if (keep && hasShifts(cur)) continue;
+    out[k] = keep && cur && cur.holiday != null && v && v.holiday == null ? { ...v, holiday: cur.holiday } : v;
   }
   return out;
 }
