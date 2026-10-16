@@ -24,13 +24,15 @@
   --extra: oklch(70% 0.19 340);
   --chip-ink: #111216;
   --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
-  --bg-translucent: rgba(15, 16, 19, 0.86);
   --surface-translucent: rgba(26, 27, 32, 0.94);
   --r: 16px;
   --r-sm: 12px;
   --r-xs: 6px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Press feedback: buttons give under the finger and spring back. Inline
+     transitions list var(--press) so they keep it. */
+  --press: scale 0.22s cubic-bezier(0.34, 1.5, 0.64, 1);
 }
 
 [data-theme="light"] {
@@ -55,7 +57,6 @@
   --extra: oklch(56% 0.21 340);
   --chip-ink: #ffffff;
   --shadow: 0 16px 40px -20px rgba(36, 28, 12, 0.18);
-  --bg-translucent: rgba(250, 249, 247, 0.88);
   --surface-translucent: rgba(255, 255, 255, 0.94);
 }
 
@@ -628,11 +629,36 @@ button:focus-visible {
 .nsc-toast {
   animation: nscToastIn 0.4s cubic-bezier(0.32, 1.3, 0.5, 1);
 }
+.nsc-toast.is-leaving {
+  animation: nscToastOut 0.2s ease-in forwards;
+}
+@keyframes nscToastOut {
+  to {
+    transform: translateY(8px) scale(0.96);
+    opacity: 0;
+  }
+}
+/* The floating total eases in and out rather than popping. */
+.total-chip-slot {
+  transition:
+    opacity 0.24s ease,
+    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.total-chip-slot.is-hidden {
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    transform 0.2s ease-in,
+    visibility 0s linear 0.2s;
+}
 /* Toasts sit above the tab bar, and above the floating total when it's up. */
 .nsc-toast-wrap {
   bottom: calc(120px + var(--safe-bottom));
+  transition: bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-:root:has(.total-chip) .nsc-toast-wrap {
+:root:has(.total-chip-slot:not(.is-hidden)) .nsc-toast-wrap {
   bottom: calc(168px + var(--safe-bottom));
 }
 
@@ -716,9 +742,25 @@ button:focus-visible {
 
 /* App chrome. The header only fades (no movement), so the splash can
    measure where its logo will land while the header is still hidden. The
-   tab bar slides up into place; the footer settles in after the cards. */
+   tab bar slides up into place; the footer settles in after the cards.
+   The header is solid, not frosted glass: it runs up under the status bar
+   and Dynamic Island, and a backdrop blur there smeared whatever scrolled
+   beneath it. Its hairline only shows once the page has scrolled. */
 .nsc-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   animation: nscFadeIn 0.45s ease-out backwards;
+}
+.nsc-header.is-scrolled {
+  border-bottom-color: var(--line-soft);
+  box-shadow: 0 10px 24px -22px rgba(0, 0, 0, 0.9);
 }
 .nsc-dock {
   animation: nscDockIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
@@ -828,17 +870,22 @@ button:focus-visible {
   animation: nscSheen 1.1s cubic-bezier(0.4, 0, 0.2, 1) 0.1s;
 }
 
-/* Press feedback: everything tappable gives a little under the finger. */
+/* Press feedback: everything tappable gives a little under the finger and
+   springs back on release. Uses the scale property (not transform), so it
+   never fights an entrance animation or an inline transform. */
 button {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: var(--press);
 }
 button:not(:disabled):active {
-  transform: scale(0.97);
+  scale: 0.97;
+  transition-duration: 0.08s;
 }
 button[role="tab"]:active,
 .nsc-day:active,
 .nsc-pick:active {
-  transform: scale(0.94);
+  scale: 0.94;
 }
 @media (hover: hover) {
   .nsc-day:hover,
@@ -987,7 +1034,7 @@ button[role="tab"]:active,
     display: none;
   }
   button:not(:disabled):active {
-    transform: none;
+    scale: none;
   }
 }
 

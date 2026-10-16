@@ -86,6 +86,8 @@ function KpiTile({ label, value, sub, small, wide }) {
       borderRadius: 12,
       minWidth: 0,
       gridColumn: wide ? "1 / -1" : undefined,
+      // Values sit on one line across the row even when a label wraps.
+      display: "flex", flexDirection: "column", justifyContent: "space-between",
     }}>
       <div className="label">{label}</div>
       <div className="mono" style={{ fontSize: small ? 15 : 26, fontWeight: 700, marginTop: 4, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{value}</div>

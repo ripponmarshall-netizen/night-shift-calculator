@@ -85,7 +85,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 alignItems: "stretch",
                 gap: 3,
                 cursor: "pointer",
-                transition: "background 0.2s, border-color 0.2s, transform 0.12s",
+                transition: "background 0.2s, border-color 0.2s, var(--press)",
                 overflow: "hidden",
                 fontFamily: "inherit",
                 WebkitTouchCallout: "none",

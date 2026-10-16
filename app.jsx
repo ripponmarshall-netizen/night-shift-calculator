@@ -317,7 +317,8 @@ function App() {
   }, []);
   // Each screen opens at its top, not at the scroll position the last
   // screen was left at.
-  useEffect(() => { window.scrollTo?.(0, 0); }, [view]);
+  // Before paint, so the new screen never flashes at the old offset.
+  React.useLayoutEffect(() => { window.scrollTo?.(0, 0); }, [view]);
 
   const openCalc = (m) => {
     if (m === "basic" || m === "advanced") setMode(m);
@@ -339,7 +340,6 @@ function App() {
     } else {
       setEntries((prev) => fillDays(prev, fill, opts.preserve));
     }
-    setAutofillOpen(false);
   };
 
   const onWarningClick = () => {
@@ -458,6 +458,7 @@ function App() {
         onTab={go}
         total={totals.grand}
         totalShort={totalLabel(totals, true)}
+        totalSlot={view === "calc"}
         showTotal={view === "calc" && heroVisible === false}
         hasInputs={totals.totalHours > 0}
         snapshotCount={snapshots.length}
@@ -526,13 +527,16 @@ function App() {
 /* One quiet line: the app name and Settings. Each screen shows its own pay
    period, so the header doesn't repeat it. */
 function Header({ onSettings }) {
+  // The hairline under the header only shows once the page has scrolled.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   return (
-    <header className="nsc-header" style={{
-      position: "sticky", top: 0, zIndex: 30,
-      background: "var(--bg-translucent)",
-      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-      borderBottom: "1px solid var(--line-soft)",
-    }}>
+    <header className={"nsc-header" + (scrolled ? " is-scrolled" : "")}>
       <div style={{ maxWidth: 1180, margin: "0 auto", padding: "calc(var(--safe-top) + 12px) 20px 12px", display: "flex", alignItems: "center", gap: 12 }}>
         {/* The splash logo and title fly onto these two (index.html). */}
         <img data-splash-target="logo" src="icon-192.svg" alt="" width="28" height="28" style={{ borderRadius: 8, flexShrink: 0 }} />
@@ -816,7 +820,7 @@ function LabelRow({ chip, title, detail, last }) {
 }
 
 /* ============ Taskbar (with live total + tabs) ============ */
-function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, snapshotCount, totalChipRef }) {
+function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, hasInputs, snapshotCount, totalChipRef }) {
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "calc", label: "Shifts", icon: ShiftsIcon },
@@ -832,9 +836,10 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
       pointerEvents: "none",
     }}>
       {/* Live total — floats above the tabs while logging shifts */}
-      {showTotal && (
-        <div style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
-          <div ref={totalChipRef} className="total-chip nsc-float-in" style={{
+      {totalSlot && (
+        <div className={"total-chip-slot" + (showTotal ? "" : " is-hidden")} aria-hidden={showTotal ? undefined : "true"}
+          style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
+          <div ref={totalChipRef} className="total-chip" style={{
             background: "var(--surface-translucent)",
             backdropFilter: "blur(24px) saturate(140%)",
             WebkitBackdropFilter: "blur(24px) saturate(140%)",
@@ -843,7 +848,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
             padding: "8px 16px",
             display: "inline-flex", alignItems: "center", gap: 10,
             boxShadow: "0 12px 32px -16px rgba(0,0,0,0.6)",
-            pointerEvents: "auto",
+            pointerEvents: showTotal ? "auto" : "none",
           }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: hasInputs ? "var(--accent)" : "var(--ink-faint)" }} />
             <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{totalShort}</span>
@@ -896,7 +901,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, showTotal, hasInputs, sn
                   background: "transparent",
                   color: active ? "var(--accent)" : "var(--ink-dim)",
                   cursor: "pointer",
-                  transition: "background 0.18s, color 0.18s",
+                  transition: "background 0.18s, color 0.18s, var(--press)",
                   position: "relative",
                   fontFamily: "inherit",
                 }}
