@@ -115,7 +115,7 @@ function SegToggle({ options, value, onChange, small, full, wrap, fit }) {
             color: active ? "var(--bg)" : "var(--ink-dim)",
             fontSize: small ? 12 : 13, fontWeight: active ? 600 : 500,
             cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
-            transition: "color 0.2s ease",
+            transition: "color 0.2s ease, var(--press)",
           }}>{o.l}</button>
         );
       })}
@@ -181,7 +181,8 @@ function AnimatedNumber({ value, format, durationMs = 350, from }) {
   const startRef = useRefC(null);
   const rafRef = useRefC(null);
   useEffectC(() => {
-    if (prefersReducedMotion()) { setDisplay(value); return; }
+    // Nothing to count (e.g. mounting without `from`): skip the frames.
+    if (prefersReducedMotion() || display === value) { setDisplay(value); return; }
     fromRef.current = display;
     startRef.current = performance.now();
     const to = value;
@@ -344,15 +345,25 @@ function showToast(message, opts) {
     window.dispatchEvent(new CustomEvent("nsc-toast", { detail: { message, action: opts?.action || null } }));
   }
 }
+const TOAST_EXIT_MS = 200;
 function ToastHost() {
   const [toast, setToast] = useStateC(null);
   const timerRef = useRefC(null);
+  // Fade the toast out, then unmount it. A newer toast replaces it at once.
+  const dismiss = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (prefersReducedMotion()) { setToast(null); return; }
+    setToast((t) => (t ? { ...t, leaving: true } : t));
+    timerRef.current = setTimeout(() => setToast(null), TOAST_EXIT_MS);
+  };
+  const dismissRef = useRefC(dismiss);
+  dismissRef.current = dismiss;
   useEffectC(() => {
     const onToast = (e) => {
       const d = e.detail || {};
       setToast({ id: Date.now(), message: String(d.message || ""), action: d.action });
       if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setToast(null), d.action ? 6000 : 2200);
+      timerRef.current = setTimeout(() => dismissRef.current(), d.action ? 6000 : 2200);
     };
     window.addEventListener("nsc-toast", onToast);
     return () => {
@@ -362,23 +373,23 @@ function ToastHost() {
   }, []);
   if (!toast) return null;
   const act = () => {
+    if (toast.leaving) return;
     toast.action?.onClick?.();
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setToast(null);
+    dismiss();
   };
   return (
     <div aria-live="polite" className="nsc-toast-wrap" style={{
       position: "fixed", left: 0, right: 0,
       display: "flex", justifyContent: "center", zIndex: 90, pointerEvents: "none", padding: "0 16px",
     }}>
-      <div key={toast.id} className="nsc-toast" style={{
+      <div key={toast.id} className={"nsc-toast" + (toast.leaving ? " is-leaving" : "")} style={{
         background: "var(--surface-translucent)",
         backdropFilter: "blur(24px) saturate(140%)", WebkitBackdropFilter: "blur(24px) saturate(140%)",
         border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
         color: "var(--ink)", borderRadius: 999, padding: toast.action ? "6px 6px 6px 16px" : "10px 16px", fontSize: 13,
         boxShadow: "0 12px 32px -16px rgba(0,0,0,0.7)", maxWidth: 420,
         display: "flex", alignItems: "center", gap: 12,
-        pointerEvents: toast.action ? "auto" : "none",
+        pointerEvents: toast.action && !toast.leaving ? "auto" : "none",
       }}>
         <span>{toast.message}</span>
         {toast.action && (
@@ -489,7 +500,7 @@ function ChoiceCard({ active, onClick, title, detail, color }) {
       background: active ? "color-mix(in oklab, var(--accent) 12%, var(--bg-2))" : "var(--bg-2)",
       border: `1.5px solid ${active ? "var(--accent)" : "var(--line)"}`,
       color: "var(--ink)", display: "flex", flexDirection: "column", gap: 4,
-      transition: "background 0.15s, border-color 0.15s, transform 0.12s",
+      transition: "background 0.15s, border-color 0.15s, var(--press)",
     }}>
       <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 600 }}>
         {color && <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />}

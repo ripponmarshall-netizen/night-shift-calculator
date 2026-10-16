@@ -191,7 +191,7 @@ function DutyRow({ value, onChange, shift }) {
                       color: active ? "var(--bg)" : "var(--ink-dim)",
                       fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: "inherit",
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      transition: "background 0.18s, color 0.18s, border-color 0.18s",
+                      transition: "background 0.18s, color 0.18s, border-color 0.18s, var(--press)",
                     }}>{o.l}</button>
                   );
                 })}
@@ -224,7 +224,7 @@ function DayToggle({ label, hours, color, active, extra, duty, onClick }) {
       border: `1px ${pay === "none" ? "dashed" : "solid"} ${active ? "color-mix(in oklab, " + color + " 50%, transparent)" : "var(--line)"}`,
       borderRadius: 10, color: "var(--ink)",
       marginBottom: 8, cursor: "pointer", textAlign: "left",
-      transition: "background 0.18s, border-color 0.18s, transform 0.12s",
+      transition: "background 0.18s, border-color 0.18s, var(--press)",
       fontFamily: "inherit",
     }}>
       <span className={"nsc-check" + (active ? " is-on" : "")} style={{
@@ -695,9 +695,13 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
 
         <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
           <button onClick={close} style={ghostBtn()}>Cancel</button>
-          <button onClick={() => onApply(isRotation
-            ? { pattern, am7Key, defaultDist: dist, preserve }
-            : { startKey, pattern, days: span, defaultDist: dist, preserve })} style={accentBtn()}>
+          <button onClick={() => {
+            onApply(isRotation
+              ? { pattern, am7Key, defaultDist: dist, preserve }
+              : { startKey, pattern, days: span, defaultDist: dist, preserve });
+            showToast(fillCount > 0 ? `Filled ${fillCount} day${fillCount === 1 ? "" : "s"}` : "Nothing to fill");
+            close();
+          }} style={accentBtn()}>
             Apply
           </button>
         </div>

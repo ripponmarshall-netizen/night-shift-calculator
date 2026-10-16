@@ -144,7 +144,7 @@ function SecHeader({ title, subtotal, open, onToggle, accent, dim, onEnter, onLe
       textAlign: "left",
       fontFamily: "inherit",
       opacity: dim ? 0.45 : 1,
-      transition: "background 0.18s, opacity 0.15s ease",
+      transition: "background 0.18s, opacity 0.15s ease, var(--press)",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ width: 6, height: 16, borderRadius: 2, background: accent }} />

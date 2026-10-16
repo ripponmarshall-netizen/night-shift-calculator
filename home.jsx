@@ -43,7 +43,7 @@ function HomeView(props) {
   // (finishing from the foot of the tall rotation step otherwise lands
   // halfway down the result).
   const first = React.useRef(true);
-  useEffectH(() => {
+  React.useLayoutEffect(() => {
     if (first.current) { first.current = false; return; }
     window.scrollTo?.(0, 0);
   }, [wizard]);
@@ -221,11 +221,14 @@ const blankTotals = { pm3: "", pm10: "", am7: "", pairs: "" };
 
 function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, ratesEffective, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
   const [step, setStep] = useStateH(0);
-  // Each step starts at its question, not part-way down the last step.
+  // Each step starts at its question, not part-way down the last step (or
+  // tucked under the sticky header, which is taller under a notch).
   const cardRef = React.useRef(null);
-  useEffectH(() => {
+  React.useLayoutEffect(() => {
     const el = cardRef.current;
-    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
+    const header = document.querySelector(".nsc-header");
+    const below = header ? header.getBoundingClientRect().bottom : 0;
+    if (el && el.getBoundingClientRect().top < below) el.scrollIntoView({ block: "start" });
   }, [step]);
   const [draft, setDraft] = useStateH(() => ({
     monthly: basePay.monthly || "",
@@ -270,7 +273,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
   };
 
   return (
-    <div ref={cardRef} style={{ scrollMarginTop: 90 }}>
+    <div ref={cardRef} style={{ scrollMarginTop: "calc(var(--safe-top) + 84px)" }}>
     <Card style={{ padding: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <div className="label">
@@ -448,7 +451,7 @@ function RotationPicker({ period, value, onChange }) {
                 "--i": lead + di,
                 position: "relative", padding: "5px 0 4px", borderRadius: 7, cursor: "pointer", fontFamily: "inherit",
                 textAlign: "center", minWidth: 0,
-                transition: "background 0.25s, border-color 0.25s, transform 0.12s",
+                transition: "background 0.25s, border-color 0.25s, var(--press)",
                 background: sh ? `color-mix(in oklab, ${sh.color} 20%, transparent)` : "var(--bg-2)",
                 border: anchor ? "2px solid var(--accent)" : `1px solid ${sh ? `color-mix(in oklab, ${sh.color} 50%, transparent)` : "var(--line-soft)"}`,
                 color: "var(--ink)",
