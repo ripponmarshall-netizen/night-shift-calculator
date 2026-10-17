@@ -998,6 +998,8 @@ button[role="tab"]:active,
 }
 .nsc-row > div {
   min-height: 0;
+  /* Let a row narrower than its unwrapped text, so ellipses can do their job. */
+  min-width: 0;
 }
 /* Clip only while folding, so focus rings aren't cut off the rest of the time. */
 .nsc-row.is-leaving > div {

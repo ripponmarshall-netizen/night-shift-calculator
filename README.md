@@ -41,7 +41,8 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 | `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                                                             |
 | `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                                                              |
 | `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
-| `app.jsx`        | Root component — state, persistence, 3-tab taskbar, header, taxi-distance card, two-column desktop layout                                                                      |
+| `crew.jsx`       | Crew tab: several people on the same shift — shared crew calendar, per-person days/pay/taxi, crew totals, copy summary and CSV export                                          |
+| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, two-column desktop layout                                                                      |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
 | `manifest.json`  | PWA manifest                                                                                                                                                                   |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |
@@ -74,7 +75,7 @@ The phone's **Back** button closes an open dialog or the Home setup first, then 
 
 ### The detailed way (Shifts)
 
-The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**.
+The bottom bar has four tabs: **Home**, **Shifts**, **Crew** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**.
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
 2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type.
@@ -90,6 +91,17 @@ The bottom bar has three tabs: **Home**, **Shifts** and **History**. Settings (g
 6. **Your monthly pay** and **Check against roster** fold away below the summary. Open them to edit base pay, or to type your roster counts and have the calendar checked against them (counts never change the math).
 7. **Save to History** when you're done. The button shows whether this period is already saved, or has **changed** since you saved it (**Save changes**). Saving again replaces that period's saved result. History shows ▲/▼ vs the previous period, exports a shareable PNG, and lets you **Check against pay slip** for any saved period. Deleting a saved result can be undone from the toast.
 8. **Backup** (Settings): save/restore a JSON backup (restoring asks first), download the period's shifts as `.ics`, or reset the period (asks first, and can be undone).
+
+### Several people on the same shift (Crew)
+
+The **Crew** tab works out the same pay for everyone on your shift, organised by name and employee number.
+
+1. **Set the crew's shifts** on the crew calendar: **Fill rotation** (the same 7AM picker as Home), **Copy my shifts** (your own calendar's shifts and holiday settings, without your leave, swaps or short hours), or tap days to edit them.
+2. **Add each person** with their name and employee number. A number used twice is flagged. Sort the list by **Name** or **Emp. no.**
+3. **Open a person** to set their monthly basic, compulsory assignment and Short/Long taxi, and tap any day to mark their leave, a swap or an extra shift. Days that differ from the crew are listed under **Different from the crew**, each with **Match crew** to undo it.
+4. **Crew totals** adds everyone up. **Copy crew summary** gives a plain-text breakdown per person; **Download CSV** gives one spreadsheet row per person (name, employee no., shifts, hours, SP1, SP2, meal, taxi, base, holiday, overtime, gross, est. net).
+
+Each person is calculated by the same engine as your own pay, using the rates for the period on screen. Changing the crew calendar updates everyone except on the days they have their own changes. Crew data is included in Backup and stays on this device.
 
 ---
 
@@ -124,7 +136,7 @@ The same address is in the footer of every screen and on the in-app **About** pa
 
 ### Data & Privacy
 
-This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device. **Settings → Backup → Reset this period** clears one period's shifts and roster counts (your monthly pay, rates and History are kept). To remove everything, clear site data in your browser.
+This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device; this includes the names and employee numbers you add on the Crew tab. **Settings → Backup → Reset this period** clears one period's shifts and roster counts (your monthly pay, rates and History are kept). To remove everything, clear site data in your browser.
 
 ### Accuracy
 

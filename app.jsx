@@ -1,4 +1,4 @@
-/* app.jsx — main app with bottom taskbar (Home / Shifts / History + live total), desktop 2-col, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home / Shifts / Crew / History + live total), desktop 2-col, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -30,6 +30,9 @@ function App() {
   const [onboarded, setOnboarded] = useState(initial.onboarded ?? false);
   // Any date the person works a 7AM; drives Off days and extra-shift colour.
   const [rotationAnchor, setRotationAnchor] = useState(initial.rotationAnchor || null);
+  // Several people on the same shift (Crew tab): a shared calendar plus each
+  // person's own days, pay and taxi distance.
+  const [crew, setCrew] = useState(() => sanitizeCrew(initial.crew) || blankCrew());
   const [openDay, setOpenDay] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autofillOpen, setAutofillOpen] = useState(false);
@@ -56,8 +59,8 @@ function App() {
   useEffect(() => { window.nscSplashDone?.(); }, []);
 
   useEffect(() => {
-    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor });
-  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor]);
+    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew });
+  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew]);
 
   useEffect(() => {
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -223,7 +226,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor, crew }, null, 2)], { type: "application/json" });
     downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
@@ -238,7 +241,7 @@ function App() {
         if (!isObj(obj)) { showToast("That file isn't a Night Shift backup"); return; }
         const ok = await askConfirm({
           title: "Restore this backup?",
-          body: "It replaces what's on this device now: shifts, pay, rates and History. Save a backup first if you might want today's data back.",
+          body: "It replaces what's on this device now: shifts, pay, rates, crew and History. Save a backup first if you might want today's data back.",
           confirmLabel: "Restore", danger: true,
         });
         if (!ok) return;
@@ -260,6 +263,8 @@ function App() {
         if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
+        const importedCrew = sanitizeCrew(obj.crew);
+        if (importedCrew) setCrew(importedCrew);
         showToast("Backup restored");
       } catch (e) { showToast("Couldn't read that file. Pick a backup .json file."); }
     };
@@ -375,7 +380,7 @@ function App() {
   };
 
   return (
-    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : "Calculator"}
+    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : view === "crew" ? "Crew" : "Calculator"}
          style={{ paddingBottom: `calc(130px + var(--safe-bottom))` }}>
       <Header onSettings={() => setSettingsOpen(true)} />
 
@@ -427,6 +432,16 @@ function App() {
           copyDay={copyDay}
           pasteDay={pasteDay}
           cancelCopy={cancelCopy}
+        />
+      )}
+
+      {view === "crew" && (
+        <CrewView
+          period={period}
+          crew={crew} setCrew={setCrew}
+          myEntries={entries} myRotation={rotationAnchor}
+          rates={effectiveRates} tax={tax}
+          onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
         />
       )}
 
@@ -824,6 +839,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "calc", label: "Shifts", icon: ShiftsIcon },
+    { id: "crew", label: "Crew", icon: CrewIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
   ];
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
@@ -934,6 +950,11 @@ function HomeIcon() {
 function ShiftsIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/>
+  </svg>;
+}
+function CrewIcon() {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3.2"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M15.5 4.9a3.2 3.2 0 0 1 0 6.2"/><path d="M17.5 14.3c2.1.6 3.5 2.6 3.5 5.2"/>
   </svg>;
 }
 function HistoryIcon() {
