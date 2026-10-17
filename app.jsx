@@ -33,6 +33,8 @@ function App() {
   // Several people on the same shift (Crew tab): a shared calendar plus each
   // person's own days, pay and taxi distance.
   const [crew, setCrew] = useState(() => sanitizeCrew(initial.crew) || blankCrew());
+  // Crew results saved to History, one per pay period.
+  const [crewHistory, setCrewHistory] = useState(() => sanitizeCrewHistory(initial.crewHistory));
   const [openDay, setOpenDay] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [autofillOpen, setAutofillOpen] = useState(false);
@@ -59,8 +61,8 @@ function App() {
   useEffect(() => { window.nscSplashDone?.(); }, []);
 
   useEffect(() => {
-    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew });
-  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew]);
+    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew, crewHistory });
+  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew, crewHistory]);
 
   useEffect(() => {
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -150,14 +152,29 @@ function App() {
   };
   const clearSnapshots = async () => {
     const ok = await askConfirm({
-      title: "Delete all of History?",
-      body: `This removes all ${snapshots.length} saved result${snapshots.length === 1 ? "" : "s"}, including any pay slip checks.`,
+      title: crewHistory.length ? "Delete your saved periods?" : "Delete all of History?",
+      body: `This removes all ${snapshots.length} saved result${snapshots.length === 1 ? "" : "s"}, including any pay slip checks.`
+        + (crewHistory.length ? " Saved crews are kept." : ""),
       confirmLabel: "Delete all", danger: true,
     });
     if (!ok) return;
     const prev = snapshots;
     setSnapshots([]);
     showToast("History cleared", { action: { label: "Undo", onClick: () => restoreSnapshots(prev) } });
+  };
+
+  /* Crew saves: one per period, like the person's own. Saving again
+     replaces that period's crew result. */
+  const saveCrew = (snap) => {
+    const saved = { ...snap, at: new Date().toISOString() };
+    setCrewHistory((prev) => [...prev.filter((s) => s.periodKey !== saved.periodKey), saved]);
+  };
+  const deleteCrewSave = (at) => {
+    const gone = crewHistory.find((s) => s.at === at);
+    setCrewHistory((prev) => prev.filter((s) => s.at !== at));
+    showToast(`Deleted crew for ${gone?.period || "that period"}`, { action: { label: "Undo", onClick: () => gone && setCrewHistory((cur) => (
+      cur.some((c) => c.periodKey === gone.periodKey) ? cur : [...cur, gone]
+    )) } });
   };
 
   /* templates */
@@ -226,7 +243,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor, crew }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor, crew, crewHistory }, null, 2)], { type: "application/json" });
     downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
@@ -265,6 +282,7 @@ function App() {
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
         const importedCrew = sanitizeCrew(obj.crew);
         if (importedCrew) setCrew(importedCrew);
+        if (Array.isArray(obj.crewHistory)) setCrewHistory(sanitizeCrewHistory(obj.crewHistory));
         showToast("Backup restored");
       } catch (e) { showToast("Couldn't read that file. Pick a backup .json file."); }
     };
@@ -441,6 +459,8 @@ function App() {
           crew={crew} setCrew={setCrew}
           myEntries={entries} myRotation={rotationAnchor}
           rates={effectiveRates} tax={tax}
+          saved={crewHistory.find((s) => s.periodKey === periodKey(period))}
+          onSave={saveCrew}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
         />
       )}
@@ -448,6 +468,8 @@ function App() {
       {view === "history" && (
         <SnapshotsView
           snapshots={snapshots}
+          crewHistory={crewHistory}
+          onDeleteCrew={deleteCrewSave}
           theme={theme}
           onDelete={deleteSnapshot}
           onClear={clearSnapshots}
@@ -476,7 +498,7 @@ function App() {
         totalSlot={view === "calc"}
         showTotal={view === "calc" && heroVisible === false}
         hasInputs={totals.totalHours > 0}
-        snapshotCount={snapshots.length}
+        snapshotCount={snapshots.length + crewHistory.length}
         totalChipRef={totalChipRef}
       />}
 

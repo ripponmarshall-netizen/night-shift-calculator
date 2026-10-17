@@ -1,11 +1,12 @@
 /* crew.jsx — Crew: several people on the same shift. One shared crew
    calendar, each person's own days that differ (leave, swaps, extras), their
-   pay and taxi distance, and one report for everyone (copy or CSV). It never
+   pay and taxi distance, and one report for everyone (Word record sheets,
+   CSV or text), which can be saved to History. It never
    computes pay itself: memberTotals runs the same aggregate() as every other
    screen on each person's calendar. */
 const { useState: useStateW, useMemo: useMemoW, useEffect: useEffectW, useRef: useRefW } = React;
 
-function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, onShiftPeriod }) {
+function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, saved, onSave, onShiftPeriod }) {
   const [openId, setOpenId] = useStateW(null);
   const [dayEdit, setDayEdit] = useStateW(null); // { who: "crew" | member id, key }
   const [fillOpen, setFillOpen] = useStateW(false);
@@ -37,17 +38,29 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, on
     [crew.entries, period, rates]
   );
   const rows = useMemoW(() => crewRows(crew, period, rates, tax), [crew, period, rates, tax]);
+  // The crew's result as it would be saved; compared with the saved one.
+  const live = useMemoW(() => crewSnapshot(crew, period, rates, tax, rows), [crew, period, rows]);
+  const liveSig = useMemoW(() => crewSnapSig(live), [live]);
+  const savedSig = useMemoW(() => saved && crewSnapSig(saved), [saved]);
+  const saveStatus = !saved ? { state: "none" }
+    : { state: savedSig === liveSig ? "saved" : "changed", at: saved.at };
 
   /* ----- crew calendar ----- */
   const setCrewEntries = (fn) => setCrew((c) => ({ ...c, entries: fn(c.entries) }));
   const replacePeriod = (fill, anchor, message) => {
-    const before = crew;
+    // Undo puts back only this period's crew days, so edits made to other
+    // periods while the toast is up survive.
+    const before = {};
+    for (const d of periodDays(period)) if (crew.entries[ymd(d)]) before[ymd(d)] = crew.entries[ymd(d)];
+    const beforeAnchor = crew.rotationAnchor;
     setCrew((c) => ({
       ...c,
       entries: mergePeriodFill(c.entries, period, fill, true),
       ...(anchor !== undefined ? { rotationAnchor: anchor } : {}),
     }));
-    showToast(message, { action: { label: "Undo", onClick: () => setCrew((c) => ({ ...c, entries: before.entries, rotationAnchor: before.rotationAnchor })) } });
+    showToast(message, { action: { label: "Undo", onClick: () => setCrew((c) => ({
+      ...c, entries: { ...clearPeriodEntries(c.entries, period), ...before }, rotationAnchor: beforeAnchor,
+    })) } });
   };
   const copyMine = () => {
     const fill = {};
@@ -69,8 +82,8 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, on
 
   /* ----- people ----- */
   const updateMember = (id, fn) => setCrew((c) => ({ ...c, members: c.members.map((m) => (m.id === id ? fn(m) : m)) }));
-  const addMember = (name, empNo) => {
-    const m = newMember(name, empNo);
+  const addMember = (name, empNo, rank) => {
+    const m = { ...newMember(name, empNo), rank: String(rank || "").trim() };
     setCrew((c) => ({ ...c, members: [...c.members, m] }));
     showToast(`Added ${m.name || "person"}`);
   };
@@ -166,7 +179,11 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, on
             onSort={(v) => setCrew((c) => ({ ...c, sortBy: v }))}
             onAdd={addMember} onOpen={setOpenId} />
 
-          {rows.length > 0 && <CrewTotals rows={rows} period={period} />}
+          {rows.length > 0 && (
+            <CrewTotals snap={live} crew={crew} saveStatus={saveStatus}
+              onDetails={(k, v) => setCrew((c) => ({ ...c, [k]: v }))}
+              onSave={() => onSave(live)} />
+          )}
         </main>
       )}
 
@@ -198,13 +215,14 @@ const crewToolBtn = { ...ghostBtn(), padding: "7px 11px", fontSize: 12.5 };
 function CrewPeople({ crew, rows, period, onSort, onAdd, onOpen }) {
   const [name, setName] = useStateW("");
   const [empNo, setEmpNo] = useStateW("");
+  const [rank, setRank] = useStateW("");
   const nameRef = useRefW(null);
   const taken = (no) => !!no && crew.members.some((m) => m.empNo && m.empNo.toLowerCase() === no.trim().toLowerCase());
   const submit = (e) => {
     e.preventDefault();
     if (!name.trim()) { nameRef.current?.focus(); return; }
-    onAdd(name, empNo);
-    setName(""); setEmpNo("");
+    onAdd(name, empNo, rank);
+    setName(""); setEmpNo(""); setRank("");
     nameRef.current?.focus();
   };
   // An employee number used twice is almost always a typo.
@@ -242,6 +260,7 @@ function CrewPeople({ crew, rows, period, onSort, onAdd, onOpen }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14.5, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name || "Unnamed"}</div>
                 <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2, lineHeight: 1.4 }}>
+                  {m.rank && <>{m.rank} · </>}
                   {m.empNo ? <span className="mono" style={{ color: dupe ? "var(--warn)" : undefined }}>#{m.empNo}{dupe ? " (used twice)" : ""}</span> : "No emp. no."}
                   {" · "}{m.dist === "L" ? "Long" : "Short"} taxi
                   {diff > 0 && <> · <span style={{ color: "var(--extra)" }}>{diff} day{diff === 1 ? "" : "s"} different</span></>}
@@ -258,9 +277,10 @@ function CrewPeople({ crew, rows, period, onSort, onAdd, onOpen }) {
 
       <form onSubmit={submit} style={{ marginTop: rows.length ? 10 : 0, padding: 12, borderRadius: 12, border: "1px dashed var(--line)" }}>
         <div className="label" style={{ marginBottom: 8 }}>Add a person</div>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: 8 }}>
-          <CrewField inputRef={nameRef} label="Name" value={name} onChange={setName} placeholder="e.g. R. Marshall" capitalize="words" />
-          <CrewField label="Employee no." value={empNo} onChange={setEmpNo} placeholder="e.g. 10234" capitalize="characters" />
+        <CrewField inputRef={nameRef} label="Name" value={name} onChange={setName} placeholder="e.g. R. Marshall" capitalize="words" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
+          <CrewField label="Employee no." value={empNo} onChange={setEmpNo} placeholder="e.g. 10234" capitalize="characters" maxLength={30} />
+          <CrewField label="Rank" value={rank} onChange={setRank} placeholder="e.g. L/Cpl" capitalize="words" maxLength={40} />
         </div>
         {taken(empNo) && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone on the crew already has this employee number.</div>}
         <button type="submit" style={{ ...accentBtn(), width: "100%", marginTop: 10 }}>Add to crew</button>
@@ -281,40 +301,121 @@ function CrewAvatar({ name }) {
   );
 }
 
-function CrewField({ label, value, onChange, placeholder, capitalize, inputRef }) {
+function CrewField({ label, value, onChange, placeholder, capitalize, inputRef, maxLength = 60 }) {
   return (
     <label style={{ display: "block", minWidth: 0 }}>
       <div className="label" style={{ marginBottom: 6 }}>{label}</div>
       <input ref={inputRef} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        autoComplete="off" autoCapitalize={capitalize} spellCheck={false} maxLength={60}
+        autoComplete="off" autoCapitalize={capitalize} spellCheck={false} maxLength={maxLength}
         style={{ width: "100%", background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "9px 12px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit" }} />
     </label>
   );
 }
 
-/* ----- the whole crew: totals and the report ----- */
-function CrewTotals({ rows, period }) {
-  const sum = (f) => rows.reduce((a, r) => a + (Number(r.totals[f]) || 0), 0);
-  const allow = sum("allowanceSubtotal"), gross = sum("grand");
-  const anyBase = rows.some((r) => Number(r.totals.baseSubtotal) > 0);
-  const label = periodLabel(period);
-  const downloadCsv = () => {
+/* The ways out for a crew result, live or saved: Word record sheets, a CSV
+   spreadsheet, or plain text to paste. */
+function crewExports(snap) {
+  return {
+    word: () => downloadBlob(new Blob([crewDocx(snap)], { type: DOCX_TYPE }), crewDocxName(snap)),
     // The BOM tells Excel the file is UTF-8, so accented names survive.
-    downloadBlob(new Blob(["﻿" + crewCsv(rows, label)], { type: "text/csv" }), `crew-${periodKey(period)}.csv`);
+    csv: () => downloadBlob(new Blob(["﻿" + crewCsv(snap.rows, snap.period)], { type: "text/csv" }), `crew-${snap.periodKey}.csv`),
+    text: () => copyText(crewText(snap.rows, snap.period), "Crew summary copied"),
   };
+}
+const crewSum = (rows, f) => (rows || []).reduce((a, r) => a + (Number(r.totals?.[f]) || 0), 0);
+
+/* ----- the whole crew: totals, the report and saving it ----- */
+function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
+  const rows = snap.rows;
+  const allow = crewSum(rows, "allowanceSubtotal"), gross = crewSum(rows, "grand");
+  const anyBase = rows.some((r) => Number(r.totals.baseSubtotal) > 0);
+  const out = crewExports(snap);
   return (
     <Card>
-      <SectionHead title="Crew totals" subtitle={`${rows.length} ${rows.length === 1 ? "person" : "people"} · ${label}`} />
+      <SectionHead title="Crew totals" subtitle={`${rows.length} ${rows.length === 1 ? "person" : "people"} · ${snap.period}`} />
       <Row label="Allowances (SP1, SP2, meal, taxi)" value={fmt(allow)} />
       {anyBase && <Row label="Base pay + extra hours" value={fmt(gross - allow)} />}
       <Sub label={anyBase ? "Crew gross" : "Crew allowances"} value={fmt(gross)} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 14 }}>
-        <button onClick={() => copyText(crewText(rows, label), "Crew summary copied")} style={ghostBtn()}>Copy crew summary</button>
-        <button onClick={downloadCsv} style={ghostBtn()}>Download CSV</button>
+      <SaveRow status={saveStatus} onSave={onSave} onCopy={out.text} />
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600 }}>Record sheets</div>
+        <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
+          One JFB Regular and Overtime Record Sheet per person, as a Word document on legal paper.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <CrewField label="Watch" value={crew.watch || ""} onChange={(v) => onDetails("watch", v)} placeholder="e.g. D WATCH" capitalize="characters" maxLength={30} />
+          <CrewField label="Station" value={crew.station || ""} onChange={(v) => onDetails("station", v)} placeholder="e.g. Port Antonio" capitalize="words" maxLength={40} />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 12 }}>
+          <button onClick={out.word} style={accentBtn()}>Word record sheets</button>
+          <button onClick={out.csv} style={ghostBtn()}>Download CSV</button>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
+          {crew.rotationAnchor
+            ? "Shifts on the crew rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it go under Overtime."
+            : "No crew rotation is saved, so every shift goes under Regular Time. Use Fill rotation to split out overtime."}
+          {" "}The CSV has one row per person and opens in Excel, Numbers or Google Sheets.
+        </div>
       </div>
-      <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-        The CSV has one row per person (name, employee number, shifts, hours and every pay line) and opens in Excel, Numbers or Google Sheets.
-      </div>
+    </Card>
+  );
+}
+
+/* ----- History: saved crews ----- */
+function CrewHistory({ list, onDelete }) {
+  const [openAt, setOpenAt] = useStateW(null);
+  const sorted = useMemoW(() => [...list].sort((a, b) => b.periodKey.localeCompare(a.periodKey) || String(b.at).localeCompare(String(a.at))), [list]);
+  // A deleted save folds away before it leaves the list (Undo is on the toast).
+  const [isLeaving, remove] = useFoldAway(onDelete);
+  return (
+    <Card>
+      <SectionHead title="Saved crews" subtitle={`${list.length} saved`} />
+      {sorted.map((s, i) => {
+        const open = openAt === s.at;
+        const out = crewExports(s);
+        return (
+          <AnimatedRow key={s.at} index={i} leaving={isLeaving(s.at)}>
+            <div style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 12 }}>
+              <button onClick={() => setOpenAt(open ? null : s.at)} aria-expanded={open} style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px",
+                background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer", textAlign: "left", fontFamily: "inherit",
+              }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.period}</div>
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 2 }}>
+                    {s.watch ? `${s.watch} · ` : ""}{s.rows.length} {s.rows.length === 1 ? "person" : "people"}
+                  </div>
+                </div>
+                <span className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{fmt(crewSum(s.rows, "grand"))}</span>
+                <span aria-hidden style={{ fontSize: 12, color: "var(--ink-faint)", transition: "transform 0.18s", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+              </button>
+              <Collapse open={open}>
+                <div style={{ padding: "0 14px 14px" }}>
+                  {s.rows.map((r, j) => (
+                    <div key={r.member.id || j} style={{ display: "flex", gap: 8, padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: 13 }}>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        {r.member.name || "Unnamed"}
+                        <span style={{ color: "var(--ink-faint)" }}>{r.member.rank ? ` · ${r.member.rank}` : ""}{r.member.empNo ? ` · #${r.member.empNo}` : ""}</span>
+                      </span>
+                      <span className="mono">{fmt(r.totals.grand)}</span>
+                    </div>
+                  ))}
+                  <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8 }}>
+                    Saved {new Date(s.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                    <button onClick={out.word} style={accentBtn()}>Word sheets</button>
+                    <button onClick={out.csv} style={ghostBtn()}>CSV</button>
+                    <button onClick={out.text} style={ghostBtn()}>Copy summary</button>
+                    <button onClick={() => remove(s.at)} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Delete</button>
+                  </div>
+                </div>
+              </Collapse>
+            </div>
+          </AnimatedRow>
+        );
+      })}
     </Card>
   );
 }
@@ -349,9 +450,10 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
 
       <Card>
         <SectionHead title="Details" subtitle="Saved as you type" />
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3fr) minmax(0, 2fr)", gap: 10 }}>
-          <CrewField label="Name" value={m.name} onChange={(v) => onChange((x) => ({ ...x, name: v.slice(0, 60) }))} capitalize="words" />
-          <CrewField label="Employee no." value={m.empNo} onChange={(v) => onChange((x) => ({ ...x, empNo: v.slice(0, 30) }))} capitalize="characters" />
+        <CrewField label="Name" value={m.name} onChange={(v) => onChange((x) => ({ ...x, name: v.slice(0, 60) }))} capitalize="words" />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+          <CrewField label="Employee no." value={m.empNo} onChange={(v) => onChange((x) => ({ ...x, empNo: v.slice(0, 30) }))} capitalize="characters" maxLength={30} />
+          <CrewField label="Rank" value={m.rank || ""} onChange={(v) => onChange((x) => ({ ...x, rank: v.slice(0, 40) }))} capitalize="words" maxLength={40} />
         </div>
         {dupe && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone else on the crew has this employee number.</div>}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12, alignItems: "end" }}>
@@ -452,4 +554,4 @@ function CrewFillModal({ period, anchor, onApply, onClose }) {
   );
 }
 
-Object.assign(window, { CrewView });
+Object.assign(window, { CrewView, CrewHistory });

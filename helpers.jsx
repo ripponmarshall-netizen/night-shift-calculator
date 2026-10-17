@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.14";
+const APP_VERSION = "3.15";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -626,11 +626,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
    an extra shift), or null for a crew day they didn't work. Their own pay
    and taxi distance go with them. Pay is the same aggregate() run on each
    member's merged calendar, with one Short/Long distance per person. */
-function blankCrew() { return { entries: {}, members: [], rotationAnchor: null, sortBy: "name" }; }
+function blankCrew() { return { entries: {}, members: [], rotationAnchor: null, sortBy: "name", watch: "", station: "" }; }
 function newMember(name, empNo) {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-    name: String(name || "").trim(), empNo: String(empNo || "").trim(),
+    name: String(name || "").trim(), empNo: String(empNo || "").trim(), rank: "",
     basePay: { monthly: "", compulsory: "" }, dist: "S", days: {},
   };
 }
@@ -711,7 +711,7 @@ function sanitizeCrew(c) {
     if (seen.has(id)) id = `${id}-${i}`;
     seen.add(id);
     return {
-      id, name: str(m.name, 60), empNo: str(m.empNo, 30),
+      id, name: str(m.name, 60), empNo: str(m.empNo, 30), rank: str(m.rank, 40),
       basePay: { monthly: money(m.basePay?.monthly), compulsory: money(m.basePay?.compulsory) },
       dist: m.dist === "L" ? "L" : "S",
       days: dayMap(m.days, true),
@@ -722,6 +722,7 @@ function sanitizeCrew(c) {
     members,
     rotationAnchor: typeof c.rotationAnchor === "string" && isKey(c.rotationAnchor) ? c.rotationAnchor : null,
     sortBy: c.sortBy === "empNo" ? "empNo" : "name",
+    watch: str(c.watch, 30), station: str(c.station, 40),
   };
 }
 
@@ -735,13 +736,132 @@ function crewDayFrom(e) {
   return d;
 }
 
+/* How each duty mark is written on the JFB record sheet. */
+const SHEET_CODES = { departmental: "D/L", vacation: "V/L", sick: "S/L", timeoff: "T/O", exchangeLeave: "Exc", exchangeFor: "Exc", orderly: "Ord" };
+/* A date as the record sheet writes it: 19/6/26. */
+const dmy = (d) => `${d.getDate()}/${d.getMonth() + 1}/${String(d.getFullYear()).slice(-2)}`;
+/* "June 16, 2026 - July 15, 2026", as the record sheet's period line. */
+function periodLong(period) {
+  const f = (d) => `${monthNameLong(d.getMonth())} ${d.getDate()}, ${d.getFullYear()}`;
+  return `${f(period.start)} - ${f(period.end)}`;
+}
+
+/* A person's shifts laid out for the record sheet: each shift's dates, split
+   into regular time (the rotation's shift for that day) and overtime (shifts
+   outside it). With a rotation, col is the 4-day cycle the date falls in, so
+   each column reads 7AM → 3PM → 10PM like the paper sheet; without one,
+   every shift is regular time. Each item: { d: "19/6/26", code: "D/L" | "" }. */
+function shiftSheet(entries, period, anchor) {
+  const blank = () => ({ am7: [], pm3: [], pm10: [] });
+  const regular = blank(), overtime = blank();
+  let cycleStart = null;
+  if (anchor) {
+    const off = dayOffset(fromYmd(anchor), period.start);
+    cycleStart = addDays(period.start, -(((off % 4) + 4) % 4));
+  }
+  for (const d of periodDays(period)) {
+    const key = ymd(d), e = entries[key];
+    if (!hasShifts(e)) continue;
+    const slot = rotationSlot(key, anchor);
+    for (const k of ["am7", "pm3", "pm10"]) {
+      if (!e[k]) continue;
+      const duty = shiftDuty(e, k);
+      const item = { d: dmy(d), code: duty ? SHEET_CODES[duty] : "" };
+      if (cycleStart) item.col = Math.floor(dayOffset(cycleStart, d) / 4);
+      (slot && slot !== k ? overtime : regular)[k].push(item);
+    }
+  }
+  return { regular, overtime };
+}
+
 /* One row per person for the crew report, in the given order. */
 function crewRows(crew, period, rates, tax) {
   return sortMembers(crew.members, crew.sortBy).map((m) => {
     const t = memberTotals(crew.entries, m, period, rates);
     const hasBasic = Number(t.monthlyBasic) > 0 && !!tax?.enabled;
-    return { member: m, totals: t, net: hasBasic ? estimateNet(t, tax).net : null };
+    return {
+      member: m, totals: t, net: hasBasic ? estimateNet(t, tax).net : null,
+      sheet: shiftSheet(memberEntries(crew.entries, m), period, crew.rotationAnchor),
+    };
   });
+}
+
+/* The crew's result for one period, as saved to History (the save adds its
+   own `at`). The per-day hour maps and each person's day overrides only
+   drive the screens, so they're left out; the sheet keeps what the Word
+   record sheets need. Pass rows already worked out to save a second pass. */
+function crewSnapshot(crew, period, rates, tax, rows) {
+  return {
+    periodKey: periodKey(period), period: periodLabel(period),
+    watch: crew.watch || "", station: crew.station || "",
+    rows: (rows || crewRows(crew, period, rates, tax)).map(({ member: m, totals, net, sheet }) => {
+      const { dayHours, dayHolidayHours, mismatch, ...kept } = totals;
+      return {
+        member: { id: m.id, name: m.name, empNo: m.empNo, rank: m.rank || "", dist: m.dist },
+        totals: { ...kept, rates: { ...totals.rates } }, net, sheet,
+      };
+    }),
+  };
+}
+/* What a crew save is compared on to tell whether it's still current: who,
+   their shifts, and every line of pay that reaches a report (a tax change
+   moves only Est. net; a rate change can move money between lines). */
+const SIG_FIELDS = ["sp1", "sp2", "meal", "taxi", "baseSubtotal", "holidayPay", "overtimePay", "grand", "otHours", "holidayHours"];
+function crewSnapSig(snap) {
+  const c = (v) => Math.round((Number(v) || 0) * 100);
+  return JSON.stringify([
+    snap?.watch || "", snap?.station || "",
+    (snap?.rows || []).map((r) => [r.member?.id, r.member?.name, r.member?.empNo, r.member?.rank, r.member?.dist,
+      SIG_FIELDS.map((k) => c(r.totals?.[k])), r.net == null ? null : c(r.net), r.totals?.duties, r.sheet]),
+  ]);
+}
+
+/* Saved crew periods from storage or a backup file, in the shape the
+   History screen and the Word export read. Rows missing their totals are
+   dropped, totals keep only numbers, and one save per period is kept (the
+   latest), each with its own `at` to be found by. */
+function sanitizeCrewHistory(list) {
+  const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  if (!Array.isArray(list)) return [];
+  // Numbers only, one level down for the cal / duties / rates maps.
+  const nums = (o, deep) => {
+    const out = {};
+    for (const [k, v] of Object.entries(isObj(o) ? o : {})) {
+      if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
+      else if (deep && isObj(v)) out[k] = nums(v, false);
+      else if (typeof v === "string" && (k === "mode" || k === "basicDistance")) out[k] = v.slice(0, 10);
+    }
+    return out;
+  };
+  const str = (v, n) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, n) : "");
+  const items = (a) => (Array.isArray(a) ? a.filter(isObj).map((it) => ({
+    d: str(it.d, 12), code: str(it.code, 6), ...(Number.isInteger(it.col) && it.col >= 0 ? { col: it.col } : {}),
+  })) : []);
+  const part = (p) => ({ am7: items(p?.am7), pm3: items(p?.pm3), pm10: items(p?.pm10) });
+  const seenAt = new Set();
+  const all = list.filter((s) => isObj(s) && typeof s.periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.periodKey)).map((s, i) => {
+    let at = str(s.at, 40);
+    // A unique stand-in that still reads as a date (1970, plus i ms).
+    if (!at || seenAt.has(at)) at = new Date(i).toISOString();
+    seenAt.add(at);
+    return { ...s, at };
+  });
+  const latest = {};
+  for (const s of all) if (!latest[s.periodKey] || String(s.at) > String(latest[s.periodKey].at)) latest[s.periodKey] = s;
+  return all.filter((s) => latest[s.periodKey] === s).map((s) => ({
+    at: s.at,
+    periodKey: s.periodKey, period: str(s.period, 60) || periodLabel(periodFor(fromYmd(s.periodKey))),
+    watch: str(s.watch, 30), station: str(s.station, 40),
+    rows: (Array.isArray(s.rows) ? s.rows : []).filter((r) => isObj(r) && isObj(r.totals) && isObj(r.totals.cal)).map((r) => ({
+      member: {
+        id: str(r.member?.id, 40), name: str(r.member?.name, 60), empNo: str(r.member?.empNo, 30),
+        rank: str(r.member?.rank, 40), dist: r.member?.dist === "L" ? "L" : "S",
+      },
+      totals: nums(r.totals, true),
+      net: Number.isFinite(r.net) ? r.net : null,
+      sheet: { regular: part(r.sheet?.regular), overtime: part(r.sheet?.overtime) },
+    })),
+  }));
 }
 
 /* The crew as a CSV spreadsheet, one row per person. Amounts are plain
@@ -754,12 +874,12 @@ function crewCsv(rows, periodStr) {
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const n2 = (v) => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
-  const head = ["Period", "Name", "Employee no.", "Taxi", "7AM", "3PM", "10PM", "Leave shifts", "Exchanged out", "Hours",
+  const head = ["Period", "Name", "Employee no.", "Rank", "Taxi", "7AM", "3PM", "10PM", "Leave shifts", "Exchanged out", "Hours",
     "SP1", "SP2", "Meal", "Taxi allowance", "Allowances", "Monthly basic", "Compulsory", "Holiday pay", "Overtime pay", "Gross", "Est. net"];
   const lines = [head.map(cell).join(",")];
   for (const { member: m, totals: t, net } of rows) {
     lines.push([
-      periodStr, m.name, m.empNo, m.dist === "L" ? "Long" : "Short",
+      periodStr, m.name, m.empNo, m.rank || "", m.dist === "L" ? "Long" : "Short",
       t.cal.am7, t.cal.pm3, t.cal.pm10, t.leaveShifts, t.exchangedShifts, n2(t.totalHours),
       n2(t.sp1), n2(t.sp2), n2(t.meal), n2(t.taxi), n2(t.allowanceSubtotal),
       n2(t.monthlyBasic), n2(t.compulsory), n2(t.holidayPay), n2(t.overtimePay), n2(t.grand),
@@ -782,8 +902,8 @@ function crewText(rows, periodStr) {
   const lines = [rule("═"), "   NIGHT SHIFT — CREW SUMMARY", `   Period: ${periodStr}`, `   ${rows.length} ${rows.length === 1 ? "person" : "people"}`, rule("═")];
   let allow = 0, gross = 0;
   for (const { member: m, totals: t, net } of rows) {
-    allow += t.allowanceSubtotal; gross += t.grand;
-    lines.push("", (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
+    allow += Number(t.allowanceSubtotal) || 0; gross += Number(t.grand) || 0;
+    lines.push("", (m.rank ? `${m.rank} ` : "") + (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
     lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10} · ${fmtH0(t.totalHours)}h`);
     const off = [t.leaveShifts > 0 && `${t.leaveShifts} on leave`, t.exchangedShifts > 0 && `${t.exchangedShifts} exchanged out`].filter(Boolean);
     if (off.length) lines.push("  " + off.join(" · "));
@@ -1005,6 +1125,7 @@ const _exports = {
   calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   blankCrew, newMember, memberEntries, memberTotals, sameEntry, setMemberDay, memberDiffKeys,
   sortMembers, sanitizeCrew, crewDayFrom, crewRows, crewCsv, crewText,
+  SHEET_CODES, dmy, periodLong, shiftSheet, crewSnapshot, crewSnapSig, sanitizeCrewHistory,
   loadState, saveState,
 };
 

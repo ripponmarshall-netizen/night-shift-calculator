@@ -1,7 +1,7 @@
 /* snapshots.jsx — history list with sparkline */
 const { useState: useStateSn, useMemo: useMemoSn } = React;
 
-function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcile }) {
+function SnapshotsView({ snapshots, crewHistory, onDeleteCrew, theme, onDelete, onClear, onBack, onReconcile }) {
   // Track the open snapshot by id and look it up live, so a reconciliation
   // saved while it's open shows immediately instead of a stale copy.
   const [selectedAt, setSelectedAt] = useStateSn(null);
@@ -30,12 +30,15 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
   // A deleted row folds away before it leaves the list (the app's Undo toast
   // still covers it).
   const [isLeaving, remove] = useFoldAway(onDelete);
+  // Saved crews go first when they're all there is, not under an empty card.
+  const crewCard = crewHistory?.length > 0 && <CrewHistory list={crewHistory} onDelete={onDeleteCrew} />;
 
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       {list.length > 0 && <YTDDashboard snapshots={list} />}
+      {list.length === 0 && crewCard}
       <Card>
-        <SectionHead title="Saved periods" subtitle={list.length ? `${list.length} saved` : null} right={
+        <SectionHead title={crewCard ? "Your saved periods" : "Saved periods"} subtitle={list.length ? `${list.length} saved` : null} right={
           list.length > 0 && <button onClick={onClear} style={ghostBtn()}>Clear all</button>
         } />
 
@@ -91,6 +94,8 @@ function SnapshotsView({ snapshots, theme, onDelete, onClear, onBack, onReconcil
           </div>
         )}
       </Card>
+
+      {list.length > 0 && crewCard}
 
       {selected && <SnapshotDetail snap={selected} theme={theme} onClose={() => setSelectedAt(null)} onReconcile={onReconcile} />}
     </main>

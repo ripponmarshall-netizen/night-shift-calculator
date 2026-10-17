@@ -1246,6 +1246,209 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   );
 }
 
+// ----- Crew record sheets and History -----
+{
+  const H = require("./helpers.jsx");
+  const D = require("./crewdoc.jsx");
+  const p = periodFor(fromYmd("2026-06-20")); // Jun 16 – Jul 15
+  const crew = H.blankCrew();
+  crew.watch = "D WATCH";
+  crew.station = "Port Antonio";
+  crew.rotationAnchor = "2026-06-19";
+  crew.entries = rotationEntries(p, "2026-06-19", "S");
+  const a = {
+    ...H.newMember("Lloyd <Johnson> & Co", "87004"),
+    rank: "A/Asst Supt",
+  };
+  a.days["2026-07-01"] = {
+    ...crew.entries["2026-07-01"],
+    duty: { am7: "departmental" },
+  };
+  a.days["2026-07-03"] = {
+    ...crew.entries["2026-07-03"],
+    duty: { pm10: "exchangeLeave" },
+  };
+  a.days["2026-07-04"] = {
+    ...blankDay(),
+    pm10: true,
+    duty: { pm10: "exchangeFor" },
+  };
+  crew.members = [a, H.newMember("Roydel Weir", "02176")];
+
+  // The sheet: rotation shifts are regular time, one 4-day cycle per column
+  // (the cycle holding Jun 16 started on the 15th), dated d/m/yy with codes.
+  const sheet = H.shiftSheet(
+    H.memberEntries(crew.entries, a),
+    p,
+    crew.rotationAnchor,
+  );
+  assert.deepStrictEqual(sheet.regular.pm3[0], {
+    d: "16/6/26",
+    code: "",
+    col: 0,
+  });
+  assert.deepStrictEqual(sheet.regular.am7[0], {
+    d: "19/6/26",
+    code: "",
+    col: 1,
+  });
+  assert.ok(
+    sheet.regular.am7.some(
+      (x) => x.d === "1/7/26" && x.code === "D/L" && x.col === 4,
+    ),
+  );
+  assert.ok(
+    sheet.regular.pm10.some((x) => x.d === "3/7/26" && x.code === "Exc"),
+  );
+  // A shift outside the rotation is overtime, in its cycle's column.
+  assert.deepStrictEqual(sheet.overtime.pm10, [
+    { d: "4/7/26", code: "Exc", col: 4 },
+  ]);
+  assert.strictEqual(sheet.regular.pm10.slice(-1)[0].d, "15/7/26");
+  // No rotation: everything is regular time, in date order.
+  const flat = H.shiftSheet(H.memberEntries(crew.entries, a), p, null);
+  assert.strictEqual(flat.overtime.pm10.length, 0);
+  assert.strictEqual(flat.regular.pm10.length, sheet.regular.pm10.length + 1);
+  assert.strictEqual(flat.regular.pm10[0].col, undefined);
+  assert.strictEqual(H.periodLong(p), "June 16, 2026 - July 15, 2026");
+
+  // A crew save keeps what History and the Word sheets need, survives a
+  // storage round trip, and its signature changes with the crew.
+  const snap = H.crewSnapshot(crew, p, DEFAULT_RATES, DEFAULT_TAX);
+  assert.strictEqual(snap.periodKey, "2026-06-16");
+  assert.strictEqual(snap.rows.length, 2);
+  assert.strictEqual(snap.rows[0].member.rank, "A/Asst Supt");
+  assert.strictEqual(snap.rows[0].totals.dayHours, undefined);
+  assert.strictEqual(snap.rows[0].member.days, undefined);
+  const stored = H.sanitizeCrewHistory(
+    JSON.parse(JSON.stringify([snap, { periodKey: "nope" }, null])),
+  );
+  assert.strictEqual(stored.length, 1);
+  assert.strictEqual(H.crewSnapSig(stored[0]), H.crewSnapSig(snap));
+  assert.deepStrictEqual(H.sanitizeCrewHistory("x"), []);
+  const moved = { ...crew, members: [{ ...a, days: {} }, crew.members[1]] };
+  assert.notStrictEqual(
+    H.crewSnapSig(H.crewSnapshot(moved, p, DEFAULT_RATES, DEFAULT_TAX)),
+    H.crewSnapSig(snap),
+  );
+  assert.strictEqual(
+    H.crewSnapSig(H.crewSnapshot(crew, p, DEFAULT_RATES, DEFAULT_TAX)),
+    H.crewSnapSig(snap),
+  );
+  // A tax change moves only Est. net; the save must read as changed.
+  assert.notStrictEqual(
+    H.crewSnapSig(
+      H.crewSnapshot(
+        {
+          ...crew,
+          members: crew.members.map((m) => ({
+            ...m,
+            basePay: { monthly: "150000", compulsory: "" },
+          })),
+        },
+        p,
+        DEFAULT_RATES,
+        { ...DEFAULT_TAX, pension: 5 },
+      ),
+    ),
+    H.crewSnapSig(
+      H.crewSnapshot(
+        {
+          ...crew,
+          members: crew.members.map((m) => ({
+            ...m,
+            basePay: { monthly: "150000", compulsory: "" },
+          })),
+        },
+        p,
+        DEFAULT_RATES,
+        DEFAULT_TAX,
+      ),
+    ),
+  );
+  // Imports: one save per period (the latest), each with its own `at`, and
+  // totals keep only numbers.
+  const raw = JSON.parse(JSON.stringify(snap));
+  delete raw.at;
+  raw.rows[0].totals.sp1 = "abc";
+  raw.rows[0].totals.cal.am7 = {};
+  const twice = H.sanitizeCrewHistory([
+    raw,
+    { ...raw, periodKey: "2026-05-16" },
+    { ...raw, periodKey: "2026-05-16", at: "2026-06-01T00:00:00.000Z" },
+  ]);
+  assert.strictEqual(twice.length, 2);
+  assert.strictEqual(new Set(twice.map((x) => x.at)).size, 2);
+  assert.ok(!Number.isNaN(new Date(twice[0].at).getTime()));
+  assert.strictEqual(
+    twice.find((x) => x.periodKey === "2026-05-16").at,
+    "2026-06-01T00:00:00.000Z",
+  );
+  assert.strictEqual(twice[0].rows[0].totals.sp1, undefined);
+  assert.strictEqual(twice[0].rows[0].totals.cal.am7, undefined);
+  assert.ok(!H.crewCsv(twice[0].rows, "p").includes("object"));
+  // Rank, watch and station come through sanitizeCrew.
+  const kept = H.sanitizeCrew(JSON.parse(JSON.stringify(crew)));
+  assert.strictEqual(kept.watch, "D WATCH");
+  assert.strictEqual(kept.members[0].rank, "A/Asst Supt");
+
+  // The .docx: a valid stored ZIP (CRC checked) with the five parts Word
+  // needs, one page per person, text escaped.
+  assert.strictEqual(D.crc32(Buffer.from("123456789")), 0xcbf43926);
+  const bytes = Buffer.from(D.crewDocx(snap));
+  const files = {};
+  const eocd = bytes.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  let at = bytes.readUInt32LE(eocd + 16);
+  for (let i = 0; i < bytes.readUInt16LE(eocd + 10); i++) {
+    assert.strictEqual(bytes.readUInt32LE(at), 0x02014b50);
+    const size = bytes.readUInt32LE(at + 20);
+    const nameLen = bytes.readUInt16LE(at + 28);
+    const name = bytes.toString("utf8", at + 46, at + 46 + nameLen);
+    const local = bytes.readUInt32LE(at + 42);
+    const start = local + 30 + bytes.readUInt16LE(local + 26);
+    const data = bytes.subarray(start, start + size);
+    assert.strictEqual(D.crc32(data), bytes.readUInt32LE(at + 16), name);
+    files[name] = data.toString("utf8");
+    at += 46 + nameLen;
+  }
+  assert.deepStrictEqual(Object.keys(files).sort(), [
+    "[Content_Types].xml",
+    "_rels/.rels",
+    "word/_rels/document.xml.rels",
+    "word/document.xml",
+    "word/styles.xml",
+  ]);
+  const doc = files["word/document.xml"];
+  assert.strictEqual((doc.match(/<w:pageBreakBefore\/>/g) || []).length, 1);
+  assert.ok(doc.includes("Lloyd &lt;Johnson&gt; &amp; Co"));
+  assert.ok(doc.includes("T&amp;H:") && !/T&H/.test(doc));
+  assert.ok(doc.includes("Period: June 16, 2026 - July 15, 2026"));
+  assert.ok(doc.includes(">D WATCH<") && doc.includes(">Port Antonio<"));
+  assert.ok(doc.includes('w:h="20160"')); // legal paper
+  assert.strictEqual(
+    D.crewDocxName(snap),
+    "D-WATCH-record-sheets-2026-06-16.docx",
+  );
+  assert.strictEqual(
+    D.crewDocxName({ ...snap, watch: "" }),
+    "crew-record-sheets-2026-06-16.docx",
+  );
+  // Every date box row has its 7 boxes, however many dates there are.
+  const many = {
+    ...snap.rows[0],
+    sheet: {
+      regular: {
+        am7: Array.from({ length: 20 }, (_, i) => ({
+          d: `${i + 1}/6/26`,
+          code: "",
+        })),
+      },
+      overtime: {},
+    },
+  };
+  assert.ok(D.documentXml({ ...snap, rows: [many] }).includes("20/6/26"));
+}
+
 // ----- Service worker -----
 let swChecks = Promise.resolve();
 // Offline start needs every file index.html loads to be precached, and the
