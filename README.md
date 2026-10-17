@@ -42,6 +42,7 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 | `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                                                              |
 | `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
 | `crew.jsx`       | Crew tab: several people on the same shift — shared crew calendar, per-person days/pay/taxi, crew totals, copy summary and CSV export                                          |
+| `crewdoc.jsx`    | Crew as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                 |
 | `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, two-column desktop layout                                                                      |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
 | `manifest.json`  | PWA manifest                                                                                                                                                                   |
@@ -97,9 +98,11 @@ The bottom bar has four tabs: **Home**, **Shifts**, **Crew** and **History**. Se
 The **Crew** tab works out the same pay for everyone on your shift, organised by name and employee number.
 
 1. **Set the crew's shifts** on the crew calendar: **Fill rotation** (the same 7AM picker as Home), **Copy my shifts** (your own calendar's shifts and holiday settings, without your leave, swaps or short hours), or tap days to edit them.
-2. **Add each person** with their name and employee number. A number used twice is flagged. Sort the list by **Name** or **Emp. no.**
+2. **Add each person** with their name, employee number and rank. A number used twice is flagged. Sort the list by **Name** or **Emp. no.**
 3. **Open a person** to set their monthly basic, compulsory assignment and Short/Long taxi, and tap any day to mark their leave, a swap or an extra shift. Days that differ from the crew are listed under **Different from the crew**, each with **Match crew** to undo it.
-4. **Crew totals** adds everyone up. **Copy crew summary** gives a plain-text breakdown per person; **Download CSV** gives one spreadsheet row per person (name, employee no., shifts, hours, SP1, SP2, meal, taxi, base, holiday, overtime, gross, est. net).
+4. **Crew totals** adds everyone up. **Save to History** keeps the crew's result for the period (saving again replaces it, and the button shows **Save changes** when the crew has changed since). **Copy summary** gives a plain-text breakdown per person; **Download CSV** gives one spreadsheet row per person.
+5. **Word record sheets** downloads a `.docx` with one JFB _Regular and Overtime Record Sheet_ per person on legal paper: watch, employee no., rank, name, station, the dated shifts under Regular Time and Overtime (leave and exchanges marked D/L, V/L, S/L, T/O, Exc, Ord in red), S/P 1, S/P 2, M/A and T/A, overtime hours (T&H ×1.5, D ×2), leave taken, and blank remarks and signature lines. Set the **Watch** and **Station** once above the button. With a crew rotation saved, each 4-day cycle gets its own column and shifts outside the rotation go under Overtime; without one, every shift is Regular Time.
+6. **History → Saved crews** lists each saved crew period; open one to download its Word sheets or CSV again, copy its summary, or delete it (with Undo).
 
 Each person is calculated by the same engine as your own pay, using the rates for the period on screen. Changing the crew calendar updates everyone except on the days they have their own changes. Crew data is included in Backup and stays on this device.
 

@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v35";
+const CACHE = "ns-calculator-v36";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
@@ -20,6 +20,7 @@ const ASSETS = [
   "./ytd.jsx",
   "./snapshots.jsx",
   "./home.jsx",
+  "./crewdoc.jsx",
   "./crew.jsx",
   "./app.jsx",
   "./logo.svg",
