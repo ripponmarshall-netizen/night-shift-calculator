@@ -1074,6 +1074,178 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.ok(/DTEND;TZID=America\/Jamaica:20260521T070000/.test(ics));
 }
 
+// ----- Crew -----
+{
+  const H = require("./helpers.jsx");
+  const p = periodFor(fromYmd("2026-05-20")); // May 16 – Jun 15
+  const crewEntries = rotationEntries(p, "2026-05-16", "S");
+  const solo = (m) =>
+    aggregate(
+      H.memberEntries(crewEntries, m),
+      p,
+      "basic",
+      m.dist,
+      null,
+      m.basePay,
+      DEFAULT_RATES,
+    );
+
+  // With no days of their own, a member is paid exactly as the crew calendar
+  // logged as their own (same engine, Short/Long per person).
+  const a = { ...H.newMember("A. Brown", "200"), dist: "L" };
+  a.basePay = { monthly: "180000", compulsory: "5000" };
+  const ta = H.memberTotals(crewEntries, a, p, DEFAULT_RATES);
+  assert.strictEqual(
+    ta.grand,
+    aggregate(crewEntries, p, "basic", "L", null, a.basePay, DEFAULT_RATES)
+      .grand,
+  );
+  assert.strictEqual(ta.basicDistance, "L");
+
+  // A leave day replaces the crew's day; a null day removes it (not worked).
+  const crewDay = crewEntries["2026-05-17"]; // 3PM
+  assert.ok(crewDay.pm3);
+  const leave = { ...crewDay, duty: { pm3: "vacation" } };
+  const b = H.setMemberDay(crewEntries, H.newMember("B"), "2026-05-17", leave);
+  assert.deepStrictEqual(Object.keys(b.days), ["2026-05-17"]);
+  const tb = solo(b);
+  assert.strictEqual(tb.cal.pm3, ta.cal.pm3 - 1);
+  assert.strictEqual(tb.leaveShifts, 1);
+  assert.strictEqual(tb.totalHours, ta.totalHours); // leave hours still count
+  const off = H.setMemberDay(crewEntries, b, "2026-05-17", blankDay());
+  assert.strictEqual(off.days["2026-05-17"], null);
+  assert.strictEqual(
+    H.memberEntries(crewEntries, off)["2026-05-17"],
+    undefined,
+  );
+  assert.strictEqual(solo(off).totalHours, ta.totalHours - 7);
+  // Setting the day back to the crew's drops the override.
+  const back = H.setMemberDay(crewEntries, off, "2026-05-17", {
+    ...crewDay,
+    dist: { am7: "L", pm3: "L", pm10: "L" },
+  });
+  assert.deepStrictEqual(back.days, {});
+  // Clearing a day the crew doesn't work leaves no override behind.
+  const restDay = "2026-05-19"; // off in the rotation
+  assert.ok(!crewEntries[restDay]);
+  assert.deepStrictEqual(
+    H.setMemberDay(crewEntries, back, restDay, blankDay()).days,
+    {},
+  );
+  // An extra shift on an off day is theirs alone.
+  const extra = H.setMemberDay(crewEntries, back, restDay, {
+    ...blankDay(),
+    pm10: true,
+  });
+  assert.strictEqual(solo(extra).cal.pm10, ta.cal.pm10 + 1);
+  assert.deepStrictEqual(H.memberDiffKeys(extra, p), [restDay]);
+  assert.deepStrictEqual(
+    H.memberDiffKeys(extra, periodFor(fromYmd("2026-07-01"))),
+    [],
+  );
+
+  // sameEntry ignores distance and blank hours, not duty or real hours.
+  assert.ok(H.sameEntry({ pm3: true }, { pm3: true, hours: { pm3: "" } }));
+  assert.ok(!H.sameEntry({ pm3: true }, { pm3: true, hours: { pm3: "3" } }));
+  assert.ok(!H.sameEntry({ pm3: true }, leave));
+  assert.ok(!H.sameEntry({ pm3: true }, { pm3: true, holiday: true }));
+
+  // Sorting: by name, or by employee number in natural order, blanks last.
+  const ms = [
+    { id: "1", name: "Cole", empNo: "10" },
+    { id: "2", name: "adams", empNo: "9" },
+    { id: "3", name: "Baker", empNo: "" },
+  ];
+  assert.deepStrictEqual(
+    H.sortMembers(ms, "name").map((m) => m.id),
+    ["2", "3", "1"],
+  );
+  assert.deepStrictEqual(
+    H.sortMembers(ms, "empNo").map((m) => m.id),
+    ["2", "1", "3"],
+  );
+  assert.strictEqual(ms[0].id, "1"); // input not reordered
+
+  // Storage and backups: only the expected shape gets through.
+  assert.strictEqual(H.sanitizeCrew(null), null);
+  assert.strictEqual(H.sanitizeCrew([]), null);
+  const clean = H.sanitizeCrew({
+    entries: {
+      "2026-05-16": { am7: true },
+      junk: { pm3: true },
+      "2026-05-17": 5,
+    },
+    members: [
+      {
+        id: "x",
+        name: "N",
+        empNo: 12,
+        basePay: { monthly: "1,000" },
+        dist: "Z",
+        days: { "2026-05-16": null, bad: null },
+      },
+      { id: "x", name: "Dup id" },
+      "nope",
+    ],
+    rotationAnchor: "soon",
+    sortBy: "empNo",
+  });
+  assert.deepStrictEqual(Object.keys(clean.entries), ["2026-05-16"]);
+  assert.strictEqual(clean.members.length, 2);
+  assert.notStrictEqual(clean.members[0].id, clean.members[1].id);
+  assert.strictEqual(clean.members[0].empNo, "12");
+  assert.strictEqual(clean.members[0].basePay.monthly, "1000");
+  assert.strictEqual(clean.members[0].dist, "S");
+  assert.deepStrictEqual(clean.members[0].days, { "2026-05-16": null });
+  assert.strictEqual(clean.rotationAnchor, null);
+  assert.strictEqual(clean.sortBy, "empNo");
+  assert.deepStrictEqual(H.sanitizeCrew(H.blankCrew()), H.blankCrew());
+
+  // Copying someone's day to the crew keeps shifts and holiday, not their
+  // leave or short hours.
+  const copied = H.crewDayFrom({
+    pm3: true,
+    holiday: false,
+    duty: { pm3: "sick" },
+    hours: { pm3: "2" },
+  });
+  assert.ok(copied.pm3 && copied.holiday === false);
+  assert.strictEqual(copied.duty, undefined);
+  assert.strictEqual(copied.hours, undefined);
+  assert.strictEqual(H.crewDayFrom(undefined), null);
+
+  // Reports: one CSV row per person in the crew's order, plain numbers, and
+  // a name that looks like a formula is never run by a spreadsheet.
+  const crew = {
+    entries: crewEntries,
+    members: [
+      { ...a, name: '=HYPERLINK("x")' },
+      { ...H.newMember("Lee, K.", "100") },
+    ],
+    sortBy: "empNo",
+  };
+  const rows = H.crewRows(crew, p, DEFAULT_RATES, DEFAULT_TAX);
+  assert.deepStrictEqual(
+    rows.map((r) => r.member.empNo),
+    ["100", "200"],
+  );
+  assert.strictEqual(rows[0].net, null); // no monthly basic: no net
+  assert.ok(rows[1].net > 0 && rows[1].net < rows[1].totals.grand);
+  const csv = H.crewCsv(rows, "May 16 – Jun 15, 2026").split("\r\n");
+  assert.strictEqual(csv.length, 4); // header, 2 people, trailing newline
+  assert.ok(csv[1].includes('"Lee, K."'));
+  assert.ok(csv[2].includes(`"'=HYPERLINK(""x"")"`));
+  assert.ok(csv[2].includes(rows[1].totals.grand.toFixed(2)));
+  assert.ok(!/\$/.test(csv.join("")));
+  const txt = H.crewText(rows, "May 16 – Jun 15, 2026");
+  assert.ok(txt.includes("2 people"));
+  assert.ok(txt.includes("Lee, K. · #100"));
+  assert.ok(
+    txt.includes(fmt(rows[0].totals.grand + rows[1].totals.grand)),
+    "crew gross is the sum of everyone's",
+  );
+}
+
 // ----- Service worker -----
 let swChecks = Promise.resolve();
 // Offline start needs every file index.html loads to be precached, and the

@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.13";
+const APP_VERSION = "3.14";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -620,6 +620,185 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   };
 }
 
+/* ----- crew (several people on the same shift) -----
+   The crew shares one shift calendar (crew.entries). Each member keeps only
+   the days that differ for them in member.days: a day entry (leave, a swap,
+   an extra shift), or null for a crew day they didn't work. Their own pay
+   and taxi distance go with them. Pay is the same aggregate() run on each
+   member's merged calendar, with one Short/Long distance per person. */
+function blankCrew() { return { entries: {}, members: [], rotationAnchor: null, sortBy: "name" }; }
+function newMember(name, empNo) {
+  return {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+    name: String(name || "").trim(), empNo: String(empNo || "").trim(),
+    basePay: { monthly: "", compulsory: "" }, dist: "S", days: {},
+  };
+}
+
+/* One member's calendar: the crew's days with theirs laid over them. */
+function memberEntries(crewEntries, member) {
+  const out = { ...(crewEntries || {}) };
+  for (const [k, v] of Object.entries(member?.days || {})) {
+    if (v) out[k] = v; else delete out[k];
+  }
+  return out;
+}
+function memberTotals(crewEntries, member, period, rates) {
+  return aggregate(memberEntries(crewEntries, member), period, "basic", member?.dist === "L" ? "L" : "S", null, member?.basePay || {}, rates);
+}
+
+/* Two day entries that pay the same: the same shifts, duty marks, hours and
+   holiday setting. Per-shift distance is ignored (crew pay is Short/Long). */
+function sameEntry(a, b) {
+  const hol = (e) => (e && e.holiday != null ? !!e.holiday : null);
+  if (hol(a) !== hol(b)) return false;
+  return ["am7", "pm3", "pm10"].every((k) => {
+    if (!!a?.[k] !== !!b?.[k]) return false;
+    return !a?.[k] || (shiftDuty(a, k) === shiftDuty(b, k) && effHours(a, k) === effHours(b, k));
+  });
+}
+
+/* Set one day for a member. A day that matches the crew's drops the
+   override; an emptied day the crew works is kept as null (not worked). */
+function setMemberDay(crewEntries, member, key, entry) {
+  const days = { ...(member.days || {}) };
+  const crewDay = crewEntries?.[key];
+  const empty = !hasShifts(entry) && (entry?.holiday == null);
+  if (empty ? !crewDay : sameEntry(entry, crewDay)) delete days[key];
+  else days[key] = empty ? null : entry;
+  return { ...member, days };
+}
+
+/* Days in the period where a member differs from the crew, oldest first. */
+function memberDiffKeys(member, period) {
+  const inPeriod = new Set(periodDays(period).map(ymd));
+  return Object.keys(member?.days || {}).filter((k) => inPeriod.has(k)).sort();
+}
+
+/* Members ordered by name or employee number (numbers compare naturally,
+   so "#9" comes before "#10"); people missing that field go last. */
+function sortMembers(members, by) {
+  const field = by === "empNo" ? "empNo" : "name";
+  const cmp = (a, b) => String(a).localeCompare(String(b), "en", { numeric: true, sensitivity: "base" });
+  return [...(members || [])].sort((a, b) => {
+    const x = a[field] || "", y = b[field] || "";
+    if (!x !== !y) return x ? -1 : 1;
+    return cmp(x, y) || cmp(a.name || "", b.name || "") || cmp(a.empNo || "", b.empNo || "");
+  });
+}
+
+/* Accept a crew from storage or a backup file only in the expected shape, so
+   a hand-edited file can't break the Crew screen. null when unusable. */
+function sanitizeCrew(c) {
+  const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  if (!isObj(c)) return null;
+  const isKey = (k) => /^\d{4}-\d{2}-\d{2}$/.test(k);
+  const dayMap = (m, allowNull) => {
+    const out = {};
+    if (!isObj(m)) return out;
+    for (const [k, v] of Object.entries(m)) {
+      if (!isKey(k)) continue;
+      if (isObj(v)) out[k] = v;
+      else if (allowNull && v === null) out[k] = null;
+    }
+    return out;
+  };
+  const str = (v, n) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, n) : "");
+  const money = (v) => str(v, 20).replace(/[^0-9.]/g, "");
+  const seen = new Set();
+  const members = (Array.isArray(c.members) ? c.members : []).filter(isObj).map((m, i) => {
+    let id = str(m.id, 40) || `m${i}`;
+    if (seen.has(id)) id = `${id}-${i}`;
+    seen.add(id);
+    return {
+      id, name: str(m.name, 60), empNo: str(m.empNo, 30),
+      basePay: { monthly: money(m.basePay?.monthly), compulsory: money(m.basePay?.compulsory) },
+      dist: m.dist === "L" ? "L" : "S",
+      days: dayMap(m.days, true),
+    };
+  });
+  return {
+    entries: dayMap(c.entries, false),
+    members,
+    rotationAnchor: typeof c.rotationAnchor === "string" && isKey(c.rotationAnchor) ? c.rotationAnchor : null,
+    sortBy: c.sortBy === "empNo" ? "empNo" : "name",
+  };
+}
+
+/* A crew day copied from someone's own calendar: the shifts and the
+   holiday setting only. Their leave, swaps and short hours are personal. */
+function crewDayFrom(e) {
+  if (!hasShifts(e) && e?.holiday == null) return null;
+  const d = blankDay();
+  for (const k of ["am7", "pm3", "pm10"]) d[k] = !!e[k];
+  d.holiday = e.holiday == null ? null : !!e.holiday;
+  return d;
+}
+
+/* One row per person for the crew report, in the given order. */
+function crewRows(crew, period, rates, tax) {
+  return sortMembers(crew.members, crew.sortBy).map((m) => {
+    const t = memberTotals(crew.entries, m, period, rates);
+    const hasBasic = Number(t.monthlyBasic) > 0 && !!tax?.enabled;
+    return { member: m, totals: t, net: hasBasic ? estimateNet(t, tax).net : null };
+  });
+}
+
+/* The crew as a CSV spreadsheet, one row per person. Amounts are plain
+   numbers (no $ or commas) so a spreadsheet can add them up. A cell that
+   starts like a formula is prefixed with ' so it's shown, never run. */
+function crewCsv(rows, periodStr) {
+  const cell = (v) => {
+    let s = String(v ?? "");
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const n2 = (v) => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
+  const head = ["Period", "Name", "Employee no.", "Taxi", "7AM", "3PM", "10PM", "Leave shifts", "Exchanged out", "Hours",
+    "SP1", "SP2", "Meal", "Taxi allowance", "Allowances", "Monthly basic", "Compulsory", "Holiday pay", "Overtime pay", "Gross", "Est. net"];
+  const lines = [head.map(cell).join(",")];
+  for (const { member: m, totals: t, net } of rows) {
+    lines.push([
+      periodStr, m.name, m.empNo, m.dist === "L" ? "Long" : "Short",
+      t.cal.am7, t.cal.pm3, t.cal.pm10, t.leaveShifts, t.exchangedShifts, n2(t.totalHours),
+      n2(t.sp1), n2(t.sp2), n2(t.meal), n2(t.taxi), n2(t.allowanceSubtotal),
+      n2(t.monthlyBasic), n2(t.compulsory), n2(t.holidayPay), n2(t.overtimePay), n2(t.grand),
+      net == null ? "" : n2(net),
+    ].map(cell).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+
+/* The crew as plain text for pasting into a message: one block per person,
+   then the crew's totals. */
+function crewText(rows, periodStr) {
+  const W = 38;
+  const row = (label, value, indent = 2) => {
+    const l = " ".repeat(indent) + label;
+    const v = String(value);
+    return l + " ".repeat(Math.max(1, W - l.length - v.length)) + v;
+  };
+  const rule = (ch) => ch.repeat(W);
+  const lines = [rule("═"), "   NIGHT SHIFT — CREW SUMMARY", `   Period: ${periodStr}`, `   ${rows.length} ${rows.length === 1 ? "person" : "people"}`, rule("═")];
+  let allow = 0, gross = 0;
+  for (const { member: m, totals: t, net } of rows) {
+    allow += t.allowanceSubtotal; gross += t.grand;
+    lines.push("", (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
+    lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10} · ${fmtH0(t.totalHours)}h`);
+    const off = [t.leaveShifts > 0 && `${t.leaveShifts} on leave`, t.exchangedShifts > 0 && `${t.exchangedShifts} exchanged out`].filter(Boolean);
+    if (off.length) lines.push("  " + off.join(" · "));
+    lines.push(row("Allowances", fmt(t.allowanceSubtotal)));
+    if (Number(t.monthlyBasic) > 0 || Number(t.compulsory) > 0) {
+      lines.push(row("Base pay", fmt(t.baseSubtotal)));
+      if (t.extraSubtotal > 0) lines.push(row("Holiday + overtime", fmt(t.extraSubtotal)));
+      lines.push(row("Gross", fmt(t.grand)));
+      if (net != null) lines.push(row("Est. net", fmt(net)));
+    }
+  }
+  lines.push("", rule("═"), row("CREW ALLOWANCES", fmt(allow)), row("CREW GROSS", fmt(gross)), rule("═"), "— Night Shift Calculator · Estimate only");
+  return lines.join("\n");
+}
+
 /* ----- storage -----
    One-shot migration: when MIGRATION changes, rates and tax are force-reset to
    the new defaults. Everything else (entries, snapshots, templates, base pay,
@@ -824,6 +1003,8 @@ const _exports = {
   rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
   calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
+  blankCrew, newMember, memberEntries, memberTotals, sameEntry, setMemberDay, memberDiffKeys,
+  sortMembers, sanitizeCrew, crewDayFrom, crewRows, crewCsv, crewText,
   loadState, saveState,
 };
 
