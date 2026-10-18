@@ -24,7 +24,9 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 
 ## App Architecture
 
-The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen (a fire truck) while the scripts load; once the app mounts, the truck dashes off, the app logo draws in, and the logo and title fly up into the header while the page drops in beneath them (a plain fade with reduced motion).
+The app is a single-page PWA. UI is built with React 18 (production build) + Babel-standalone loaded from CDN, so there is no build step — every `.jsx` file is fetched directly by the browser and transpiled in place. `index.html` applies the saved theme before first paint and shows a loading screen while the scripts load: a fire truck drives a night road on springy suspension (headlight on, lights flashing, bobbing over a bump). Once the app mounts, the truck floors it off the road, the app logo drops in under gravity and bounces to rest, its clock hands wind round, and the logo and title leap up into the header while the page drops in beneath them (a plain fade with reduced motion).
+
+Motion across the app runs on damped springs: `styles.css` defines `--ease-bouncy`, `--ease-snappy`, `--ease-soft` and `--ease-wobbly`, CSS `linear()` easings sampled from a spring simulation (with a cubic-bezier fallback for older browsers), so pills, chevrons, ticks, dialogs and cards overshoot and settle like real objects. Bottom sheets can be pulled down to close; a flick flies them off at the finger's speed and a short pull springs back (`useSheetDrag` / `springTo` in `components.jsx`).
 
 | File             | Purpose                                                                                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -41,9 +43,9 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 | `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                                                             |
 | `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                                                              |
 | `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
-| `crew.jsx`       | Crew tab: several people on the same shift — shared crew calendar, per-person days/pay/taxi, crew totals, copy summary and CSV export                                          |
-| `crewdoc.jsx`    | Crew as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                 |
-| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, two-column desktop layout                                                                      |
+| `crew.jsx`       | Watch tab: several people on the same shift — shared watch calendar, per-person days/pay/taxi, watch totals, copy summary and CSV export                                       |
+| `crewdoc.jsx`    | Watch as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                |
+| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, About guide, two-column desktop layout                                                         |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
 | `manifest.json`  | PWA manifest                                                                                                                                                                   |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |
@@ -72,11 +74,11 @@ If you leave your monthly pay blank, the big number is labelled **Estimated allo
 
 After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
 
-The phone's **Back** button closes an open dialog or the Home setup first, then returns to Home from any other screen. The app always opens on today's pay period.
+The phone's **Back** button closes an open dialog or the Home setup first, then returns to Home from any other screen. Bottom sheets (the day editor, a saved result) can also be pulled down to close. The app always opens on today's pay period, and if it was left open in the background into a new pay period it moves on to the new one when you come back (unless you'd browsed to another period on purpose).
 
 ### The detailed way (Shifts)
 
-The bottom bar has four tabs: **Home**, **Shifts**, **Crew** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**.
+The bottom bar has four tabs: **Home**, **Shifts**, **Watch** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**. **About** (footer, or Settings) has a step-by-step guide to every screen, the pay rules with the current rates, and a key to every shift label.
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
 2. **Log your shifts on the calendar** (Shifts tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type.
@@ -93,18 +95,18 @@ The bottom bar has four tabs: **Home**, **Shifts**, **Crew** and **History**. Se
 7. **Save to History** when you're done. The button shows whether this period is already saved, or has **changed** since you saved it (**Save changes**). Saving again replaces that period's saved result. History shows ▲/▼ vs the previous period, exports a shareable PNG, and lets you **Check against pay slip** for any saved period. Deleting a saved result can be undone from the toast.
 8. **Backup** (Settings): save/restore a JSON backup (restoring asks first), download the period's shifts as `.ics`, or reset the period (asks first, and can be undone).
 
-### Several people on the same shift (Crew)
+### Several people on the same shift (Watch)
 
-The **Crew** tab works out the same pay for everyone on your shift, organised by name and employee number.
+The **Watch** tab works out the same pay for everyone on your watch, organised by name and employee number. (In the code and backups it is still called `crew`.)
 
-1. **Set the crew's shifts** on the crew calendar: **Fill rotation** (the same 7AM picker as Home), **Copy my shifts** (your own calendar's shifts and holiday settings, without your leave, swaps or short hours), or tap days to edit them.
+1. **Set the watch's shifts** on the watch calendar: **Fill rotation** (the same 7AM picker as Home), **Copy my shifts** (your own calendar's shifts and holiday settings, without your leave, swaps or short hours), or tap days to edit them.
 2. **Add each person** with their name, employee number and rank. A number used twice is flagged. Sort the list by **Name** or **Emp. no.**
-3. **Open a person** to set their monthly basic, compulsory assignment and Short/Long taxi, and tap any day to mark their leave, a swap or an extra shift. Days that differ from the crew are listed under **Different from the crew**, each with **Match crew** to undo it.
-4. **Crew totals** adds everyone up. **Save to History** keeps the crew's result for the period (saving again replaces it, and the button shows **Save changes** when the crew has changed since). **Copy summary** gives a plain-text breakdown per person; **Download CSV** gives one spreadsheet row per person.
-5. **Word record sheets** downloads a `.docx` with one JFB _Regular and Overtime Record Sheet_ per person on legal paper: watch, employee no., rank, name, station, the dated shifts under Regular Time and Overtime (leave and exchanges marked D/L, V/L, S/L, T/O, Exc, Ord in red), S/P 1, S/P 2, M/A and T/A, overtime hours (T&H ×1.5, D ×2), leave taken, and blank remarks and signature lines. Set the **Watch** and **Station** once above the button. With a crew rotation saved, each 4-day cycle gets its own column and shifts outside the rotation go under Overtime; without one, every shift is Regular Time.
-6. **History → Saved crews** lists each saved crew period; open one to download its Word sheets or CSV again, copy its summary, or delete it (with Undo).
+3. **Open a person** to set their monthly basic, compulsory assignment and Short/Long taxi, and tap any day to mark their leave, a swap or an extra shift. Days that differ from the watch are listed under **Different from the watch**, each with **Match watch** to undo it.
+4. **Watch totals** adds everyone up. **Save to History** keeps the watch's result for the period (saving again replaces it, and the button shows **Save changes** when the watch has changed since). **Copy summary** gives a plain-text breakdown per person; **Download CSV** gives one spreadsheet row per person.
+5. **Word record sheets** downloads a `.docx` with one JFB _Regular and Overtime Record Sheet_ per person on legal paper: watch, employee no., rank, name, station, the dated shifts under Regular Time and Overtime (leave and exchanges marked D/L, V/L, S/L, T/O, Exc, Ord in red), S/P 1, S/P 2, M/A and T/A, overtime hours (T&H ×1.5, D ×2), leave taken, and blank remarks and signature lines. Set the **Watch name** and **Station** once above the button. With a watch rotation saved, each 4-day cycle gets its own column and shifts outside the rotation go under Overtime; without one, every shift is Regular Time.
+6. **History → Saved watches** lists each saved watch period; open one to download its Word sheets or CSV again, copy its summary, or delete it (with Undo).
 
-Each person is calculated by the same engine as your own pay, using the rates for the period on screen. Changing the crew calendar updates everyone except on the days they have their own changes. Crew data is included in Backup and stays on this device.
+Each person is calculated by the same engine as your own pay, using the rates for the period on screen. Changing the watch calendar updates everyone except on the days they have their own changes. Watch data is included in Backup and stays on this device.
 
 ---
 
@@ -139,7 +141,7 @@ The same address is in the footer of every screen and on the in-app **About** pa
 
 ### Data & Privacy
 
-This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device; this includes the names and employee numbers you add on the Crew tab. **Settings → Backup → Reset this period** clears one period's shifts and roster counts (your monthly pay, rates and History are kept). To remove everything, clear site data in your browser.
+This app does not collect or transmit data to any server. All calculations are performed locally on your device. Inputs persist in `localStorage` (key `nsc:v3`) so state survives between sessions on the same device/browser profile. No personal information, shift data, or financial figures are sent off-device; this includes the names and employee numbers you add on the Watch tab. **Settings → Backup → Reset this period** clears one period's shifts and roster counts (your monthly pay, rates and History are kept). To remove everything, clear site data in your browser.
 
 ### Accuracy
 

@@ -274,7 +274,7 @@
   }
   /* A file name like "D-WATCH-record-sheets-2026-06-16.docx". */
   function crewDocxName(snap) {
-    const w = String(snap.watch || "crew").trim().replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "crew";
+    const w = String(snap.watch || "watch").trim().replace(/[^A-Za-z0-9]+/g, "-").replace(/^-|-$/g, "") || "watch";
     return `${w}-record-sheets-${snap.periodKey}.docx`;
   }
   const DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";

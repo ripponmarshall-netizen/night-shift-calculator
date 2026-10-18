@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.16";
+const APP_VERSION = "3.17";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -278,6 +278,37 @@ function summaryText(totals, periodStr, net) {
 // optional hours: { am7?, pm3?, pm10? } — actual hours worked (string/number).
 // Absent/blank/invalid => SHIFT_HOURS default. pm10 = TOTAL across midnight (9).
 function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
+
+/* Day entries from a backup file, in the shape every screen reads: date
+   keys only, a day object with true/false shifts, a holiday of null / true /
+   false, a distance per shift, and hours and duty maps kept only when they
+   hold something. Anything else is dropped rather than left to break the
+   calendar or the math. */
+function sanitizeEntries(m) {
+  const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+  const out = {};
+  if (!isObj(m)) return out;
+  for (const [k, e] of Object.entries(m)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !isObj(e)) continue;
+    const d = blankDay();
+    for (const s of ["am7", "pm3", "pm10"]) {
+      d[s] = !!e[s];
+      if (e.dist?.[s] === "L") d.dist[s] = "L";
+    }
+    if (typeof e.holiday === "boolean") d.holiday = e.holiday;
+    const sub = (o, ok) => {
+      const r = {};
+      if (isObj(o)) for (const s of ["am7", "pm3", "pm10"]) if (ok(o[s])) r[s] = o[s];
+      return Object.keys(r).length ? r : undefined;
+    };
+    const hours = sub(e.hours, (v) => (typeof v === "string" || typeof v === "number") && String(v) !== "" && Number(v) >= 0);
+    const duty = sub(e.duty, (v) => typeof v === "string" && Object.prototype.hasOwnProperty.call(DUTY_TYPES, v));
+    if (hours) d.hours = hours;
+    if (duty) d.duty = duty;
+    if (hasShifts(d) || d.holiday != null) out[k] = d;
+  }
+  return out;
+}
 
 /* Remove only the entries displayed in a pay period. Entries are stored in one
    date-keyed map across periods, so replacing the whole map would destroy
@@ -899,7 +930,7 @@ function crewText(rows, periodStr) {
     return l + " ".repeat(Math.max(1, W - l.length - v.length)) + v;
   };
   const rule = (ch) => ch.repeat(W);
-  const lines = [rule("═"), "   NIGHT SHIFT — CREW SUMMARY", `   Period: ${periodStr}`, `   ${rows.length} ${rows.length === 1 ? "person" : "people"}`, rule("═")];
+  const lines = [rule("═"), "   NIGHT SHIFT — WATCH SUMMARY", `   Period: ${periodStr}`, `   ${rows.length} ${rows.length === 1 ? "person" : "people"}`, rule("═")];
   let allow = 0, gross = 0;
   for (const { member: m, totals: t, net } of rows) {
     allow += Number(t.allowanceSubtotal) || 0; gross += Number(t.grand) || 0;
@@ -915,7 +946,7 @@ function crewText(rows, periodStr) {
       if (net != null) lines.push(row("Est. net", fmt(net)));
     }
   }
-  lines.push("", rule("═"), row("CREW ALLOWANCES", fmt(allow)), row("CREW GROSS", fmt(gross)), rule("═"), "— Night Shift Calculator · Estimate only");
+  lines.push("", rule("═"), row("WATCH ALLOWANCES", fmt(allow)), row("WATCH GROSS", fmt(gross)), rule("═"), "— Night Shift Calculator · Estimate only");
   return lines.join("\n");
 }
 
@@ -1119,7 +1150,7 @@ const _exports = {
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
   fmt, fmtShort, fmtH, fmtH0, summaryText,
-  blankDay, clearPeriodEntries, autofillPattern, aggregate,
+  blankDay, sanitizeEntries, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
   calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,

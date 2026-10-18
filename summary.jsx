@@ -152,11 +152,8 @@ function SecHeader({ title, subtotal, open, onToggle, accent, dim, onEnter, onLe
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <span style={{ fontSize: 13.5, fontWeight: 600 }}><AnimatedNumber value={subtotal} format={fmt} from={0} durationMs={900} /></span>
-        <span style={{
-          fontSize: 12, color: "var(--ink-faint)",
-          transition: "transform 0.18s",
-          transform: open ? "rotate(180deg)" : "rotate(0deg)",
-          display: "inline-block", width: 12, textAlign: "center",
+        <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{
+          fontSize: 12, color: "var(--ink-faint)", width: 12, textAlign: "center",
         }}>▾</span>
       </div>
     </button>
