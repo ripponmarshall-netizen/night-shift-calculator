@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release builds are signed with android/release.keystore. Its password lives
+// only in the ANDROID_KEYSTORE_PASSWORD repo secret (passed in as
+// KEYSTORE_PASSWORD). Without it the build falls back to a throwaway debug key,
+// which is fine for checking the build but not for sharing: phones won't
+// accept a later version signed with a different key as an update.
+def keystorePassword = System.getenv('KEYSTORE_PASSWORD')
+
+android {
+    namespace 'com.wcoco.nightshift'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.wcoco.nightshift'
+        minSdk 21
+        targetSdk 35
+        versionCode((System.getenv('VERSION_CODE') ?: '1') as int)
+        versionName "1.0.${System.getenv('VERSION_CODE') ?: '1'}"
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePassword) {
+                storeFile file('../release.keystore')
+                storeType 'pkcs12'
+                storePassword keystorePassword
+                keyAlias 'nightshift'
+                keyPassword keystorePassword
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig keystorePassword ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

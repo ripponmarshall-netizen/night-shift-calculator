@@ -1,0 +1,60 @@
+name: Android APK
+
+on:
+  push:
+    paths:
+      - "android/**"
+      - ".github/workflows/apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      VERSION_CODE: ${{ github.run_number }}
+      IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Require the signing secret for shareable builds
+        if: env.IS_MAIN == 'true' && env.KEYSTORE_PASSWORD == ''
+        run: |
+          echo "::error::Add the ANDROID_KEYSTORE_PASSWORD repository secret (Settings > Secrets and variables > Actions), then re-run this workflow."
+          exit 1
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Build APK
+        working-directory: android
+        run: |
+          gradle assembleRelease --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../NightShiftCalculator.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NightShiftCalculator-apk
+          path: NightShiftCalculator.apk
+
+      - name: Publish release
+        if: env.IS_MAIN == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ github.run_number }}
+          name: NS Calculator for Android (build ${{ github.run_number }})
+          make_latest: "true"
+          files: NightShiftCalculator.apk
+          body: |
+            Download **NightShiftCalculator.apk** below and open it on an Android phone.
+            Android will ask you to allow installs from your browser or WhatsApp; allow it once.
+            The app opens the live calculator, so you always get the current pay rules without reinstalling.

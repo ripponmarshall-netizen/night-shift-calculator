@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="appName">NS Calculator</string>
+    <string name="launchUrl">https://ripponmarshall-netizen.github.io/night-shift-calculator/</string>
+    <string name="assetStatements" translatable="false">
+        [{
+            \"relation\": [\"delegate_permission/common.handle_all_urls\"],
+            \"target\": {
+                \"namespace\": \"web\",
+                \"site\": \"https://ripponmarshall-netizen.github.io\"
+            }
+        }]
+    </string>
+</resources>

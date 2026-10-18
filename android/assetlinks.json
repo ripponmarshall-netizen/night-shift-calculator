@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.wcoco.nightshift",
+      "sha256_cert_fingerprints": [
+        "61:BC:4A:B7:5B:85:38:1B:EB:2D:7F:6B:9F:37:62:E7:BB:5D:EA:EF:17:53:58:CE:5B:59:3E:24:B4:EF:36:7E"
+      ]
+    }
+  }
+]
