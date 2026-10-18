@@ -579,12 +579,21 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  /* The backdrop runs under the status bar and home indicator
+     (viewport-fit=cover), so keep the dialog clear of both. */
+  padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
   animation: nscFadeIn 0.18s ease-out;
 }
 .nsc-backdrop.is-bottom {
   align-items: flex-end;
   padding: 0 12px 12px;
+}
+/* Dialogs whose height changes as you use them (Settings tabs, Auto-fill
+   patterns) hang from a fixed top instead of re-centring, so their tabs
+   don't jump out from under the finger. */
+.nsc-backdrop.is-top {
+  align-items: flex-start;
+  padding-top: calc(var(--safe-top) + max(16px, 5vh));
 }
 .nsc-modal {
   width: 100%;
@@ -596,10 +605,19 @@ button:focus-visible {
   box-shadow: var(--shadow);
 }
 .nsc-center {
-  max-height: 88vh;
-  max-height: 88dvh;
+  max-height: calc(100vh - 32px - var(--safe-top) - var(--safe-bottom));
+  max-height: calc(100dvh - 32px - var(--safe-top) - var(--safe-bottom));
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.nsc-backdrop.is-top .nsc-center {
+  max-height: calc(
+    100vh - max(16px, 5vh) - 16px - var(--safe-top) - var(--safe-bottom)
+  );
+  max-height: calc(
+    100dvh - max(16px, 5vh) - 16px - var(--safe-top) - var(--safe-bottom)
+  );
+  transform-origin: 50% 0;
 }
 .nsc-backdrop.is-closing {
   animation: nscFadeOut 0.18s ease-in forwards;
@@ -653,12 +671,22 @@ button:focus-visible {
     transform 0.2s ease-in,
     visibility 0s linear 0.2s;
 }
+/* A dialog covers the page, so the floating total steps aside rather than
+   peeking out between a bottom sheet and the tab bar. */
+:root:has(.nsc-backdrop) .total-chip-slot {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.18s ease,
+    visibility 0s linear 0.18s;
+}
 /* Toasts sit above the tab bar, and above the floating total when it's up. */
 .nsc-toast-wrap {
   bottom: calc(120px + var(--safe-bottom));
   transition: bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
-:root:has(.total-chip-slot:not(.is-hidden)) .nsc-toast-wrap {
+:root:has(.total-chip-slot:not(.is-hidden)):not(:has(.nsc-backdrop))
+  .nsc-toast-wrap {
   bottom: calc(168px + var(--safe-bottom));
 }
 

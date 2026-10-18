@@ -28,13 +28,14 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
       createdAt: new Date().toISOString(),
     };
     onSave(tpl);
+    showToast(`Saved ${tpl.name}`);
     setSelected(tpl.id);
     setNewName("");
     setMode("apply");
   };
 
   return (
-    <ModalFrame dismiss={dismiss} label="Templates">
+    <ModalFrame dismiss={dismiss} top label="Templates">
         <ModalHead eyebrow="Templates" title="Weekly patterns" onClose={close} />
 
         <div style={{ marginBottom: 14 }}>

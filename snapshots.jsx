@@ -271,7 +271,7 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
   return (
     <ModalFrame dismiss={dismiss} sheet zIndex={80} maxWidth={540} label={`Saved result, ${snap.period}`}>
         <ModalHead eyebrow="Saved result" title={snap.period} onClose={close}>
-          <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString()}</div>
+          <div className="mono" style={{ fontSize: 11, color: "var(--ink-faint)", marginTop: 2 }}>Saved {new Date(snap.at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}</div>
         </ModalHead>
 
         <div style={{ marginBottom: 6 }}><SplitBar totals={t} height={8} delay={0.2} /></div>

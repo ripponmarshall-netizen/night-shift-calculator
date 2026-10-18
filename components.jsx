@@ -442,8 +442,9 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
 
 /* ModalFrame — the dimmed backdrop and the dialog card every modal shares.
    Pass the useModalDismiss() result as `dismiss`. sheet: a bottom sheet above
-   the tab bar; otherwise a centred dialog. Both scroll inside when tall. */
-function ModalFrame({ dismiss, sheet, zIndex = 70, maxWidth = 520, role = "dialog", label, style, children }) {
+   the tab bar; otherwise a centred dialog, or one hung from the top (top)
+   when its height changes as it's used. All scroll inside when tall. */
+function ModalFrame({ dismiss, sheet, top, zIndex = 70, maxWidth = 520, role = "dialog", label, style, children }) {
   const { ref, closing, close } = dismiss;
   const c = closing ? " is-closing" : "";
   // Only a press that starts on the backdrop closes the modal. A text
@@ -453,7 +454,7 @@ function ModalFrame({ dismiss, sheet, zIndex = 70, maxWidth = 520, role = "dialo
     <div
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => { if (e.target === e.currentTarget && downOnBackdrop.current) close(); }}
-      className={"nsc-backdrop" + (sheet ? " is-bottom" : "") + c} style={{ zIndex }}>
+      className={"nsc-backdrop" + (sheet ? " is-bottom" : top ? " is-top" : "") + c} style={{ zIndex }}>
       <div ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()} role={role} aria-modal="true" aria-label={label}
         className={"nsc-modal " + (sheet ? "nsc-sheet" : "nsc-center") + c} style={{ maxWidth, ...style }}>
         {children}

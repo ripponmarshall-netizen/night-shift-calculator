@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.15";
+const APP_VERSION = "3.16";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -193,7 +193,7 @@ const fmt = (n) => {
 const fmtShort = (n) => {
   const v = Number(n) || 0;
   const a = Math.abs(v);
-  const s = a >= 1000
+  const s = a >= 999.5
     ? "$" + (a / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k"
     : "$" + a.toLocaleString("en-JM", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return v < 0 && s !== "$0" ? "−" + s : s;

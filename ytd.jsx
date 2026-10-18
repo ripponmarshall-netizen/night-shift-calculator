@@ -166,7 +166,7 @@ function Composition({ allow, base, extra, total }) {
   return (
     <div onPointerLeave={() => setFocus(null)}>
       <SplitBar totals={sums} focus={focus} onFocusPart={setFocus} height={12} delay={0.45} />
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", marginTop: 8, gap: "6px 14px", flexWrap: "wrap" }}>
         {PAY_PARTS.map((p) => (
           <CompKey key={p.key} color={p.color} label={p.label} value={sums[p.field]} pct={(sums[p.field] / total) * 100}
             opacity={dim(p.key)} onEnter={() => setFocus(p.key)} />
