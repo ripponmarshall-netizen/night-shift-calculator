@@ -14,7 +14,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      # Only main builds get the signing password, so a branch push can't
+      # run modified Gradle files with it.
+      KEYSTORE_PASSWORD: ${{ github.ref == 'refs/heads/main' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
       VERSION_CODE: ${{ github.run_number }}
       IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
     steps:
