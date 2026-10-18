@@ -343,7 +343,7 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
         <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, marginBottom: 10, lineHeight: 1.45 }}>
           One JFB Regular and Overtime Record Sheet per person, as a Word document on legal paper.
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
           <CrewField label="Watch" value={crew.watch || ""} onChange={(v) => onDetails("watch", v)} placeholder="e.g. D WATCH" capitalize="characters" maxLength={30} />
           <CrewField label="Station" value={crew.station || ""} onChange={(v) => onDetails("station", v)} placeholder="e.g. Port Antonio" capitalize="words" maxLength={40} />
         </div>
@@ -472,7 +472,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
         <div style={{ padding: "0 16px 10px", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
           The crew's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
         </div>
-        <div style={{ padding: "0 12px" }}>
+        <div style={{ padding: "0 12px 12px" }}>
           <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotationAnchor} onOpenDay={onOpenDay} />
         </div>
         {diffs.length > 0 && (

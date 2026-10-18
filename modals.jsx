@@ -294,7 +294,7 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
   const toAbout = React.useRef(false);
   const dismiss = useModalDismiss(() => { onClose(); if (toAbout.current) onAbout(); });
   return (
-    <ModalFrame dismiss={dismiss} label="Settings">
+    <ModalFrame dismiss={dismiss} top label="Settings">
         <ModalHead title="Settings" onClose={dismiss.close} />
         <div style={{ marginBottom: 16 }}>
           <SegToggle fit options={[
@@ -350,6 +350,24 @@ const ratesToDraft = (r) => {
   return out;
 };
 
+/* Keep a tab's fields in step when its values change from outside (a backup
+   restored from Backup, an Undo, Reset to defaults). A field that already
+   holds the same number ("12." mid-typing) or isn't valid yet is left alone. */
+function useSyncedDraft(value, toDraft, setDraft, errors) {
+  React.useEffect(() => {
+    const want = toDraft(value);
+    setDraft((d) => {
+      let next = d;
+      for (const k of Object.keys(want)) {
+        if (errors[k]) continue;
+        const same = typeof want[k] === "boolean" ? d[k] === want[k] : Number(d[k]) === Number(want[k]);
+        if (!same) next = { ...next, [k]: want[k] };
+      }
+      return next;
+    });
+  }, [value]);
+}
+
 /* Rates and tax save as you type: each valid field is applied straight away,
    and a field that isn't valid keeps its last saved value until it's fixed.
    Closing Settings never throws edits away. */
@@ -365,12 +383,12 @@ function RatesTab({ rates, setRates, ratesEffective }) {
     setErrors((e) => { const x = { ...e }; if (err) x[k] = err; else delete x[k]; return x; });
     if (!err) setRates((r) => ({ ...r, [k]: n }));
   };
+  useSyncedDraft(rates, ratesToDraft, setDraft, errors);
   const resetDefaults = () => {
     const prev = rates;
     setRates({ ...DEFAULT_RATES });
-    setDraft(ratesToDraft(DEFAULT_RATES));
     setErrors({});
-    showToast("Rates reset to defaults", { action: { label: "Undo", onClick: () => { setRates(prev); setDraft(ratesToDraft(prev)); } } });
+    showToast("Rates reset to defaults", { action: { label: "Undo", onClick: () => setRates(prev) } });
   };
   // A Past rates entry covering the open period takes precedence over these.
   const overridden = ratesEffective && ratesEffective !== "Current rates";
@@ -436,12 +454,12 @@ function TaxTab({ tax, setTax }) {
     setErrors((e) => { const x = { ...e }; if (err) x[k] = err; else delete x[k]; return x; });
     if (!err) setTax((t) => ({ ...t, [k]: n }));
   };
+  useSyncedDraft(tax, taxToDraft, setDraft, errors);
   const resetDefaults = () => {
     const prev = tax;
     setTax({ ...DEFAULT_TAX });
-    setDraft(taxToDraft(DEFAULT_TAX));
     setErrors({});
-    showToast("Tax reset to defaults", { action: { label: "Undo", onClick: () => { setTax(prev); setDraft(taxToDraft(prev)); } } });
+    showToast("Tax reset to defaults", { action: { label: "Undo", onClick: () => setTax(prev) } });
   };
   const field = (k, label, unit) => <RateInput label={label} unit={unit} value={draft[k]} onChange={(v) => set(k, v)} error={errors[k]} />;
   return (
@@ -637,7 +655,7 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
   const replacesAll = isRotation && !preserve && loggedDays > 0;
 
   return (
-    <ModalFrame dismiss={dismiss} label="Auto-fill shifts">
+    <ModalFrame dismiss={dismiss} top label="Auto-fill shifts">
         <ModalHead title="Auto-fill shifts" onClose={close} />
 
         <FieldLabel>Pattern</FieldLabel>

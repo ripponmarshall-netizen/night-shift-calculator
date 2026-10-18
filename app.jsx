@@ -250,8 +250,15 @@ function App() {
     const inp = document.createElement("input");
     // Some Android pickers grey out .json files that are only matched by type.
     inp.type = "file"; inp.accept = "application/json,.json";
+    // iOS Safari can drop the change event of a picker that isn't in the
+    // page, so it stays attached (hidden) until a file is chosen or not.
+    inp.style.display = "none";
+    document.body.appendChild(inp);
+    inp.addEventListener("cancel", () => inp.remove());
     inp.onchange = async () => {
-      const f = inp.files?.[0]; if (!f) return;
+      const f = inp.files?.[0];
+      inp.remove();
+      if (!f) return;
       try {
         const obj = JSON.parse(await f.text());
         const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);

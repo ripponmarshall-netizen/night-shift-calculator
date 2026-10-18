@@ -732,6 +732,9 @@ assert.strictEqual(fmt(-0.001), "$0.00");
 assert.strictEqual(fmtShort(-1500), "−$1.5k");
 assert.strictEqual(fmtShort(1500), "$1.5k");
 assert.strictEqual(fmtShort(-0.2), "$0");
+// Just under $1,000 rounds up into the "k" form, never "$1,000".
+assert.strictEqual(fmtShort(999.6), "$1.0k");
+assert.strictEqual(fmtShort(999.4), "$999");
 
 // Footnotes: the copied summary ends with the same "Estimate only" note the
 // app shows, and the contact address is set.

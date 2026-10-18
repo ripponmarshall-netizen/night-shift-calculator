@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v36";
+const CACHE = "ns-calculator-v37";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
