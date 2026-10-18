@@ -1204,6 +1204,33 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.strictEqual(clean.sortBy, "empNo");
   assert.deepStrictEqual(H.sanitizeCrew(H.blankCrew()), H.blankCrew());
 
+  // Restoring a backup: day entries come back in the calendar's shape.
+  const days = H.sanitizeEntries({
+    "2026-05-16": {
+      pm3: 1,
+      pm10: true,
+      dist: { pm3: "L", pm10: "X" },
+      hours: { pm3: "5", pm10: "", am7: "-2" },
+      duty: { pm10: "sick", pm3: "made-up" },
+    },
+    "2026-05-17": { holiday: true },
+    "2026-05-18": { holiday: "yes" },
+    "2026-05-19": null,
+    later: { am7: true },
+  });
+  assert.deepStrictEqual(Object.keys(days), ["2026-05-16", "2026-05-17"]);
+  assert.deepStrictEqual(days["2026-05-16"], {
+    am7: false,
+    pm3: true,
+    pm10: true,
+    holiday: null,
+    dist: { am7: "S", pm3: "L", pm10: "S" },
+    hours: { pm3: "5" },
+    duty: { pm10: "sick" },
+  });
+  assert.strictEqual(days["2026-05-17"].holiday, true);
+  assert.deepStrictEqual(H.sanitizeEntries("x"), {});
+
   // Copying someone's day to the crew keeps shifts and holiday, not their
   // leave or short hours.
   const copied = H.crewDayFrom({
@@ -1434,7 +1461,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   );
   assert.strictEqual(
     D.crewDocxName({ ...snap, watch: "" }),
-    "crew-record-sheets-2026-06-16.docx",
+    "watch-record-sheets-2026-06-16.docx",
   );
   // Every date box row has its 7 boxes, however many dates there are.
   const many = {

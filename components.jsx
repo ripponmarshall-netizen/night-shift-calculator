@@ -172,8 +172,10 @@ function prefersReducedMotion() {
   );
 }
 
-/* AnimatedNumber — smooth count to target */
-/* `from` counts up on mount (e.g. from 0); without it the first render shows
+/* AnimatedNumber — count to the target like a critically damped spring:
+   it moves fastest at the start and eases onto the value without passing
+   it (an overshoot would flash a wrong amount of money).
+   `from` counts up on mount (e.g. from 0); without it the first render shows
    the value as is and only later changes animate. */
 function AnimatedNumber({ value, format, durationMs = 350, from }) {
   const [display, setDisplay] = useStateC(from ?? value);
@@ -189,7 +191,8 @@ function AnimatedNumber({ value, format, durationMs = 350, from }) {
     const from = fromRef.current;
     const tick = (now) => {
       const t = Math.min(1, (now - startRef.current) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3);
+      // x(t) = 1 − (1 + ωt)·e^(−ωt), scaled so it's settled by t = 1.
+      const eased = t >= 1 ? 1 : 1 - (1 + 7 * t) * Math.exp(-7 * t);
       setDisplay(from + (to - from) * eased);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     };
@@ -272,7 +275,7 @@ function SplitBar({ totals, focus, onFocusPart, height = 8, delay = 0.3 }) {
           style={{
             flex: `${p.value} 1 0`, minWidth: 3, background: p.color,
             opacity: focus && focus !== p.key ? 0.3 : 1,
-            transition: "flex-grow 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s ease",
+            transition: "flex-grow 0.7s var(--ease-snappy), opacity 0.15s ease",
           }} />
       ))}
     </div>
@@ -322,14 +325,13 @@ function Collapse({ open, children }) {
   useEffectC(() => {
     if (!open) { setSettled(false); return; }
     if (prefersReducedMotion()) { setSettled(true); return; }
-    const t = setTimeout(() => setSettled(true), 260);
+    const t = setTimeout(() => setSettled(true), 420);
     return () => clearTimeout(t);
   }, [open]);
   return (
     <div className={"nsc-collapse" + (open ? " is-open" : "")} style={{
       display: "grid",
       gridTemplateRows: open ? "1fr" : "0fr",
-      transition: "grid-template-rows 0.26s cubic-bezier(0.22, 1, 0.36, 1)",
     }}>
       <div inert={open ? undefined : ""} aria-hidden={open ? undefined : "true"} style={{ overflow: open && settled ? "visible" : "hidden", minHeight: 0 }}>{children}</div>
     </div>
@@ -415,7 +417,12 @@ function askConfirm(opts) {
 function ConfirmHost() {
   const [req, setReq] = useStateC(null);
   useEffectC(() => {
-    const onReq = (e) => setReq({ id: Date.now(), ...e.detail });
+    // A second request while one is open replaces it; the first is answered
+    // "no", so whatever was awaiting it doesn't hang forever.
+    const onReq = (e) => setReq((cur) => {
+      cur?.resolve(false);
+      return { id: Date.now(), ...e.detail };
+    });
     window.addEventListener("nsc-confirm", onReq);
     return () => window.removeEventListener("nsc-confirm", onReq);
   }, []);
@@ -446,21 +453,152 @@ function ConfirmDialog({ title, body, confirmLabel, danger, onDone }) {
    when its height changes as it's used. All scroll inside when tall. */
 function ModalFrame({ dismiss, sheet, top, zIndex = 70, maxWidth = 520, role = "dialog", label, style, children }) {
   const { ref, closing, close } = dismiss;
-  const c = closing ? " is-closing" : "";
+  const backdropRef = useRefC(null);
+  const flung = useSheetDrag(sheet ? ref : null, backdropRef, close);
+  const c = (closing ? " is-closing" : "") + (flung ? " is-flung" : "");
   // Only a press that starts on the backdrop closes the modal. A text
   // selection dragged out of a field ends with a click on the backdrop too.
   const downOnBackdrop = useRefC(false);
   return (
-    <div
+    <div ref={backdropRef}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => { if (e.target === e.currentTarget && downOnBackdrop.current) close(); }}
       className={"nsc-backdrop" + (sheet ? " is-bottom" : top ? " is-top" : "") + c} style={{ zIndex }}>
       <div ref={ref} tabIndex={-1} onClick={(e) => e.stopPropagation()} role={role} aria-modal="true" aria-label={label}
         className={"nsc-modal " + (sheet ? "nsc-sheet" : "nsc-center") + c} style={{ maxWidth, ...style }}>
+        {sheet && <span className="nsc-grabber" aria-hidden />}
         {children}
       </div>
     </div>
   );
+}
+
+/* springTo — move a value to `to` as a mass on a damped spring, starting at
+   `from` with `velocity` (units per second), calling onUpdate each frame
+   until it comes to rest. Returns a function that stops it. The defaults
+   (stiffness 520, damping 34: a damping ratio of about 0.75) settle in about
+   a third of a second with one small overshoot. */
+function springTo({ from, to, velocity = 0, stiffness = 520, damping = 34, onUpdate, onDone }) {
+  let x = from, v = velocity, last = null, raf = 0;
+  const step = (now) => {
+    // Fixed small steps (semi-implicit Euler) keep it stable on a slow frame.
+    let dt = last == null ? 1 / 60 : Math.min(0.064, (now - last) / 1000);
+    last = now;
+    while (dt > 0) {
+      const h = Math.min(dt, 1 / 240);
+      v += (-stiffness * (x - to) - damping * v) * h;
+      x += v * h;
+      dt -= h;
+    }
+    if (Math.abs(x - to) < 0.3 && Math.abs(v) < 8) { onUpdate(to); onDone?.(); return; }
+    onUpdate(x);
+    raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+  return () => cancelAnimationFrame(raf);
+}
+
+/* useSheetDrag — pull a bottom sheet down to close it, as on iOS. Only
+   when the sheet is scrolled to its top and the finger moves mostly down;
+   otherwise the sheet scrolls as normal. The sheet follows the finger (with
+   rubber-band resistance if pulled up), the backdrop lightens with it, and
+   on release it reads the finger's speed: a quick flick or a pull past a
+   third of its height flings it away at that speed; anything less springs
+   it back into place, carrying the release velocity into the spring.
+   Touch events, not pointer events: only a non-passive touchmove can stop
+   the page scrolling once the sheet has taken the gesture. Returns whether
+   the sheet has been flung (the modal then skips its exit keyframes). */
+function useSheetDrag(sheetRef, backdropRef, close) {
+  const [flung, setFlung] = useStateC(false);
+  const closeRef = useRefC(close);
+  closeRef.current = close;
+  useEffectC(() => {
+    const el = sheetRef?.current;
+    if (!el) return;
+    let start = null, dragging = false, offset = 0, samples = [], stopSpring = null, done = false;
+    const setY = (y) => {
+      offset = y;
+      el.style.transform = y ? `translateY(${y}px)` : "";
+      const bd = backdropRef.current;
+      if (bd) bd.style.opacity = y > 0 ? String(Math.max(0.25, 1 - y / (el.offsetHeight * 1.4))) : "";
+    };
+    const onStart = (e) => {
+      if (done || e.touches.length !== 1) { start = null; return; }
+      stopSpring?.(); stopSpring = null;
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY, base: offset };
+      dragging = false;
+      samples = [{ y: t.clientY, t: e.timeStamp }];
+    };
+    const onMove = (e) => {
+      if (!start || done) return;
+      const t = e.touches[0];
+      const dx = t.clientX - start.x, dy = t.clientY - start.y;
+      if (!dragging) {
+        // At the top, a downward move would only rubber-band the sheet's
+        // own scroll. Claim it from the first move: iOS won't let a scroll
+        // that has already started be cancelled.
+        if (el.scrollTop <= 0 && dy > 0 && e.cancelable) e.preventDefault();
+        // Take the gesture only from the top of the content, moving down;
+        // a sideways drag (a slider, a long label) is left alone.
+        if (el.scrollTop > 0 || dy < 8 || Math.abs(dy) < Math.abs(dx) * 1.2) {
+          if (Math.abs(dx) > 10 || dy < -8 || el.scrollTop > 0) start = null;
+          return;
+        }
+        dragging = true;
+        start.y = t.clientY; // no jump by the slop distance
+        // An unfinished entrance would fight the finger: skip to its end
+        // (leaving the exit keyframes free to play later).
+        el.getAnimations?.().forEach((an) => { try { an.finish(); } catch {} });
+      }
+      e.preventDefault();
+      const raw = start.base + (t.clientY - start.y);
+      // Pulled up past its resting place, the sheet resists more the further it goes.
+      setY(raw >= 0 ? raw : -(1 - 1 / (1 + (-raw * 0.55) / 120)) * 120);
+      samples.push({ y: t.clientY, t: e.timeStamp });
+      while (samples.length > 2 && e.timeStamp - samples[0].t > 90) samples.shift();
+    };
+    const onEnd = (e) => {
+      if (!start) return;
+      start = null;
+      if (!dragging) return;
+      dragging = false;
+      const a = samples[0], b = samples[samples.length - 1];
+      const ms = Math.max(1, (b?.t ?? 0) - (a?.t ?? 0));
+      // Lifted after holding still: no fling left in it.
+      const stale = e.timeStamp - (b?.t ?? 0) > 80;
+      const v = stale ? 0 : ((b?.y ?? 0) - (a?.y ?? 0)) / ms; // px per ms
+      const h = el.offsetHeight;
+      if (offset > 0 && (v > 0.5 || offset > h / 3)) {
+        done = true;
+        setFlung(true);
+        // Leave at (at least) the finger's speed: the sheet keeps the
+        // momentum it was given instead of starting from rest.
+        const dist = h + 140 - offset;
+        const dur = Math.round(Math.max(110, Math.min(180, dist / Math.max(v, 1.6))));
+        el.style.transition = `transform ${dur}ms cubic-bezier(0.3, 0.7, 0.6, 1)`;
+        const bd = backdropRef.current;
+        if (bd) { bd.style.transition = `opacity ${dur + 40}ms ease-out`; bd.style.opacity = "0"; }
+        requestAnimationFrame(() => { el.style.transform = `translateY(${h + 140}px)`; });
+        closeRef.current();
+        return;
+      }
+      if (prefersReducedMotion()) { setY(0); return; }
+      stopSpring = springTo({ from: offset, to: 0, velocity: v * 1000, onUpdate: setY, onDone: () => { stopSpring = null; } });
+    };
+    el.addEventListener("touchstart", onStart, { passive: true });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    return () => {
+      stopSpring?.();
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+  return flung;
 }
 
 /* ModalHead — small label, title, optional lines under it, and a close
@@ -820,7 +958,7 @@ Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
   ModalFrame, ModalHead, PeriodNav, ChoiceCard,
-  AnimatedNumber, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
+  AnimatedNumber, springTo, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
   openBackLayer, closeBackLayer,
   prefersReducedMotion, Collapse, showToast, ToastHost,
   askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,

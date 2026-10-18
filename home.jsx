@@ -284,7 +284,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: 4, margin: "10px 0 18px" }} aria-hidden>
         {steps.map((_, i) => (
           <span key={i} style={{ height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
-            <span style={{ display: "block", height: "100%", background: "var(--accent)", transformOrigin: "left", transform: `scaleX(${i <= step ? 1 : 0})`, transition: "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)" }} />
+            <span style={{ display: "block", height: "100%", background: "var(--accent)", transformOrigin: "left", transform: `scaleX(${i <= step ? 1 : 0})`, transition: "transform 0.7s var(--ease-snappy)" }} />
           </span>
         ))}
       </div>

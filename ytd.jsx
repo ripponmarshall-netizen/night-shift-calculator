@@ -133,7 +133,7 @@ function MonthlyBars({ monthly }) {
                   background: i === latest ? "var(--accent)" : "color-mix(in oklab, var(--accent) 45%, var(--bg-3))",
                   filter: on ? "brightness(1.18)" : "none",
                   animationDelay: `${120 + i * 35}ms`,
-                  transition: "height 0.4s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s ease",
+                  transition: "height 0.7s var(--ease-snappy), filter 0.15s ease",
                 }} />
               )}
             </div>

@@ -1,4 +1,5 @@
-/* crew.jsx — Crew: several people on the same shift. One shared crew
+/* crew.jsx — the Watch tab (named Crew in the code): several people on the
+   same shift. One shared crew
    calendar, each person's own days that differ (leave, swaps, extras), their
    pay and taxi distance, and one report for everyone (Word record sheets,
    CSV or text), which can be saved to History. It never
@@ -69,15 +70,15 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
       if (day) fill[ymd(d)] = day;
     }
     if (!Object.values(fill).some(hasShifts)) { showToast("No shifts on your own calendar this period"); return; }
-    replacePeriod(fill, myRotation || null, "Crew shifts copied from yours");
+    replacePeriod(fill, myRotation || null, "Watch shifts copied from yours");
   };
   const clearCrew = async () => {
     const ok = await askConfirm({
-      title: `Clear the crew's shifts for ${periodLabel(period)}?`,
-      body: "Everyone's days that differ from the crew are kept.",
+      title: `Clear the watch's shifts for ${periodLabel(period)}?`,
+      body: "Everyone's days that differ from the watch are kept.",
       confirmLabel: "Clear shifts", danger: true,
     });
-    if (ok) replacePeriod({}, undefined, "Crew shifts cleared");
+    if (ok) replacePeriod({}, undefined, "Watch shifts cleared");
   };
 
   /* ----- people ----- */
@@ -90,7 +91,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
   const removeMember = async (m) => {
     const ok = await askConfirm({
       title: `Remove ${m.name || "this person"}?`,
-      body: "Their pay, taxi distance and days that differ from the crew are removed too.",
+      body: "Their pay, taxi distance and days that differ from the watch are removed too.",
       confirmLabel: "Remove", danger: true,
     });
     if (!ok) return;
@@ -128,7 +129,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
     if (who === "crew") {
       const prev = crew.entries[key];
       setCrewEntries((p) => { const n = { ...p }; delete n[key]; return n; });
-      if (hasShifts(prev)) showToast("Crew day cleared", { action: { label: "Undo", onClick: () => setCrewEntries((p) => ({ ...p, [key]: prev })) } });
+      if (hasShifts(prev)) showToast("Watch day cleared", { action: { label: "Undo", onClick: () => setCrewEntries((p) => ({ ...p, [key]: prev })) } });
     } else {
       const before = crew.members.find((x) => x.id === who);
       updateMember(who, (m) => setMemberDay(crew.entries, m, key, blankDay()));
@@ -153,9 +154,9 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
           <Card style={{ padding: 0, overflow: "hidden" }}>
             <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
             <div style={{ padding: "0 16px 10px" }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>Crew shift</div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>Watch shift</div>
               <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, lineHeight: 1.45 }}>
-                The shifts everyone on the crew works. Each person starts from this calendar; open a person to mark their leave, swaps or extra shifts.
+                The shifts everyone on the watch works. Each person starts from this calendar; open a person to mark their leave, swaps or extra shifts.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                 <button onClick={() => setFillOpen(true)} style={crewToolBtn}>Fill rotation</button>
@@ -202,7 +203,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
       )}
       {fillOpen && (
         <CrewFillModal period={period} anchor={crew.rotationAnchor || myRotation}
-          onApply={(key) => replacePeriod(rotationEntries(period, key, "S"), key, "Crew rotation filled")}
+          onApply={(key) => replacePeriod(rotationEntries(period, key, "S"), key, "Watch rotation filled")}
           onClose={() => setFillOpen(false)} />
       )}
     </>
@@ -241,7 +242,7 @@ function CrewPeople({ crew, rows, period, onSort, onAdd, onOpen }) {
 
       {rows.length === 0 && (
         <div style={{ fontSize: 13, color: "var(--ink-dim)", lineHeight: 1.5, marginBottom: 12 }}>
-          Add everyone on the shift by name and employee number. Each person's pay is worked out from the crew calendar above.
+          Add everyone on the watch by name and employee number. Each person's pay is worked out from the watch calendar above.
         </div>
       )}
 
@@ -282,8 +283,8 @@ function CrewPeople({ crew, rows, period, onSort, onAdd, onOpen }) {
           <CrewField label="Employee no." value={empNo} onChange={setEmpNo} placeholder="e.g. 10234" capitalize="characters" maxLength={30} />
           <CrewField label="Rank" value={rank} onChange={setRank} placeholder="e.g. L/Cpl" capitalize="words" maxLength={40} />
         </div>
-        {taken(empNo) && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone on the crew already has this employee number.</div>}
-        <button type="submit" style={{ ...accentBtn(), width: "100%", marginTop: 10 }}>Add to crew</button>
+        {taken(empNo) && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone on the watch already has this employee number.</div>}
+        <button type="submit" style={{ ...accentBtn(), width: "100%", marginTop: 10 }}>Add to watch</button>
       </form>
     </Card>
   );
@@ -318,8 +319,8 @@ function crewExports(snap) {
   return {
     word: () => downloadBlob(new Blob([crewDocx(snap)], { type: DOCX_TYPE }), crewDocxName(snap)),
     // The BOM tells Excel the file is UTF-8, so accented names survive.
-    csv: () => downloadBlob(new Blob(["﻿" + crewCsv(snap.rows, snap.period)], { type: "text/csv" }), `crew-${snap.periodKey}.csv`),
-    text: () => copyText(crewText(snap.rows, snap.period), "Crew summary copied"),
+    csv: () => downloadBlob(new Blob(["﻿" + crewCsv(snap.rows, snap.period)], { type: "text/csv" }), `watch-${snap.periodKey}.csv`),
+    text: () => copyText(crewText(snap.rows, snap.period), "Watch summary copied"),
   };
 }
 const crewSum = (rows, f) => (rows || []).reduce((a, r) => a + (Number(r.totals?.[f]) || 0), 0);
@@ -332,10 +333,10 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
   const out = crewExports(snap);
   return (
     <Card>
-      <SectionHead title="Crew totals" subtitle={`${rows.length} ${rows.length === 1 ? "person" : "people"} · ${snap.period}`} />
+      <SectionHead title="Watch totals" subtitle={`${rows.length} ${rows.length === 1 ? "person" : "people"} · ${snap.period}`} />
       <Row label="Allowances (SP1, SP2, meal, taxi)" value={fmt(allow)} />
       {anyBase && <Row label="Base pay + extra hours" value={fmt(gross - allow)} />}
-      <Sub label={anyBase ? "Crew gross" : "Crew allowances"} value={fmt(gross)} />
+      <Sub label={anyBase ? "Watch gross" : "Watch allowances"} value={fmt(gross)} />
       <SaveRow status={saveStatus} onSave={onSave} onCopy={out.text} />
 
       <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line-soft)" }}>
@@ -344,7 +345,7 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
           One JFB Regular and Overtime Record Sheet per person, as a Word document on legal paper.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8 }}>
-          <CrewField label="Watch" value={crew.watch || ""} onChange={(v) => onDetails("watch", v)} placeholder="e.g. D WATCH" capitalize="characters" maxLength={30} />
+          <CrewField label="Watch name" value={crew.watch || ""} onChange={(v) => onDetails("watch", v)} placeholder="e.g. D WATCH" capitalize="characters" maxLength={30} />
           <CrewField label="Station" value={crew.station || ""} onChange={(v) => onDetails("station", v)} placeholder="e.g. Port Antonio" capitalize="words" maxLength={40} />
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 12 }}>
@@ -353,8 +354,8 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
           {crew.rotationAnchor
-            ? "Shifts on the crew rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it go under Overtime."
-            : "No crew rotation is saved, so every shift goes under Regular Time. Use Fill rotation to split out overtime."}
+            ? "Shifts on the watch rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it go under Overtime."
+            : "No watch rotation is saved, so every shift goes under Regular Time. Use Fill rotation to split out overtime."}
           {" "}The CSV has one row per person and opens in Excel, Numbers or Google Sheets.
         </div>
       </div>
@@ -370,7 +371,7 @@ function CrewHistory({ list, onDelete }) {
   const [isLeaving, remove] = useFoldAway(onDelete);
   return (
     <Card>
-      <SectionHead title="Saved crews" subtitle={`${list.length} saved`} />
+      <SectionHead title="Saved watches" subtitle={`${list.length} saved`} />
       {sorted.map((s, i) => {
         const open = openAt === s.at;
         const out = crewExports(s);
@@ -388,7 +389,7 @@ function CrewHistory({ list, onDelete }) {
                   </div>
                 </div>
                 <span className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{fmt(crewSum(s.rows, "grand"))}</span>
-                <span aria-hidden style={{ fontSize: 12, color: "var(--ink-faint)", transition: "transform 0.18s", transform: open ? "rotate(180deg)" : "none" }}>▾</span>
+                <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{ fontSize: 12, color: "var(--ink-faint)" }}>▾</span>
               </button>
               <Collapse open={open}>
                 <div style={{ padding: "0 14px 14px" }}>
@@ -432,7 +433,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
   const matchAll = () => {
     const before = m.days;
     onChange((x) => { const days = { ...x.days }; for (const k of diffs) delete days[k]; return { ...x, days }; });
-    showToast("Matched to the crew", { action: { label: "Undo", onClick: () => onChange((x) => ({ ...x, days: before })) } });
+    showToast("Matched to the watch", { action: { label: "Undo", onClick: () => onChange((x) => ({ ...x, days: before })) } });
   };
   const copySummary = () => {
     const who = (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : "");
@@ -442,7 +443,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "16px 20px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}>‹ Crew</button>
+        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}>‹ Watch</button>
         <div style={{ flex: 1, minWidth: 0, fontSize: 16, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {m.name || "Unnamed"}
         </div>
@@ -455,7 +456,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
           <CrewField label="Employee no." value={m.empNo} onChange={(v) => onChange((x) => ({ ...x, empNo: v.slice(0, 30) }))} capitalize="characters" maxLength={30} />
           <CrewField label="Rank" value={m.rank || ""} onChange={(v) => onChange((x) => ({ ...x, rank: v.slice(0, 40) }))} capitalize="words" maxLength={40} />
         </div>
-        {dupe && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone else on the crew has this employee number.</div>}
+        {dupe && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone else on the watch has this employee number.</div>}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12, alignItems: "end" }}>
           <RateInput label="Monthly basic" unit="$" value={m.basePay.monthly} onChange={(v) => setPay("monthly", v)} />
           <RateInput label="Compulsory" unit="$" value={m.basePay.compulsory} onChange={(v) => setPay("compulsory", v)} />
@@ -470,7 +471,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
         <div style={{ padding: "0 16px 10px", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
-          The crew's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
+          The watch's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
         </div>
         <div style={{ padding: "0 12px 12px" }}>
           <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotationAnchor} onOpenDay={onOpenDay} />
@@ -478,7 +479,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
         {diffs.length > 0 && (
           <div style={{ padding: "8px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-              <span className="label">Different from the crew</span>
+              <span className="label">Different from the watch</span>
               {diffs.length > 1 && <button onClick={matchAll} style={linkBtn(12.5)}>Match all</button>}
             </div>
             {diffs.map((k) => (
@@ -487,7 +488,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
                 <span style={{ flex: 1, minWidth: 0 }}>
                   {crewDayText(crew.entries[k])} <span style={{ color: "var(--ink-faint)" }}>→</span> <strong style={{ fontWeight: 600 }}>{crewDayText(m.days[k])}</strong>
                 </span>
-                <button onClick={() => matchCrew(k)} style={{ ...linkBtn(12.5), whiteSpace: "nowrap" }}>Match crew</button>
+                <button onClick={() => matchCrew(k)} style={{ ...linkBtn(12.5), whiteSpace: "nowrap" }}>Match watch</button>
               </div>
             ))}
           </div>
@@ -519,7 +520,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
         <DutySummary totals={t} style={{ marginTop: 10 }} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 14 }}>
           <button onClick={copySummary} style={ghostBtn()}>Copy summary</button>
-          <button onClick={onRemove} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Remove from crew</button>
+          <button onClick={onRemove} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Remove from watch</button>
         </div>
       </Card>
     </main>
@@ -540,11 +541,11 @@ function CrewFillModal({ period, anchor, onApply, onClose }) {
   const dismiss = useModalDismiss(onClose);
   const [key, setKey] = useStateW(() => am7InPeriod(period, anchor) || ymd(period.start));
   return (
-    <ModalFrame dismiss={dismiss} label="Fill the crew rotation">
-      <ModalHead title="Fill the crew rotation" onClose={dismiss.close} />
+    <ModalFrame dismiss={dismiss} label="Fill the watch rotation">
+      <ModalHead title="Fill the watch rotation" onClose={dismiss.close} />
       <RotationPicker period={period} value={key} onChange={setKey} />
       <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 10, lineHeight: 1.45 }}>
-        Replaces the crew's shifts for this period. Each person's own changes are kept.
+        Replaces the watch's shifts for this period. Each person's own changes are kept.
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
         <button onClick={dismiss.close} style={ghostBtn()}>Cancel</button>

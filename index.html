@@ -47,9 +47,9 @@
       })();
       // Splash hand-off. The fire truck drives while the scripts load. Once
       // the app has mounted (app.jsx calls nscSplashDone), the truck dashes
-      // off the road, the app logo draws itself in its place, then the logo
-      // and title fly up into the header while the page drops in beneath
-      // them. Screen entrances wait (nsc-booting) so they play as the splash
+      // off the road, the app logo drops in and bounces to rest in its
+      // place, then the logo and title leap up into the header (crouch,
+      // arc, overshoot, settle) while the page drops in beneath them. Screen entrances wait (nsc-booting) so they play as the splash
       // clears instead of hidden under it; nsc-intro makes that first
       // entrance fall from above rather than rise.
       (function () {
@@ -73,6 +73,18 @@
           later(function () {
             root.classList.remove("nsc-intro");
           }, 1400);
+        };
+        // The app's spring curve (styles.css --ease-snappy) when this browser
+        // can animate with it, else a one-overshoot cubic-bezier.
+        var spring = function () {
+          var v = getComputedStyle(root)
+            .getPropertyValue("--ease-snappy")
+            .trim();
+          return v &&
+            window.CSS &&
+            CSS.supports("transition-timing-function", v)
+            ? v
+            : "cubic-bezier(0.3, 1.3, 0.5, 1)";
         };
         var rect = function (n) {
           var r = n && n.getBoundingClientRect();
@@ -128,26 +140,54 @@
             }, 450);
             return;
           }
-          var ms = 720;
+          var ms = 860;
           var ease = "cubic-bezier(0.45, 0, 0.15, 1)";
+          var land = spring();
           var s = b.width / a.width;
           var dx = b.left + b.width / 2 - (a.left + a.width / 2);
           var dy = b.top + b.height / 2 - (a.top + a.height / 2);
           var svg = brand.querySelector("svg");
           var radius =
             parseFloat(getComputedStyle(toLogo).borderTopLeftRadius) || 0;
+          var mid = Math.sqrt(s);
+          var at = function (fx, fy, sx, sy, deg) {
+            return (
+              "translate(" +
+              dx * fx +
+              "px, " +
+              dy * fy +
+              "px) scale(" +
+              sx +
+              ", " +
+              sy +
+              ") rotate(" +
+              deg +
+              "deg)"
+            );
+          };
           root.classList.add("nsc-handoff");
           el.classList.add("is-flying");
           el.setAttribute("aria-hidden", "true");
+          // A jump, not a slide: it crouches (anticipation), springs up on
+          // an arc (it rises faster than it moves across, stretched and
+          // tilted into the turn), then lands on a spring that carries it
+          // a touch past the header logo and back.
           var flight = brand.animate(
             [
-              { transform: "none" },
+              { transform: "none", easing: "ease-in-out" },
               {
-                transform:
-                  "translate(" + dx + "px, " + dy + "px) scale(" + s + ")",
+                offset: 0.16,
+                transform: at(0, 0, 1.08, 0.9, 0),
+                easing: "cubic-bezier(0.3, 0, 0.5, 1)",
               },
+              {
+                offset: 0.55,
+                transform: at(0.48, 0.86, mid * 0.92, mid * 1.1, -14),
+                easing: land,
+              },
+              { transform: at(1, 1, s, s, 0) },
             ],
-            { duration: ms, easing: ease, fill: "forwards" },
+            { duration: ms, fill: "forwards" },
           );
           if (svg) {
             svg.animate(
@@ -164,25 +204,29 @@
           var d = rect(toTitle);
           if (c && d) {
             // The header title is left-aligned and may be a little smaller
-            // (it scales with the screen), so pin the left edge.
+            // (it scales with the screen), so pin the left edge. It follows
+            // a beat behind the logo, like a tail.
             var ts =
               parseFloat(getComputedStyle(toTitle).fontSize) /
               parseFloat(getComputedStyle(title).fontSize);
+            var tx = d.left - c.left;
+            var ty = d.top + d.height / 2 - (c.top + c.height / 2);
+            var tAt = function (f, g, k) {
+              return (
+                "translate(" + tx * f + "px, " + ty * g + "px) scale(" + k + ")"
+              );
+            };
             title.animate(
               [
-                { transform: "none" },
+                { transform: "none", easing: "cubic-bezier(0.4, 0, 0.6, 1)" },
                 {
-                  transform:
-                    "translate(" +
-                    (d.left - c.left) +
-                    "px, " +
-                    (d.top + d.height / 2 - (c.top + c.height / 2)) +
-                    "px) scale(" +
-                    ts +
-                    ")",
+                  offset: 0.5,
+                  transform: tAt(0.4, 0.82, (1 + ts) / 2),
+                  easing: land,
                 },
+                { transform: tAt(1, 1, ts) },
               ],
-              { duration: ms, easing: ease, fill: "forwards" },
+              { duration: ms - 90, delay: 80, fill: "forwards" },
             );
           } else {
             title.style.opacity = "0";
@@ -191,7 +235,7 @@
           // up, so the cards don't fade in underneath it as it passes.
           setTimeout(function () {
             root.classList.remove("nsc-booting");
-          }, ms * 0.55);
+          }, ms * 0.5);
           // Swap to the real header logo on the flight's last frame (a timer
           // alone can fire a frame early); the timer is the backstop.
           var landed = false;
@@ -218,7 +262,7 @@
               el.setAttribute("aria-busy", "false");
               later(function () {
                 flyHome(el);
-              }, 1050);
+              }, 1250);
             });
           }, truckLeft);
         };
@@ -229,8 +273,41 @@
     <!-- Loading screen: an overlay above the app (not inside #root), so it
          can hand over to the logo after React mounts. See nscSplashDone. -->
     <div id="nsc-splash" class="nsc-splash" role="status" aria-busy="true">
+      <div class="nsc-sky" aria-hidden="true">
+        <span class="nsc-moon"></span>
+        <i class="nsc-star" style="top: 12%; left: 14%"></i>
+        <i
+          class="nsc-star is-big"
+          style="top: 22%; left: 32%; animation-delay: -0.9s"
+        ></i>
+        <i
+          class="nsc-star"
+          style="top: 9%; left: 55%; animation-delay: -1.7s"
+        ></i>
+        <i
+          class="nsc-star"
+          style="top: 30%; left: 66%; animation-delay: -0.4s"
+        ></i>
+        <i
+          class="nsc-star is-big"
+          style="top: 14%; left: 86%; animation-delay: -2.1s"
+        ></i>
+        <i
+          class="nsc-star"
+          style="top: 34%; left: 9%; animation-delay: -1.2s"
+        ></i>
+        <i
+          class="nsc-star"
+          style="top: 27%; left: 46%; animation-delay: -2.4s"
+        ></i>
+        <i
+          class="nsc-star"
+          style="top: 6%; left: 75%; animation-delay: -0.6s"
+        ></i>
+      </div>
       <div class="nsc-stage">
         <div class="nsc-road" aria-hidden="true">
+          <span class="nsc-bump"></span>
           <div class="nsc-lane">
             <div class="nsc-truck">
               <span class="nsc-speed nsc-speed-1"></span>
@@ -243,112 +320,148 @@
               <span class="nsc-puff nsc-puff-f1"></span>
               <span class="nsc-puff nsc-puff-f2"></span>
               <svg viewBox="0 0 160 66" width="150" height="62">
-                <g class="nsc-body">
-                  <!-- Ladder -->
-                  <rect x="8" y="9" width="92" height="2.5" fill="#c9ced6" />
-                  <rect x="8" y="14" width="92" height="2.5" fill="#c9ced6" />
-                  <path
-                    d="M14 9v7M24 9v7M34 9v7M44 9v7M54 9v7M64 9v7M74 9v7M84 9v7M94 9v7"
-                    stroke="#c9ced6"
-                    stroke-width="1.6"
-                  />
-                  <rect x="20" y="16" width="3" height="3" fill="#8a9099" />
-                  <rect x="86" y="16" width="3" height="3" fill="#8a9099" />
-                  <!-- Rear body -->
-                  <rect
-                    x="4"
-                    y="19"
-                    width="102"
-                    height="33"
-                    rx="3"
-                    fill="#d62828"
-                  />
-                  <rect
-                    x="10"
-                    y="23"
-                    width="26"
-                    height="14"
-                    rx="1.5"
-                    fill="#b51f1f"
-                  />
-                  <rect
-                    x="40"
-                    y="23"
-                    width="26"
-                    height="14"
-                    rx="1.5"
-                    fill="#b51f1f"
-                  />
-                  <rect
-                    x="70"
-                    y="23"
-                    width="30"
-                    height="14"
-                    rx="1.5"
-                    fill="#b51f1f"
-                  />
-                  <!-- Cab -->
-                  <path d="M104 52V21q0-4 4-4h26l14 15v20z" fill="#e63030" />
-                  <path d="M121 21h12l11 12h-23z" fill="#9fd3f2" />
-                  <path d="M108 21h10v12h-10z" fill="#9fd3f2" />
-                  <!-- Light bar -->
-                  <rect
-                    class="nsc-light-r"
-                    x="110"
-                    y="12.5"
-                    width="7"
-                    height="4.5"
-                    rx="1.5"
-                    fill="#ff3b3b"
-                  />
-                  <rect
-                    class="nsc-light-b"
-                    x="117"
-                    y="12.5"
-                    width="7"
-                    height="4.5"
-                    rx="1.5"
-                    fill="#3b82ff"
-                  />
-                  <!-- Stripe, bumper, headlight -->
-                  <rect x="4" y="40" width="144" height="4" fill="#f4f1e8" />
-                  <rect
-                    x="145"
-                    y="45"
-                    width="8"
-                    height="7"
-                    rx="1.5"
-                    fill="#3a3d44"
-                  />
-                  <rect
-                    x="146"
-                    y="34"
-                    width="3.5"
-                    height="4.5"
-                    rx="1"
-                    fill="#ffd34d"
-                  />
-                  <!-- Wheel arches -->
-                  <path d="M18 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
-                  <path d="M112 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
+                <defs>
+                  <linearGradient id="nsc-beam-fill" x1="0" x2="1">
+                    <stop offset="0" stop-color="#ffe7a3" stop-opacity="0.55" />
+                    <stop offset="1" stop-color="#ffe7a3" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <!-- Shadow on the road: stays put while the body rides. -->
+                <ellipse class="nsc-shadow" cx="80" cy="65" rx="72" ry="2.2" />
+                <g class="nsc-susp">
+                  <g class="nsc-body">
+                    <!-- Headlight beam and the light bar's glow -->
+                    <path
+                      class="nsc-beam"
+                      d="M149 34 L240 18 L240 60 Z"
+                      fill="url(#nsc-beam-fill)"
+                    />
+                    <circle
+                      class="nsc-glow-r"
+                      cx="113"
+                      cy="14"
+                      r="9"
+                      fill="#ff3b3b"
+                      opacity="0.6"
+                    />
+                    <circle
+                      class="nsc-glow-b"
+                      cx="121"
+                      cy="14"
+                      r="9"
+                      fill="#3b82ff"
+                      opacity="0.6"
+                    />
+                    <!-- Ladder -->
+                    <rect x="8" y="9" width="92" height="2.5" fill="#c9ced6" />
+                    <rect x="8" y="14" width="92" height="2.5" fill="#c9ced6" />
+                    <path
+                      d="M14 9v7M24 9v7M34 9v7M44 9v7M54 9v7M64 9v7M74 9v7M84 9v7M94 9v7"
+                      stroke="#c9ced6"
+                      stroke-width="1.6"
+                    />
+                    <rect x="20" y="16" width="3" height="3" fill="#8a9099" />
+                    <rect x="86" y="16" width="3" height="3" fill="#8a9099" />
+                    <!-- Rear body -->
+                    <rect
+                      x="4"
+                      y="19"
+                      width="102"
+                      height="33"
+                      rx="3"
+                      fill="#d62828"
+                    />
+                    <rect
+                      x="10"
+                      y="23"
+                      width="26"
+                      height="14"
+                      rx="1.5"
+                      fill="#b51f1f"
+                    />
+                    <rect
+                      x="40"
+                      y="23"
+                      width="26"
+                      height="14"
+                      rx="1.5"
+                      fill="#b51f1f"
+                    />
+                    <rect
+                      x="70"
+                      y="23"
+                      width="30"
+                      height="14"
+                      rx="1.5"
+                      fill="#b51f1f"
+                    />
+                    <!-- Cab -->
+                    <path d="M104 52V21q0-4 4-4h26l14 15v20z" fill="#e63030" />
+                    <path d="M121 21h12l11 12h-23z" fill="#9fd3f2" />
+                    <path d="M108 21h10v12h-10z" fill="#9fd3f2" />
+                    <!-- Light bar -->
+                    <rect
+                      class="nsc-light-r"
+                      x="110"
+                      y="12.5"
+                      width="7"
+                      height="4.5"
+                      rx="1.5"
+                      fill="#ff3b3b"
+                    />
+                    <rect
+                      class="nsc-light-b"
+                      x="117"
+                      y="12.5"
+                      width="7"
+                      height="4.5"
+                      rx="1.5"
+                      fill="#3b82ff"
+                    />
+                    <!-- Stripe, bumper, headlight -->
+                    <rect x="4" y="40" width="144" height="4" fill="#f4f1e8" />
+                    <rect
+                      x="145"
+                      y="45"
+                      width="8"
+                      height="7"
+                      rx="1.5"
+                      fill="#3a3d44"
+                    />
+                    <rect
+                      x="146"
+                      y="34"
+                      width="3.5"
+                      height="4.5"
+                      rx="1"
+                      fill="#ffd34d"
+                    />
+                    <!-- Wheel arches -->
+                    <path d="M18 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
+                    <path d="M112 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
+                  </g>
                 </g>
-                <g class="nsc-wheel">
-                  <circle cx="32" cy="54" r="11" fill="#1d1e22" />
-                  <circle cx="32" cy="54" r="5" fill="#b9bec7" />
-                  <path
-                    d="M32 46v16M24 54h16"
-                    stroke="#1d1e22"
-                    stroke-width="2"
-                  />
+                <g class="nsc-hop-r">
+                  <g class="nsc-wheel">
+                    <circle cx="32" cy="54" r="11" fill="#1d1e22" />
+                    <circle cx="32" cy="54" r="5" fill="#b9bec7" />
+                    <path
+                      d="M32 46v16M24 54h16"
+                      stroke="#1d1e22"
+                      stroke-width="2"
+                    />
+                  </g>
                 </g>
-                <g class="nsc-wheel">
-                  <circle cx="126" cy="54" r="11" fill="#1d1e22" />
-                  <circle cx="126" cy="54" r="5" fill="#b9bec7" />
-                  <path
-                    d="M126 46v16M118 54h16"
-                    stroke="#1d1e22"
-                    stroke-width="2"
-                  />
+                <g class="nsc-hop-f">
+                  <g class="nsc-wheel">
+                    <circle cx="126" cy="54" r="11" fill="#1d1e22" />
+                    <circle cx="126" cy="54" r="5" fill="#b9bec7" />
+                    <path
+                      d="M126 46v16M118 54h16"
+                      stroke="#1d1e22"
+                      stroke-width="2"
+                    />
+                  </g>
                 </g>
               </svg>
             </div>
@@ -357,6 +470,9 @@
         <!-- The app icon (icon-192.svg), drawn in as the truck leaves. -->
         <div class="nsc-brand" aria-hidden="true">
           <span class="nsc-brand-glow"></span>
+          <span class="nsc-brand-wave"></span>
+          <span class="nsc-dust nsc-dust-l"></span>
+          <span class="nsc-dust nsc-dust-r"></span>
           <svg viewBox="0 0 192 192" width="96" height="96">
             <rect width="192" height="192" rx="42" fill="#0b0b0c" />
             <circle
@@ -388,8 +504,27 @@
           </svg>
         </div>
       </div>
-      <div class="nsc-splash-title">Night Shift Calculator</div>
-      <div class="nsc-splash-sub" id="nsc-splash-sub">Loading…</div>
+      <div class="nsc-splash-title">
+        <span class="sr-only">Night Shift Calculator</span
+        ><span aria-hidden="true" class="nsc-letters"
+          ><span style="--d: 0">N</span><span style="--d: 1">i</span
+          ><span style="--d: 2">g</span><span style="--d: 3">h</span
+          ><span style="--d: 4">t</span><span style="--d: 5"> </span
+          ><span style="--d: 6">S</span><span style="--d: 7">h</span
+          ><span style="--d: 8">i</span><span style="--d: 9">f</span
+          ><span style="--d: 10">t</span><span style="--d: 11"> </span
+          ><span style="--d: 12">C</span><span style="--d: 13">a</span
+          ><span style="--d: 14">l</span><span style="--d: 15">c</span
+          ><span style="--d: 16">u</span><span style="--d: 17">l</span
+          ><span style="--d: 18">a</span><span style="--d: 19">t</span
+          ><span style="--d: 20">o</span><span style="--d: 21">r</span></span
+        >
+      </div>
+      <div class="nsc-splash-sub" id="nsc-splash-sub">
+        Loading<span class="nsc-dots" aria-hidden="true"
+          ><i></i><i></i><i></i
+        ></span>
+      </div>
     </div>
     <div id="root"></div>
 

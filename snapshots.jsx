@@ -173,8 +173,8 @@ function Sparkline({ points, avg, cursor }) {
               background: last || on ? "var(--accent)" : "var(--bg-2)",
               border: "2px solid var(--accent)",
               boxShadow: "0 0 0 2px var(--bg-2)",
-              transform: on ? "scale(1.5)" : "none",
-              transition: "transform 0.15s ease, background 0.15s ease",
+              transform: on ? "scale(1.6)" : "none",
+              transition: "transform 0.45s var(--ease-bouncy), background 0.15s ease",
               animationDelay: `${350 + (n > 1 ? (i / (n - 1)) * 750 : 0)}ms`,
             }} />
           </span>

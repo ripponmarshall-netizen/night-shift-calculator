@@ -1,4 +1,4 @@
-/* app.jsx — main app with bottom taskbar (Home / Shifts / Crew / History + live total), desktop 2-col, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home / Shifts / Watch / History + live total), desktop 2-col, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -48,6 +48,28 @@ function App() {
   const [heroVisible, setHeroVisible] = useState(null);
 
   const period = useMemo(() => periodFor(fromYmd(periodAnchor)), [periodAnchor]);
+  // A phone keeps an installed app suspended rather than closing it, so
+  // "opens on today's period" also has to hold when it's brought back. If a
+  // new pay period started while it was away and you were still on what was
+  // then the current one, move on to today's; a period you'd browsed to on
+  // purpose is left alone.
+  const todayPeriodRef = useRef(periodKey(periodFor(new Date())));
+  useEffect(() => {
+    const onWake = () => {
+      if (document.visibilityState !== "visible") return;
+      const now = periodKey(periodFor(new Date()));
+      const was = todayPeriodRef.current;
+      if (now === was) return;
+      todayPeriodRef.current = now;
+      setPeriodAnchor((a) => (periodKey(periodFor(fromYmd(a))) === was ? ymd(new Date()) : a));
+    };
+    document.addEventListener("visibilitychange", onWake);
+    window.addEventListener("focus", onWake);
+    return () => {
+      document.removeEventListener("visibilitychange", onWake);
+      window.removeEventListener("focus", onWake);
+    };
+  }, []);
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
   const ratesEffectiveLabel = useMemo(() => {
     const e = rateEntryAt(period, ratesHistory);
@@ -154,7 +176,7 @@ function App() {
     const ok = await askConfirm({
       title: crewHistory.length ? "Delete your saved periods?" : "Delete all of History?",
       body: `This removes all ${snapshots.length} saved result${snapshots.length === 1 ? "" : "s"}, including any pay slip checks.`
-        + (crewHistory.length ? " Saved crews are kept." : ""),
+        + (crewHistory.length ? " Saved watches are kept." : ""),
       confirmLabel: "Delete all", danger: true,
     });
     if (!ok) return;
@@ -172,7 +194,7 @@ function App() {
   const deleteCrewSave = (at) => {
     const gone = crewHistory.find((s) => s.at === at);
     setCrewHistory((prev) => prev.filter((s) => s.at !== at));
-    showToast(`Deleted crew for ${gone?.period || "that period"}`, { action: { label: "Undo", onClick: () => gone && setCrewHistory((cur) => (
+    showToast(`Deleted watch for ${gone?.period || "that period"}`, { action: { label: "Undo", onClick: () => gone && setCrewHistory((cur) => (
       cur.some((c) => c.periodKey === gone.periodKey) ? cur : [...cur, gone]
     )) } });
   };
@@ -265,7 +287,7 @@ function App() {
         if (!isObj(obj)) { showToast("That file isn't a Night Shift backup"); return; }
         const ok = await askConfirm({
           title: "Restore this backup?",
-          body: "It replaces what's on this device now: shifts, pay, rates, crew and History. Save a backup first if you might want today's data back.",
+          body: "It replaces what's on this device now: shifts, pay, rates, watch and History. Save a backup first if you might want today's data back.",
           confirmLabel: "Restore", danger: true,
         });
         if (!ok) return;
@@ -274,13 +296,27 @@ function App() {
         const oneOf = (v, list) => list.includes(v);
         if (oneOf(obj.mode, ["basic", "advanced"])) setMode(obj.mode);
         if (typeof obj.periodAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.periodAnchor)) setPeriodAnchor(obj.periodAnchor);
-        if (isObj(obj.entries)) setEntries(obj.entries);
+        if (isObj(obj.entries)) setEntries(sanitizeEntries(obj.entries));
         if (oneOf(obj.basicDistance, ["S", "L"])) setBasicDistance(obj.basicDistance);
         if (oneOf(obj.defaultDist, ["S", "L"])) setDefaultDist(obj.defaultDist);
-        if (isObj(obj.counts)) setCounts(obj.counts);
-        if (isObj(obj.basePay)) setBasePay(obj.basePay);
-        if (isObj(obj.rates)) setRates(obj.rates);
-        if (isObj(obj.tax)) setTax(obj.tax);
+        // Fill in anything an older (or hand-edited) backup is missing, so a
+        // missing rate can't quietly pay $0 and a missing field can't leave
+        // Settings with blank, uncontrolled inputs.
+        const digits = (v) => (typeof v === "string" || typeof v === "number" ? String(v).replace(/[^0-9]/g, "") : "");
+        if (isObj(obj.counts)) setCounts({ pm3: digits(obj.counts.pm3), pm10: digits(obj.counts.pm10), am7: digits(obj.counts.am7) });
+        const money = (v) => (typeof v === "string" || typeof v === "number" ? sanitizeDecimal(v) : "");
+        if (isObj(obj.basePay)) setBasePay({ monthly: money(obj.basePay.monthly), compulsory: money(obj.basePay.compulsory) });
+        const numbers = (defaults, o) => {
+          const out = { ...defaults };
+          for (const k of Object.keys(defaults)) {
+            const v = o[k];
+            if (typeof defaults[k] === "boolean") { if (typeof v === "boolean") out[k] = v; }
+            else if (v !== "" && v != null && Number.isFinite(Number(v)) && Number(v) >= 0) out[k] = Number(v);
+          }
+          return out;
+        };
+        if (isObj(obj.rates)) setRates(numbers(DEFAULT_RATES, obj.rates));
+        if (isObj(obj.tax)) setTax(numbers(DEFAULT_TAX, obj.tax));
         if (Array.isArray(obj.ratesHistory)) setRatesHistory(obj.ratesHistory);
         if (Array.isArray(obj.templates)) setTemplates(obj.templates);
         if (oneOf(obj.theme, ["auto", "dark", "light"])) setTheme(obj.theme);
@@ -405,7 +441,7 @@ function App() {
   };
 
   return (
-    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : view === "crew" ? "Crew" : "Calculator"}
+    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : view === "crew" ? "Watch" : "Calculator"}
          style={{ paddingBottom: `calc(130px + var(--safe-bottom))` }}>
       <Header onSettings={() => setSettingsOpen(true)} />
 
@@ -485,7 +521,7 @@ function App() {
         />
       )}
 
-      {view === "about" && <AboutView onBack={() => go("home")} />}
+      {view === "about" && <AboutView onBack={() => go("home")} rates={effectiveRates} />}
 
       {/* One footnote for every screen (hidden while Home setup is open, so
           the wizard's bottom bar stays the last thing on screen). */}
@@ -700,10 +736,7 @@ function FoldRow({ title, detail, open, onToggle, warn, children }) {
           <div style={{ fontSize: 14.5, fontWeight: 500 }}>{title}</div>
           <div style={{ fontSize: 12.5, color: warn ? "var(--warn)" : "var(--ink-faint)", marginTop: 2 }}>{detail}</div>
         </div>
-        <span aria-hidden style={{
-          fontSize: 12, color: "var(--ink-faint)", transition: "transform 0.18s",
-          transform: open ? "rotate(180deg)" : "none",
-        }}>▾</span>
+        <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{ fontSize: 12, color: "var(--ink-faint)" }}>▾</span>
       </button>
       <Collapse open={open}><div style={{ paddingBottom: 14 }}>{children}</div></Collapse>
     </div>
@@ -788,27 +821,118 @@ function CountInput({ label, color, value, onChange, expected, flag }) {
 
 /* ============ About ============ */
 /* Mirrors the README's credit and disclaimers, so the app says the same
-   thing as the repo, plus the shift labels and how to get in touch. */
-function AboutView({ onBack }) {
+   thing as the repo, plus a guide to using it, the shift labels and how to
+   get in touch. The guide folds into one section per job, so it reads on a
+   phone without a wall of text. */
+function AboutView({ onBack, rates }) {
   const strong = { color: "var(--ink)" };
   const p = { margin: "12px 0 0" };
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent("Night Shift Calculator")}`;
+  const [openGuide, setOpenGuide] = useState("start");
+  const toggle = (k) => setOpenGuide((o) => (o === k ? null : k));
+  const b = (t) => <strong style={strong}>{t}</strong>;
+  const r = rates || DEFAULT_RATES;
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       <Card>
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-          <img src="icon-192.svg" alt="" width="56" height="56" style={{ borderRadius: 14, flexShrink: 0, boxShadow: "var(--shadow)" }} />
+          <img src="icon-192.svg" alt="" width="56" height="56" className="nsc-pop" style={{ borderRadius: 14, flexShrink: 0, boxShadow: "var(--shadow)" }} />
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.01em" }}>Night Shift Calculator</div>
             <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>WCO JFB · Version {APP_VERSION}</div>
           </div>
         </div>
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
-          <p style={{ margin: 0 }}>Works out your night shift allowances (SP1, SP2, meal and taxi), base pay and extra-hours pay in one place, from the shifts on your calendar. Save each period to History, compare periods and check them against your pay slip.</p>
-          <p style={p}>On the <strong style={strong}>Shifts</strong> screen, set <strong style={strong}>Taxi distance</strong> to Short or Long for the whole period, or <strong style={strong}>Varies</strong> to set it per shift when you tap a day.</p>
-          <p style={p}>Public holidays are marked automatically from the Jamaica calendar: Ash Wednesday, Good Friday, Easter Monday, National Heroes Day and the fixed-date holidays. Change any day from the day editor.</p>
-          <p style={p}>Created by <strong style={strong}>L/Cpl. R. Marshall</strong>, Portland Division · Workflow Coaching and Optimisation.</p>
+          <p style={{ margin: 0 }}>Works out your night shift allowances (SP1, SP2, meal and taxi), base pay and extra-hours pay in one place, from the shifts on your calendar. Save each period to History, compare periods and check them against your pay slip. It can do the same for everyone on your watch.</p>
+          <p style={p}>Created by {b("L/Cpl. R. Marshall")}, Portland Division · Workflow Coaching and Optimisation.</p>
         </div>
+      </Card>
+
+      <Card>
+        <SectionHead title="How to use the app" subtitle="Tap a topic to open it" />
+        <GuideSection id="start" open={openGuide} onToggle={toggle} title="Quick start" detail="Your pay in about a minute">
+          <GuideSteps steps={[
+            <>On {b("Home")}, tap {b("Start")}.</>,
+            <>{b("Your pay:")} type your Monthly Basic and Compulsory Assignment from your pay slip. Leave them blank to see allowances only.</>,
+            <>{b("Your commute:")} pick {b("Short")} or {b("Long")} for your taxi allowance.</>,
+            <>{b("Your shifts:")} choose {b("My rotation")} and tap any day you work a 7AM. The 7AM → 3PM → 10PM → Off cycle fills the whole period, before and after that day. Or choose {b("My totals")} and just enter how many of each shift you worked.</>,
+            <>Tap {b("See my pay")}. Then tap any day on {b("Your shifts")} to fix it: leave, a swap or an extra shift.</>,
+            <>Tap {b("Save to History")} when the period is right.</>,
+          ]} />
+          <GuideNote>Next pay period, Home offers {b("Fill my rotation")}: one tap carries your cycle on. The app always opens on today's pay period (the 16th to the 15th).</GuideNote>
+        </GuideSection>
+
+        <GuideSection id="shifts" open={openGuide} onToggle={toggle} title="Logging shifts day by day" detail="The Shifts tab">
+          <GuideSteps steps={[
+            <>{b("Tap a day")} to open it, then tick 7AM, 3PM or 10PM. Ticking again takes the shift off.</>,
+            <>Worked fewer hours? Type them under the shift. Blank means the standard hours (7AM 8h, 3PM 7h, 10PM 9h across midnight).</>,
+            <>{b("Duty → Change")} marks a shift as orderly, exchange for, leave (VL, DL, SL, TO) or exchange leave. See {b("Shift labels")} below for what each does to your pay.</>,
+            <>Public holidays fill in on their own. To change one, open the day and use {b("Public holiday → Change")}.</>,
+            <>{b("Taxi distance")} under the calendar: Short or Long for the whole period, or {b("Varies")} to set it on each shift.</>,
+          ]} />
+          <GuideNote>Shortcuts: {b("Auto-fill")} fills a rotation or one shift type across the period. {b("Templates")} saves a week's pattern to reuse. {b("Hold a day")} to copy it, then tap empty days to paste.</GuideNote>
+        </GuideSection>
+
+        <GuideSection id="read" open={openGuide} onToggle={toggle} title="Reading your result" detail="Totals, the maths and tax">
+          <GuideSteps steps={[
+            <>The big number is your {b("estimated gross")} (or {b("estimated allowances")} until a monthly basic is set). The bar under it splits it into Allowance, Base and Extra.</>,
+            <>On Shifts, tap {b("Allowance")}, {b("Base Pay")} or {b("Extra Hours")} to see the lines, and {b("ƒ")} on a line to see exactly how it was worked out.</>,
+            <>{b("Show est. net")} lists NIS, NHT, Education Tax and PAYE. Meal and taxi are tax-free. Set the rates in Settings → Tax.</>,
+            <>{b("Check against roster")}: type your roster's counts and the app tells you if the calendar disagrees. It never changes the pay.</>,
+          ]} />
+        </GuideSection>
+
+        <GuideSection id="watch" open={openGuide} onToggle={toggle} title="Your watch" detail="Pay for everyone on your shift">
+          <GuideSteps steps={[
+            <>Open the {b("Watch")} tab. Set the watch's shifts with {b("Fill rotation")} or {b("Copy my shifts")}, or tap days.</>,
+            <>{b("Add a person")} with their name, employee number and rank. A number used twice is flagged.</>,
+            <>Open a person to set their monthly basic and Short or Long taxi, and tap a day to mark their leave, a swap or an extra shift. {b("Match watch")} undoes a change.</>,
+            <>{b("Watch totals")} adds everyone up. Save it to History, copy a summary, download a CSV, or set the watch name and station and download the {b("Word record sheets")}: one JFB Regular and Overtime Record Sheet per person.</>,
+          ]} />
+        </GuideSection>
+
+        <GuideSection id="history" open={openGuide} onToggle={toggle} title="History and pay slips" detail="Compare periods, check what you were paid">
+          <GuideSteps steps={[
+            <>Every period you save shows in {b("History")}, with ▲ / ▼ against the one before and a year-to-date summary.</>,
+            <>Drag across the trend line or the month columns to read any period.</>,
+            <>Open a saved period to download or copy it as an image, or tap {b("Check against pay slip")} and type what you were paid. The app shows the difference line by line.</>,
+            <>Saving a period again replaces it. The save button says {b("Save changes")} when the period has changed since.</>,
+          ]} />
+        </GuideSection>
+
+        <GuideSection id="settings" open={openGuide} onToggle={toggle} title="Settings and backup" detail="The gear at the top">
+          <GuideSteps steps={[
+            <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type.</>,
+            <>{b("Past rates")}: when rates change, save the old ones with the date they started, so earlier periods stay right.</>,
+            <>{b("Backup")}: save everything to a file before you change phones, restore it on the new one, add the period's shifts to your phone's calendar (.ics), or reset this period.</>,
+            <>{b("Theme")}: dark, light, or follow your phone.</>,
+          ]} />
+        </GuideSection>
+
+        <GuideSection id="rules" open={openGuide} onToggle={toggle} title="How the pay is worked out" detail="The rules the app follows">
+          <div style={{ fontSize: 13, color: "var(--ink-dim)", lineHeight: 1.55 }}>
+            <GuideRule label="SP1" value={`${fmt(r.sp1)} per 3PM shift`} />
+            <GuideRule label="SP2" value={`${fmt(r.sp2)} per 10PM shift`} />
+            <GuideRule label="Meal" value={`${fmt(r.meal)} per 3PM or 10PM shift`} />
+            <GuideRule label="Taxi" value={`${fmt(r.taxiShort)} Short or ${fmt(r.taxiLong)} Long per 3PM or 10PM shift. None on a day with both a 3PM and a 10PM.`} />
+            <GuideRule label="Short shift" value="Earns its allowances only if you worked more than half its hours. The hours still count." />
+            <GuideRule label="Hourly rate" value={`Monthly Basic ÷ ${r.threshold}`} />
+            <GuideRule label="Overtime" value={`Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
+            <GuideRule label="Holiday" value="On a public holiday, each shift after the day's first is paid × 2 the hourly rate." />
+            <GuideRule label="Leave" value="Hours count as ordinary hours (never × 2); no SP1, SP2, meal or taxi." last />
+          </div>
+          <GuideNote>The numbers above are the rates for the period on screen. Check them against your pay slip in Settings.</GuideNote>
+        </GuideSection>
+
+        <GuideSection id="tips" open={openGuide} onToggle={toggle} title="Tips" detail="Small things that save time" last>
+          <GuideSteps steps={[
+            <>{b("Add it to your Home Screen")}: in Safari tap Share → Add to Home Screen. It then opens like an app and works offline.</>,
+            <>Pull a sheet down to close it (or tap outside it). Flick it and it flies off.</>,
+            <>The phone's {b("Back")} button closes an open sheet first, then takes you Home.</>,
+            <>Tap the tab you're on to jump back to the top.</>,
+            <>Deleted or reset something by mistake? Tap {b("Undo")} on the message at the bottom.</>,
+          ]} />
+        </GuideSection>
       </Card>
 
       <Card>
@@ -849,6 +973,65 @@ function AboutView({ onBack }) {
   );
 }
 
+/* One topic in About's guide: a row that folds open. Only one is open at a
+   time, so the page stays short. */
+function GuideSection({ id, open, onToggle, title, detail, last, children }) {
+  const isOpen = open === id;
+  return (
+    <div style={{ borderBottom: last ? "none" : "1px solid var(--line-soft)" }}>
+      <button onClick={() => onToggle(id)} aria-expanded={isOpen} style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 0",
+        background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer",
+        textAlign: "left", fontFamily: "inherit",
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 600 }}>{title}</div>
+          <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{detail}</div>
+        </div>
+        <span aria-hidden className={"nsc-chev" + (isOpen ? " is-open" : "")} style={{ fontSize: 12, color: "var(--ink-faint)" }}>▾</span>
+      </button>
+      <Collapse open={isOpen}><div style={{ paddingBottom: 14 }}>{children}</div></Collapse>
+    </div>
+  );
+}
+
+/* Numbered steps in the guide. */
+function GuideSteps({ steps }) {
+  return (
+    <ol style={{ margin: 0, padding: 0, listStyle: "none", display: "grid", gap: 10 }}>
+      {steps.map((s, i) => (
+        <li key={i} style={{ display: "flex", gap: 10, fontSize: 13.5, lineHeight: 1.5, color: "var(--ink-dim)" }}>
+          <span aria-hidden className="mono" style={{
+            flexShrink: 0, width: 22, height: 22, borderRadius: 999, marginTop: 0,
+            display: "inline-flex", alignItems: "center", justifyContent: "center",
+            fontSize: 11, fontWeight: 700,
+            background: "color-mix(in oklab, var(--accent) 16%, transparent)", color: "var(--accent)",
+          }}>{i + 1}</span>
+          <span style={{ minWidth: 0 }}>{s}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function GuideNote({ children }) {
+  return (
+    <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 10, background: "var(--bg-2)", fontSize: 12.5, lineHeight: 1.5, color: "var(--ink-dim)" }}>
+      {children}
+    </div>
+  );
+}
+
+/* One pay rule: what it is, then how it's paid. */
+function GuideRule({ label, value, last }) {
+  return (
+    <div style={{ display: "flex", gap: 12, padding: "7px 0", borderBottom: last ? "none" : "1px dashed var(--line-soft)" }}>
+      <span style={{ width: 84, flexShrink: 0, color: "var(--ink)", fontWeight: 500 }}>{label}</span>
+      <span style={{ minWidth: 0 }}>{value}</span>
+    </div>
+  );
+}
+
 /* One entry in About's shift-label guide: the calendar chip, then what it
    does to pay. */
 function LabelRow({ chip, title, detail, last }) {
@@ -868,7 +1051,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
     { id: "calc", label: "Shifts", icon: ShiftsIcon },
-    { id: "crew", label: "Crew", icon: CrewIcon },
+    { id: "crew", label: "Watch", icon: CrewIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
   ];
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
@@ -951,7 +1134,9 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
                   fontFamily: "inherit",
                 }}
               >
-                <Icon />
+                {/* Keyed by state, so the icon squashes and springs back
+                    each time its tab is picked. */}
+                <span key={active ? "on" : "off"} className={active ? "nsc-tab-pop" : undefined} style={{ display: "inline-flex" }}><Icon /></span>
                 <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500 }}>{t.label}</span>
                 {t.badge > 0 && !active && (
                   // Keyed by the count, so it pops when a period is saved.

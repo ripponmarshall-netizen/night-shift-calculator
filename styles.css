@@ -30,9 +30,169 @@
   --r-xs: 6px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* Motion: damped springs. Each curve is a mass on a spring released from
+     rest, sampled from the physics (x'' = -w²(x - 1) - 2ζw·x') into a CSS
+     linear() easing, so things overshoot, swing back and settle the way real
+     objects do. The duration only sets how stiff the spring is; the shape
+     (how far it overshoots, how many swings) comes from the damping ratio ζ.
+     Browsers without linear() get a single-overshoot cubic-bezier instead.
+     - bouncy (ζ 0.42, ~23% overshoot): pops, ticks, chevrons, press release
+     - snappy (ζ 0.62, ~8%): sliding pills, cards rising in, dialogs
+     - soft (ζ 0.78, ~2%): big moves (a sheet sliding up the whole screen)
+     - wobbly (ζ 0.3, ~37%): one-off flourishes (the logo landing) */
+  --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-snappy: cubic-bezier(0.32, 1.25, 0.5, 1);
+  --ease-soft: cubic-bezier(0.22, 1.08, 0.36, 1);
+  --ease-wobbly: cubic-bezier(0.3, 1.9, 0.45, 0.85);
   /* Press feedback: buttons give under the finger and spring back. Inline
      transitions list var(--press) so they keep it. */
-  --press: scale 0.22s cubic-bezier(0.34, 1.5, 0.64, 1);
+  --press: scale 0.34s var(--ease-bouncy);
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --ease-bouncy: linear(
+      0,
+      0.055,
+      0.194,
+      0.383,
+      0.588,
+      0.783,
+      0.952,
+      1.083,
+      1.172,
+      1.22,
+      1.233,
+      1.219,
+      1.185,
+      1.141,
+      1.093,
+      1.047,
+      1.009,
+      0.979,
+      0.959,
+      0.948,
+      0.946,
+      0.949,
+      0.957,
+      0.968,
+      0.979,
+      0.99,
+      0.999,
+      1.005,
+      1.01,
+      1.012,
+      1.013,
+      1.012,
+      1.01,
+      1.007,
+      1.005,
+      1.002,
+      1
+    );
+    --ease-snappy: linear(
+      0,
+      0.044,
+      0.151,
+      0.292,
+      0.445,
+      0.595,
+      0.728,
+      0.841,
+      0.93,
+      0.996,
+      1.041,
+      1.068,
+      1.081,
+      1.083,
+      1.078,
+      1.068,
+      1.056,
+      1.043,
+      1.031,
+      1.02,
+      1.011,
+      1.004,
+      0.999,
+      0.996,
+      0.994,
+      0.993,
+      0.993,
+      0.994,
+      1
+    );
+    --ease-soft: linear(
+      0,
+      0.046,
+      0.156,
+      0.293,
+      0.435,
+      0.568,
+      0.684,
+      0.78,
+      0.856,
+      0.913,
+      0.955,
+      0.984,
+      1.002,
+      1.013,
+      1.018,
+      1.02,
+      1.019,
+      1.017,
+      1.014,
+      1.012,
+      1.009,
+      1.007,
+      1
+    );
+    --ease-wobbly: linear(
+      0,
+      0.071,
+      0.252,
+      0.498,
+      0.759,
+      0.999,
+      1.188,
+      1.312,
+      1.368,
+      1.362,
+      1.308,
+      1.224,
+      1.127,
+      1.033,
+      0.955,
+      0.899,
+      0.868,
+      0.862,
+      0.876,
+      0.904,
+      0.939,
+      0.975,
+      1.006,
+      1.031,
+      1.046,
+      1.051,
+      1.049,
+      1.04,
+      1.028,
+      1.015,
+      1.002,
+      0.992,
+      0.985,
+      0.981,
+      0.981,
+      0.984,
+      0.988,
+      0.993,
+      0.998,
+      1.002,
+      1.005,
+      1.007,
+      1.007,
+      1.007,
+      1
+    );
+  }
 }
 
 [data-theme="light"] {
@@ -103,15 +263,19 @@ button {
   min-height: 100vh;
 }
 
-/* Loading screen in index.html: an overlay above the app. The truck drives
-   while the scripts load; .is-dashing sends it off the road, .is-ready swaps
-   it for the app logo, and .is-flying clears the backdrop while the logo and
-   title fly into the header (.is-leaving is the plain-fade fallback). See
+/* Loading screen in index.html: an overlay above the app. A fire truck drives
+   a night road while the scripts load: it rides on springs, hits a bump and
+   bobs over it, headlight on and lights flashing. .is-dashing floors it off
+   the road (the nose lifts as the weight shifts back); .is-ready drops the
+   app logo in under gravity, bouncing to rest, its ring draws and its hands
+   wind round; .is-flying clears the backdrop while the logo and title fly
+   into the header (.is-leaving is the plain-fade fallback). See
    nscSplashDone. */
 .nsc-splash {
   position: fixed;
   inset: 0;
   z-index: 200;
+  overflow: hidden;
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -133,8 +297,67 @@ button {
   visibility: hidden;
   pointer-events: none;
 }
+/* Night sky: a soft accent glow on the horizon, a moon and twinkling stars.
+   Light theme keeps only the glow. */
+.nsc-sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    ellipse 70% 40% at 50% 58%,
+    color-mix(in oklab, var(--accent) 10%, transparent),
+    transparent 70%
+  );
+}
+.nsc-splash.is-flying .nsc-sky {
+  opacity: 0;
+}
+.nsc-star {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: #f5f3ee;
+  opacity: 0;
+  animation: nscTwinkle 2.6s ease-in-out infinite;
+}
+.nsc-star.is-big {
+  width: 3px;
+  height: 3px;
+  box-shadow: 0 0 6px 1px rgba(245, 243, 238, 0.5);
+}
+.nsc-moon {
+  position: absolute;
+  top: 19%;
+  right: 18%;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  box-shadow:
+    inset -7px 3px 0 0 #f1e6c8,
+    0 0 24px 2px rgba(241, 230, 200, 0.12);
+  transform: rotate(-20deg);
+  animation: nscFadeIn 1.2s ease-out 0.2s backwards;
+}
+[data-theme="light"] .nsc-star,
+[data-theme="light"] .nsc-moon {
+  display: none;
+}
+@keyframes nscTwinkle {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+}
 /* Truck and logo share one spot, so the logo lands where the truck was. */
 .nsc-stage {
+  position: relative;
   display: grid;
   width: min(100%, 520px);
   margin-bottom: 8px;
@@ -149,6 +372,9 @@ button {
     opacity 0.3s ease,
     transform 0.3s ease;
 }
+/* The logo waits above the stage, then falls onto it: gravity on the way
+   down (ease-in), squash on impact, and each bounce lower and quicker than
+   the last (a restitution of about 0.4), as a dropped ball comes to rest. */
 .nsc-brand {
   position: relative;
   justify-self: center;
@@ -156,7 +382,7 @@ button {
   width: 96px;
   height: 96px;
   opacity: 0;
-  transform: scale(0.6);
+  transform-origin: 50% 100%;
 }
 .nsc-brand svg {
   position: relative;
@@ -175,6 +401,25 @@ button {
   );
   opacity: 0;
 }
+/* Ripple and dust kicked up where the logo hits. */
+.nsc-brand-wave {
+  position: absolute;
+  inset: -6px;
+  border-radius: 28px;
+  border: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  opacity: 0;
+}
+.nsc-dust {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  opacity: 0;
+}
 .nsc-brand-ring {
   stroke-dasharray: 377;
   stroke-dashoffset: 377;
@@ -182,6 +427,8 @@ button {
 .nsc-brand-hands {
   stroke-dasharray: 80;
   stroke-dashoffset: 80;
+  transform-box: view-box;
+  transform-origin: 96px 96px;
 }
 .nsc-brand-dot {
   transform-box: fill-box;
@@ -189,19 +436,32 @@ button {
   transform: scale(0);
 }
 .nsc-splash.is-ready .nsc-brand {
-  animation: nscLogoIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+  animation: nscLogoDrop 0.9s 0.05s both;
+}
+.nsc-splash.is-ready .nsc-brand-wave {
+  animation: nscWave 0.7s ease-out 0.42s forwards;
+}
+.nsc-splash.is-ready .nsc-dust-l {
+  animation: nscDustL 0.6s ease-out 0.42s forwards;
+}
+.nsc-splash.is-ready .nsc-dust-r {
+  animation: nscDustR 0.6s ease-out 0.42s forwards;
 }
 .nsc-splash.is-ready .nsc-brand-glow {
-  animation: nscGlow 1.1s ease-out 0.25s forwards;
+  animation: nscGlow 1.1s ease-out 0.42s forwards;
 }
 .nsc-splash.is-ready .nsc-brand-ring {
-  animation: nscDraw 0.7s cubic-bezier(0.65, 0, 0.35, 1) 0.2s forwards;
+  animation: nscDraw 0.6s cubic-bezier(0.65, 0, 0.35, 1) 0.4s forwards;
 }
+/* The hands draw in as they wind round, then swing back and settle on
+   the hour like a clock spring let go. */
 .nsc-splash.is-ready .nsc-brand-hands {
-  animation: nscDraw 0.4s ease-out 0.55s forwards;
+  animation:
+    nscDraw 0.3s ease-out 0.5s forwards,
+    nscWind 0.95s var(--ease-snappy) 0.5s backwards;
 }
 .nsc-splash.is-ready .nsc-brand-dot {
-  animation: nscDotIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.7s forwards;
+  animation: nscDotIn 0.7s var(--ease-wobbly) 0.85s forwards;
 }
 .nsc-splash-sub {
   transition: opacity 0.3s ease;
@@ -223,18 +483,80 @@ button {
 .nsc-handoff [data-splash-target] {
   visibility: hidden;
 }
+/* The header logo takes the landing: a squash, then it springs back. */
 .nsc-landed {
-  animation: nscLand 0.42s ease-out;
+  animation: nscBoing 0.75s;
 }
-@keyframes nscLand {
+@keyframes nscLogoDrop {
   0% {
-    transform: scale(1);
+    opacity: 0;
+    transform: translateY(-170px) scale(0.92, 1.1);
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 0.6);
   }
-  40% {
-    transform: scale(1.1);
+  12% {
+    opacity: 1;
+  }
+  41% {
+    transform: translateY(0) scale(1.2, 0.78);
+    animation-timing-function: cubic-bezier(0.1, 0.6, 0.4, 1);
+  }
+  58% {
+    opacity: 1;
+    transform: translateY(-30px) scale(0.96, 1.05);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.4);
+  }
+  74% {
+    transform: translateY(0) scale(1.08, 0.92);
+    animation-timing-function: cubic-bezier(0.1, 0.6, 0.4, 1);
+  }
+  84% {
+    transform: translateY(-7px) scale(0.99, 1.01);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.9, 0.4);
+  }
+  93% {
+    transform: translateY(0) scale(1.02, 0.98);
   }
   100% {
-    transform: scale(1);
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes nscWave {
+  from {
+    opacity: 0.6;
+    transform: scale(0.9, 0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.9, 1.5);
+  }
+}
+@keyframes nscDustL {
+  from {
+    opacity: 0.45;
+    transform: translate(-20px, 0) scale(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-72px, -12px) scale(1.8);
+  }
+}
+@keyframes nscDustR {
+  from {
+    opacity: 0.45;
+    transform: translate(20px, 0) scale(0.5);
+  }
+  to {
+    opacity: 0;
+    transform: translate(72px, -12px) scale(1.8);
+  }
+}
+@keyframes nscWind {
+  from {
+    transform: rotate(-300deg);
+  }
+  to {
+    transform: rotate(0deg);
   }
 }
 @keyframes nscGlowOut {
@@ -244,12 +566,6 @@ button {
   to {
     opacity: 0;
     transform: scale(0.6);
-  }
-}
-@keyframes nscLogoIn {
-  to {
-    opacity: 1;
-    transform: scale(1);
   }
 }
 @keyframes nscGlow {
@@ -278,9 +594,9 @@ button {
   animation-play-state: paused !important;
 }
 .nsc-intro {
-  --rise-from: -18px;
-  --rise-dur: 0.65s;
-  --rise-step: 0.08s;
+  --rise-from: -30px;
+  --rise-dur: 0.85s;
+  --rise-step: 0.07s;
 }
 /* Fire truck that drives across the road on a loop, kicking up tyre smoke.
    The lane is as wide as the road, so translating it by 100% plus the
@@ -289,7 +605,7 @@ button {
 .nsc-road {
   position: relative;
   width: 100%;
-  height: 84px;
+  height: 110px;
   align-self: end;
   overflow: hidden;
   border-bottom: 2px dashed var(--line);
@@ -308,6 +624,17 @@ button {
     transparent
   );
 }
+/* A small hump mid-road: the truck's wheels go over it (see nscHopF/R). */
+.nsc-bump {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 22px;
+  height: 5px;
+  margin-left: -11px;
+  border-radius: 11px 11px 0 0;
+  background: var(--line);
+}
 .nsc-lane {
   position: absolute;
   inset: 0;
@@ -325,19 +652,62 @@ button {
   display: block;
   overflow: visible;
 }
+/* Suspension. The body sits on springs: a constant idle jiggle (.nsc-body),
+   plus the bump (.nsc-susp) — the front wheel hops first and pitches the
+   nose up, then the rear, and the body rocks back and forth, smaller each
+   time, until the springs settle. Timed to the drive loop, so it happens as
+   each wheel reaches the hump. */
+.nsc-susp {
+  transform-box: view-box;
+  transform-origin: 80px 54px;
+  animation: nscPitch 2.2s linear infinite;
+}
 .nsc-body {
-  animation: nscBounce 0.28s ease-in-out infinite alternate;
+  animation: nscJiggle 0.24s ease-in-out infinite alternate;
+}
+.nsc-hop-f,
+.nsc-hop-r {
+  animation: nscHopF 2.2s linear infinite;
+}
+.nsc-hop-r {
+  animation-name: nscHopR;
 }
 .nsc-wheel {
   transform-box: fill-box;
   transform-origin: center;
   animation: nscSpin 0.35s linear infinite;
 }
-.nsc-light-r {
+.nsc-light-r,
+.nsc-glow-r {
   animation: nscBlink 0.5s steps(1) infinite;
 }
-.nsc-light-b {
+.nsc-light-b,
+.nsc-glow-b {
   animation: nscBlink 0.5s steps(1) infinite reverse;
+}
+.nsc-glow-r,
+.nsc-glow-b {
+  filter: blur(4px);
+}
+.nsc-shadow {
+  fill: #000;
+  opacity: 0.35;
+}
+[data-theme="light"] .nsc-shadow {
+  opacity: 0.12;
+}
+[data-theme="light"] .nsc-beam {
+  opacity: 0.55;
+}
+/* Flooring it: the weight shifts back, the nose lifts and the rear
+   squats, then the springs hold it there as it pulls away. */
+.nsc-splash.is-dashing .nsc-susp {
+  transform-origin: 32px 58px;
+  animation: nscSquat 0.45s var(--ease-wobbly) forwards;
+}
+.nsc-splash.is-dashing .nsc-hop-f,
+.nsc-splash.is-dashing .nsc-hop-r {
+  animation: none;
 }
 .nsc-puff {
   position: absolute;
@@ -400,12 +770,77 @@ button {
     transform: translateX(calc(100% + 150px));
   }
 }
-@keyframes nscBounce {
+@keyframes nscJiggle {
   from {
     transform: translateY(0);
   }
   to {
-    transform: translateY(-1px);
+    transform: translateY(-0.8px);
+  }
+}
+/* Front wheel reaches the hump at ~42% of the loop, the rear at ~58%. */
+@keyframes nscHopF {
+  0%,
+  40%,
+  47%,
+  100% {
+    transform: translateY(0);
+  }
+  43.5% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes nscHopR {
+  0%,
+  56%,
+  63%,
+  100% {
+    transform: translateY(0);
+  }
+  59.5% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes nscPitch {
+  0%,
+  41%,
+  100% {
+    transform: none;
+  }
+  45% {
+    transform: translateY(-2.5px) rotate(-2.2deg);
+  }
+  50% {
+    transform: translateY(0.5px) rotate(0.9deg);
+  }
+  54% {
+    transform: translateY(-0.5px) rotate(-0.4deg);
+  }
+  57% {
+    transform: none;
+  }
+  61% {
+    transform: translateY(-2.5px) rotate(2deg);
+  }
+  66% {
+    transform: translateY(0.8px) rotate(-0.8deg);
+  }
+  71% {
+    transform: translateY(-0.4px) rotate(0.35deg);
+  }
+  76% {
+    transform: translateY(0.1px) rotate(-0.1deg);
+  }
+  80% {
+    transform: none;
+  }
+}
+@keyframes nscSquat {
+  from {
+    transform: none;
+  }
+  to {
+    transform: rotate(-3.5deg);
   }
 }
 @keyframes nscSpin {
@@ -444,20 +879,34 @@ button {
     transform: translateX(-24px) scaleX(1);
   }
 }
-/* Reduced motion: park the truck in the middle of the road, no smoke. */
+/* Reduced motion: park the truck in the middle of the road, no smoke, no
+   stars twinkling; the logo simply appears. */
 @media (prefers-reduced-motion: reduce) {
   .nsc-lane,
   .nsc-body,
+  .nsc-susp,
+  .nsc-hop-f,
+  .nsc-hop-r,
   .nsc-wheel,
   .nsc-light-r,
-  .nsc-light-b {
+  .nsc-light-b,
+  .nsc-glow-r,
+  .nsc-glow-b,
+  .nsc-letters > span,
+  .nsc-dots i {
     animation: none;
+  }
+  .nsc-star {
+    animation: none;
+    opacity: 0.5;
   }
   .nsc-lane {
     transform: translateX(calc(50% + 75px));
   }
   .nsc-puff,
-  .nsc-speed {
+  .nsc-speed,
+  .nsc-brand-wave,
+  .nsc-dust {
     display: none;
   }
   .nsc-brand-ring,
@@ -467,22 +916,81 @@ button {
   .nsc-brand-dot {
     transform: none;
   }
-  .nsc-splash.is-ready .nsc-brand {
+  .nsc-splash.is-ready .nsc-brand,
+  .nsc-splash.is-ready .nsc-brand-hands {
     animation: none;
     opacity: 1;
     transform: none;
   }
 }
-/* Matches the header title, which it turns into. */
+/* Matches the header title, which it turns into. Its letters spring up one
+   after another as the screen opens. */
 .nsc-splash-title {
+  position: relative;
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.01em;
+  white-space: nowrap;
   transform-origin: left center;
+}
+.nsc-letters > span {
+  display: inline-block;
+  white-space: pre;
+  animation: nscLetterIn 0.8s var(--ease-bouncy) backwards;
+  animation-delay: calc(var(--d) * 26ms + 120ms);
+}
+@keyframes nscLetterIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) rotate(10deg) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .nsc-splash-sub {
   font-size: 13px;
   color: var(--ink-faint);
+}
+/* "Loading" with three dots hopping in turn, each under gravity. */
+.nsc-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-left: 4px;
+}
+.nsc-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: nscHopDot 1s infinite;
+}
+.nsc-dots i:nth-child(2) {
+  animation-delay: 0.14s;
+}
+.nsc-dots i:nth-child(3) {
+  animation-delay: 0.28s;
+}
+@keyframes nscHopDot {
+  0%,
+  60%,
+  100% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  }
+  30% {
+    transform: translateY(-5px);
+    animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4);
+  }
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* Small section label: sentence case, sans, muted. Replaces the old
@@ -518,13 +1026,21 @@ button:focus-visible {
     opacity: 0;
   }
 }
+/* A sheet slides up from below the screen edge and settles with a small
+   bounce; its opacity has its own quick fade (the spring would overshoot it). */
 @keyframes nscSheetIn {
   from {
-    transform: translateY(48px) scale(0.98);
-    opacity: 0;
+    transform: translateY(calc(100% + 120px));
   }
   to {
     transform: translateY(0);
+  }
+}
+@keyframes nscSheetFade {
+  from {
+    opacity: 0.4;
+  }
+  to {
     opacity: 1;
   }
 }
@@ -540,7 +1056,7 @@ button:focus-visible {
 }
 @keyframes nscCenterIn {
   from {
-    transform: translateY(8px) scale(0.94);
+    transform: translateY(14px) scale(0.88);
     opacity: 0;
   }
   to {
@@ -560,7 +1076,7 @@ button:focus-visible {
 }
 @keyframes nscToastIn {
   from {
-    transform: translateY(12px);
+    transform: translateY(26px) scale(0.86);
     opacity: 0;
   }
   to {
@@ -623,10 +1139,27 @@ button:focus-visible {
   animation: nscFadeOut 0.18s ease-in forwards;
 }
 .nsc-modal.nsc-sheet {
-  animation: nscSheetIn 0.42s cubic-bezier(0.32, 1.2, 0.5, 1);
+  animation:
+    nscSheetIn 0.62s var(--ease-soft),
+    nscSheetFade 0.2s ease-out;
 }
 .nsc-modal.nsc-sheet.is-closing {
   animation: nscSheetOut 0.18s ease-in forwards;
+}
+/* Pull a sheet down by its top to close it (useSheetDrag). Once flung, it
+   leaves on its own flight and the backdrop fades from where the drag left
+   it, so the usual exit keyframes stand aside. */
+.nsc-grabber {
+  display: block;
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  margin: -6px auto 10px;
+  background: var(--line);
+}
+.nsc-modal.is-flung.is-closing,
+.nsc-backdrop.is-flung.is-closing {
+  animation: none;
 }
 /* Bottom sheets sit above the taskbar (margin-bottom 96px), so cap their
    height to what's left of the screen and scroll inside, or the top of a
@@ -639,13 +1172,13 @@ button:focus-visible {
   overscroll-behavior: contain;
 }
 .nsc-modal.nsc-center {
-  animation: nscCenterIn 0.34s cubic-bezier(0.32, 1.25, 0.5, 1);
+  animation: nscCenterIn 0.5s var(--ease-bouncy);
 }
 .nsc-modal.nsc-center.is-closing {
   animation: nscCenterOut 0.16s ease-in forwards;
 }
 .nsc-toast {
-  animation: nscToastIn 0.4s cubic-bezier(0.32, 1.3, 0.5, 1);
+  animation: nscToastIn 0.6s var(--ease-bouncy);
 }
 .nsc-toast.is-leaving {
   animation: nscToastOut 0.2s ease-in forwards;
@@ -660,7 +1193,7 @@ button:focus-visible {
 .total-chip-slot {
   transition:
     opacity 0.24s ease,
-    transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    transform 0.6s var(--ease-bouncy);
 }
 .total-chip-slot.is-hidden {
   opacity: 0;
@@ -683,7 +1216,7 @@ button:focus-visible {
 /* Toasts sit above the tab bar, and above the floating total when it's up. */
 .nsc-toast-wrap {
   bottom: calc(120px + var(--safe-bottom));
-  transition: bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: bottom 0.55s var(--ease-snappy);
 }
 :root:has(.total-chip-slot:not(.is-hidden)):not(:has(.nsc-backdrop))
   .nsc-toast-wrap {
@@ -696,7 +1229,7 @@ button:focus-visible {
    fixed-position sheets opened inside it. */
 @keyframes nscRise {
   from {
-    transform: translateY(var(--rise-from, 14px));
+    transform: translateY(var(--rise-from, 22px));
     opacity: 0;
   }
   to {
@@ -706,7 +1239,7 @@ button:focus-visible {
 }
 @keyframes nscPopIn {
   0% {
-    transform: scale(0.6);
+    transform: scale(0.4);
     opacity: 0;
   }
   100% {
@@ -714,12 +1247,25 @@ button:focus-visible {
     opacity: 1;
   }
 }
+/* Pressed in, then released: the spring easing carries it past full size
+   and back. */
 @keyframes nscCheckPop {
-  0% {
-    transform: scale(0.7);
+  from {
+    transform: scale(0.55);
   }
-  60% {
-    transform: scale(1.12);
+  to {
+    transform: scale(1);
+  }
+}
+/* Squash and stretch: a quick squash (ease-out), then the spring lets go. */
+@keyframes nscBoing {
+  0% {
+    transform: scale(1);
+    animation-timing-function: ease-out;
+  }
+  22% {
+    transform: scale(1.2, 0.8);
+    animation-timing-function: var(--ease-wobbly);
   }
   100% {
     transform: scale(1);
@@ -739,12 +1285,12 @@ button:focus-visible {
   }
 }
 
-/* Screens: each card rises in, a beat after the one above it. */
+/* Screens: each card rises in on a spring, a beat after the one above it,
+   overshooting its place a touch before it settles. */
 .nsc-view > :not(.nsc-backdrop),
 .calc-left,
 .calc-right > * {
-  animation: nscRise var(--rise-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1)
-    backwards;
+  animation: nscRise var(--rise-dur, 0.7s) var(--ease-snappy) backwards;
 }
 .nsc-view > :nth-child(2),
 .calc-right > :nth-child(1) {
@@ -764,8 +1310,7 @@ button:focus-visible {
 }
 .calc-grid.nsc-view > .calc-left,
 .calc-grid.nsc-view > .calc-right > * {
-  animation: nscRise var(--rise-dur, 0.5s) cubic-bezier(0.22, 1, 0.36, 1)
-    backwards;
+  animation: nscRise var(--rise-dur, 0.7s) var(--ease-snappy) backwards;
 }
 
 /* App chrome. The header only fades (no movement), so the splash can
@@ -791,14 +1336,14 @@ button:focus-visible {
   box-shadow: 0 10px 24px -22px rgba(0, 0, 0, 0.9);
 }
 .nsc-dock {
-  animation: nscDockIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) 0.18s backwards;
+  animation: nscDockIn 0.8s var(--ease-bouncy) 0.18s backwards;
 }
 .nsc-footer {
   animation: nscFadeIn 0.5s ease-out 0.3s backwards;
 }
 @keyframes nscDockIn {
   from {
-    transform: translateY(28px);
+    transform: translateY(70px);
     opacity: 0;
   }
   to {
@@ -809,11 +1354,11 @@ button:focus-visible {
 
 /* Wizard steps slide in from the right. */
 .nsc-step {
-  animation: nscStepIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscStepIn 0.6s var(--ease-snappy) backwards;
 }
 @keyframes nscStepIn {
   from {
-    transform: translateX(18px);
+    transform: translateX(40px);
     opacity: 0;
   }
   to {
@@ -824,14 +1369,19 @@ button:focus-visible {
 
 /* Shift chips pop onto the calendar when they're added. */
 .nsc-chip-in {
-  animation: nscPopIn 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: nscPopIn 0.55s var(--ease-bouncy) backwards;
 }
 .nsc-pop {
   display: inline-block;
-  animation: nscPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: nscPopIn 0.5s var(--ease-bouncy) backwards;
 }
 .nsc-float-in {
-  animation: nscToastIn 0.4s cubic-bezier(0.32, 1.3, 0.5, 1) backwards;
+  animation: nscToastIn 0.6s var(--ease-bouncy) backwards;
+}
+/* The tab you just picked: its icon squashes and springs back. */
+.nsc-tab-pop {
+  display: inline-flex;
+  animation: nscBoing 0.7s backwards;
 }
 
 /* Day editor tick boxes: the box springs, then the tick draws itself. */
@@ -841,26 +1391,38 @@ button:focus-visible {
     border-color 0.18s ease;
 }
 .nsc-check.is-on {
-  animation: nscCheckPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: nscCheckPop 0.55s var(--ease-bouncy);
 }
 .nsc-tick {
   stroke-dasharray: 12;
   stroke-dashoffset: 12;
-  animation: nscDraw 0.26s 0.06s ease-out forwards;
+  animation: nscDraw 0.3s 0.1s ease-out forwards;
 }
 
-/* Sliding selection: segmented controls and the tab bar. */
+/* Sliding selection: segmented controls and the tab bar. The pill swings
+   past the option it's heading for and settles back onto it. */
 .nsc-seg-pill {
   transition:
-    transform 0.34s cubic-bezier(0.32, 1.15, 0.5, 1),
-    width 0.34s cubic-bezier(0.32, 1.15, 0.5, 1),
-    height 0.34s cubic-bezier(0.32, 1.15, 0.5, 1);
+    transform 0.55s var(--ease-snappy),
+    width 0.55s var(--ease-snappy),
+    height 0.55s var(--ease-snappy);
 }
 .nsc-tab-pill {
-  transition: transform 0.42s cubic-bezier(0.32, 1.2, 0.5, 1);
+  transition: transform 0.65s var(--ease-snappy);
+}
+/* Fold-out arrows (▾) flip over on a spring. */
+.nsc-chev {
+  display: inline-block;
+  transition: transform 0.55s var(--ease-bouncy);
+}
+.nsc-chev.is-open {
+  transform: rotate(180deg);
 }
 
 /* Collapsing content fades as it folds. */
+.nsc-collapse {
+  transition: grid-template-rows 0.42s var(--ease-snappy);
+}
 .nsc-collapse > div {
   transition: opacity 0.22s ease;
 }
@@ -907,13 +1469,13 @@ button {
   transition: var(--press);
 }
 button:not(:disabled):active {
-  scale: 0.97;
-  transition-duration: 0.08s;
+  scale: 0.96;
+  transition-duration: 0.12s;
 }
 button[role="tab"]:active,
 .nsc-day:active,
 .nsc-pick:active {
-  scale: 0.94;
+  scale: 0.9;
 }
 @media (hover: hover) {
   .nsc-day:hover,
@@ -939,18 +1501,22 @@ button[role="tab"]:active,
 
 /* The floating total pulses when the period is saved. */
 .total-chip.flash {
-  animation: chipFlash 0.5s ease-out;
+  animation: chipFlash 0.8s;
 }
 @keyframes chipFlash {
-  0%,
-  100% {
+  0% {
     transform: scale(1);
+    animation-timing-function: ease-out;
   }
-  45% {
-    transform: scale(1.06);
+  20% {
+    transform: scale(1.12, 0.9);
     box-shadow:
       0 0 0 8px color-mix(in oklab, var(--accent) 25%, transparent),
       0 12px 32px -16px rgba(0, 0, 0, 0.7);
+    animation-timing-function: var(--ease-wobbly);
+  }
+  100% {
+    transform: scale(1);
   }
 }
 
@@ -999,16 +1565,17 @@ button[role="tab"]:active,
 .nsc-reveal-x {
   animation: nscRevealX 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.15s backwards;
 }
+/* Columns shoot up past their height and bounce back down onto it. */
 .nsc-grow-y {
   transform-origin: bottom;
-  animation: nscGrowY 0.55s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscGrowY 0.8s var(--ease-bouncy) backwards;
 }
 .nsc-grow-x {
   transform-origin: left;
-  animation: nscGrowX 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscGrowX 0.8s var(--ease-snappy) backwards;
 }
 .nsc-spark-dot {
-  animation: nscPopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+  animation: nscPopIn 0.55s var(--ease-bouncy) backwards;
 }
 .nsc-tip {
   animation: nscFadeIn 0.12s ease-out;
@@ -1034,14 +1601,23 @@ button[role="tab"]:active,
   overflow: hidden;
 }
 .nsc-row-in {
-  animation: nscRise 0.42s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  animation: nscRise 0.65s var(--ease-snappy) backwards;
 }
 /* Calendars: the days settle in left to right, row by row, when a period
    opens. Cells set --i to their place in the grid. */
 .nsc-cascade > * {
-  --rise-from: 8px;
-  animation: nscRise 0.4s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  animation-delay: calc(var(--i, 0) * 10ms + 60ms);
+  animation: nscCellIn 0.6s var(--ease-bouncy) backwards;
+  animation-delay: calc(var(--i, 0) * 12ms + 60ms);
+}
+@keyframes nscCellIn {
+  from {
+    transform: translateY(12px) scale(0.82);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
 }
 .nsc-col:focus-visible {
   outline: 2px solid var(--accent);
