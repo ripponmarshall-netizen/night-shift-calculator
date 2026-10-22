@@ -239,14 +239,14 @@
           // Swap to the real header logo on the flight's last frame (a timer
           // alone can fire a frame early); the timer is the backstop.
           var landed = false;
-          var land = function () {
+          var onLand = function () {
             if (landed) return;
             landed = true;
             finish(el);
             toLogo.classList.add("nsc-landed");
           };
-          flight.onfinish = land;
-          setTimeout(land, ms + 250);
+          flight.onfinish = onLand;
+          setTimeout(onLand, ms + 250);
         };
 
         window.nscSplashDone = function () {

@@ -27,6 +27,7 @@ function App() {
   const [templates, setTemplates] = useState(initial.templates || []);
   const [snapshots, setSnapshots] = useState(initial.snapshots || []);
   const [theme, setTheme] = useState(initial.theme || "auto");
+  const [otUnit, setOtUnit] = useState(OT_UNITS.includes(initial.otUnit) ? initial.otUnit : "hours");
   const [onboarded, setOnboarded] = useState(initial.onboarded ?? false);
   // Any date the person works a 7AM; drives Off days and extra-shift colour.
   const [rotationAnchor, setRotationAnchor] = useState(initial.rotationAnchor || null);
@@ -71,6 +72,9 @@ function App() {
     };
   }, []);
   const effectiveRates = useMemo(() => ratesAt(period, ratesHistory, rates), [period, ratesHistory, rates]);
+  // What every calculation runs on: the period's rates, plus how overtime is
+  // counted (hours or minutes), which isn't a rate and so isn't in Past rates.
+  const calcRates = useMemo(() => ({ ...effectiveRates, otUnit }), [effectiveRates, otUnit]);
   const ratesEffectiveLabel = useMemo(() => {
     const e = rateEntryAt(period, ratesHistory);
     return e
@@ -83,8 +87,8 @@ function App() {
   useEffect(() => { window.nscSplashDone?.(); }, []);
 
   useEffect(() => {
-    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew, crewHistory });
-  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, onboarded, rotationAnchor, crew, crewHistory]);
+    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotationAnchor, crew, crewHistory });
+  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotationAnchor, crew, crewHistory]);
 
   useEffect(() => {
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -105,8 +109,8 @@ function App() {
   }, [theme]);
 
   const totals = useMemo(
-    () => aggregate(entries, period, mode, basicDistance, counts, basePay, effectiveRates),
-    [entries, period, mode, basicDistance, counts, basePay, effectiveRates]
+    () => aggregate(entries, period, mode, basicDistance, counts, basePay, calcRates, rotationAnchor),
+    [entries, period, mode, basicDistance, counts, basePay, calcRates, rotationAnchor]
   );
 
   const setEntry = (key, updater) => {
@@ -151,7 +155,7 @@ function App() {
   const saveStatus = useMemo(() => {
     const saved = snapshots.find((s) => s.periodKey === periodKey(period));
     if (!saved) return { state: "none" };
-    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "leaveShifts", "exchangedShifts"];
+    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "otHours", "leaveShifts", "exchangedShifts"];
     const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.005;
     // Duty marks that don't move the pay (orderly, exchange for) still
     // belong in the saved record, so a change to them counts too.
@@ -265,7 +269,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, snapshots, onboarded, rotationAnchor, crew, crewHistory }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, otUnit, snapshots, onboarded, rotationAnchor, crew, crewHistory }, null, 2)], { type: "application/json" });
     downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
@@ -320,6 +324,7 @@ function App() {
         if (Array.isArray(obj.ratesHistory)) setRatesHistory(obj.ratesHistory);
         if (Array.isArray(obj.templates)) setTemplates(obj.templates);
         if (oneOf(obj.theme, ["auto", "dark", "light"])) setTheme(obj.theme);
+        if (oneOf(obj.otUnit, OT_UNITS)) setOtUnit(obj.otUnit);
         if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
@@ -449,7 +454,7 @@ function App() {
         <HomeView
           period={period} entries={entries} mode={mode}
           basePay={basePay} basicDistance={basicDistance} counts={counts}
-          totals={totals} tax={tax} rates={effectiveRates}
+          totals={totals} tax={tax} rates={calcRates}
           ratesEffective={ratesEffectiveLabel}
           onboarded={onboarded}
           rotationAnchor={rotationAnchor}
@@ -501,7 +506,7 @@ function App() {
           period={period}
           crew={crew} setCrew={setCrew}
           myEntries={entries} myRotation={rotationAnchor}
-          rates={effectiveRates} tax={tax}
+          rates={calcRates} tax={tax}
           saved={crewHistory.find((s) => s.periodKey === periodKey(period))}
           onSave={saveCrew}
           onShiftPeriod={(d) => setPeriodAnchor(ymd(shiftPeriod(period, d).start))}
@@ -521,7 +526,7 @@ function App() {
         />
       )}
 
-      {view === "about" && <AboutView onBack={() => go("home")} rates={effectiveRates} />}
+      {view === "about" && <AboutView onBack={() => go("home")} rates={calcRates} />}
 
       {/* One footnote for every screen (hidden while Home setup is open, so
           the wizard's bottom bar stays the last thing on screen). */}
@@ -550,6 +555,7 @@ function App() {
           dayKey={openDay}
           entry={entries[openDay] || blankDay()}
           mode={mode}
+          otUnit={otUnit}
           slot={rotationSlot(openDay, rotationAnchor)}
           defaultDist={mode === "advanced" ? defaultDist : basicDistance}
           onClose={() => setOpenDay(null)}
@@ -568,6 +574,7 @@ function App() {
           tax={tax} setTax={setTax}
           ratesHistory={ratesHistory} setRatesHistory={setRatesHistory}
           theme={theme} setTheme={setTheme}
+          otUnit={otUnit} setOtUnit={setOtUnit}
           ratesEffective={ratesEffectiveLabel}
           onExportICS={exportICS}
           onReset={reset}
@@ -902,7 +909,7 @@ function AboutView({ onBack, rates }) {
 
         <GuideSection id="settings" open={openGuide} onToggle={toggle} title="Settings and backup" detail="The gear at the top">
           <GuideSteps steps={[
-            <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type.</>,
+            <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type. {b("Count overtime in")} switches between decimal hours (6.5h) and minutes (6h 30m): in minutes every shift counts to the minute and you type short shifts as hours and minutes.</>,
             <>{b("Past rates")}: when rates change, save the old ones with the date they started, so earlier periods stay right.</>,
             <>{b("Backup")}: save everything to a file before you change phones, restore it on the new one, add the period's shifts to your phone's calendar (.ics), or reset this period.</>,
             <>{b("Theme")}: dark, light, or follow your phone.</>,
@@ -917,7 +924,10 @@ function AboutView({ onBack, rates }) {
             <GuideRule label="Taxi" value={`${fmt(r.taxiShort)} Short or ${fmt(r.taxiLong)} Long per 3PM or 10PM shift. None on a day with both a 3PM and a 10PM.`} />
             <GuideRule label="Short shift" value="Earns its allowances only if you worked more than half its hours. The hours still count." />
             <GuideRule label="Hourly rate" value={`Monthly Basic ÷ ${r.threshold}`} />
-            <GuideRule label="Overtime" value={`Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
+            <GuideRule label="Overtime" value={inMinutes(r)
+              ? `Minutes over ${fmtHM(r.threshold)} in the period (not counting holiday time) × hourly rate ÷ 60 × 1.5`
+              : `Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
+            <GuideRule label="Extra shifts" value="Shifts outside your saved rotation. Their time is shown on its own, but it's already in your total hours, so it isn't paid twice." />
             <GuideRule label="Holiday" value="On a public holiday, each shift after the day's first is paid × 2 the hourly rate." />
             <GuideRule label="Leave" value="Hours count as ordinary hours (never × 2); no SP1, SP2, meal or taxi." last />
           </div>

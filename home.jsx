@@ -108,7 +108,7 @@ function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
 /* ----- result at a glance ----- */
 function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc }) {
   const net = estimateNet(totals, tax).net;
-  const extra = rotationStats(entries, period, rotationAnchor).extra;
+  const extra = totals.extraShifts || 0;
   const counts = [
     [totals.cal.pm3, "3PM"],
     [totals.cal.pm10, "10PM"],
@@ -161,9 +161,10 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
         </div>
 
         <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
-          {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtH0(totals.totalHours)}h` : "No shifts logged yet"}
-          {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra</span></>}
-          {totals.holidayHours > 0 && ` · ${fmtH0(totals.holidayHours)}h holiday`}
+          {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtDur(totals.totalHours, totals.rates)}` : "No shifts logged yet"}
+          {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra ({fmtHM(totals.extraHours)})</span></>}
+          {totals.holidayHours > 0 && ` · ${fmtDur(totals.holidayHours, totals.rates)} holiday`}
+          {totals.otHours > 0 && ` · ${fmtDur(totals.otHours, totals.rates)} overtime`}
           {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
           {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
           {totals.duties?.exchangeFor > 0 && ` · ${totals.duties.exchangeFor} exchange for`}

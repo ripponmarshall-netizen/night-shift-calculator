@@ -39,6 +39,11 @@ const {
   applyTemplate,
   extractTemplateFromWeek,
   fmtH0,
+  fmtHM,
+  fmtHMc,
+  fmtDur,
+  memberTotals,
+  newMember,
   blankDay,
   DEFAULT_RATES,
 } = require("./helpers.jsx");
@@ -708,6 +713,109 @@ assert.deepStrictEqual(
 
   assert.strictEqual(am7InPeriod(HOL_PERIOD, "2026-07-01"), "2026-05-18");
   assert.strictEqual(am7InPeriod(HOL_PERIOD, null), null);
+
+  // Extra shifts in the totals: counted, with their hours per shift and in
+  // all, only when the rotation is passed; they stay part of total hours.
+  const withAnchor = aggregate(
+    withExtra,
+    HOL_PERIOD,
+    "basic",
+    "S",
+    HOL_COUNTS,
+    HOL_BASEPAY,
+    HOL_RATES,
+    A,
+  );
+  assert.strictEqual(withAnchor.extraShifts, 2);
+  assert.strictEqual(withAnchor.extraHours, 17); // 7AM 8h + 10PM 9h
+  assert.deepStrictEqual(withAnchor.extraBy, {
+    am7: { n: 1, h: 8 },
+    pm3: { n: 0, h: 0 },
+    pm10: { n: 1, h: 9 },
+  });
+  const noAnchor = agg(withExtra);
+  assert.strictEqual(noAnchor.extraShifts, 0);
+  assert.strictEqual(noAnchor.extraHours, 0);
+  assert.strictEqual(noAnchor.totalHours, withAnchor.totalHours);
+  assert.strictEqual(
+    noAnchor.grand,
+    withAnchor.grand,
+    "extras aren't paid twice",
+  );
+  // A short extra shift counts its real hours; one given away isn't extra.
+  const shortExtra = {
+    ...withExtra,
+    "2026-05-25": D({ am7: 1, hours: { am7: "4.5" } }),
+  };
+  shortExtra["2026-05-23"] = {
+    ...D({ pm3: 1, pm10: 1 }),
+    duty: { pm10: "exchangeLeave" },
+  };
+  const se = aggregate(
+    shortExtra,
+    HOL_PERIOD,
+    "basic",
+    "S",
+    HOL_COUNTS,
+    HOL_BASEPAY,
+    HOL_RATES,
+    A,
+  );
+  assert.strictEqual(se.extraShifts, 1);
+  assert.strictEqual(se.extraHours, 4.5);
+  // Crew members get the same count from the watch's rotation.
+  const mem = newMember("A", "1");
+  assert.strictEqual(
+    memberTotals(withExtra, mem, HOL_PERIOD, HOL_RATES, A).extraShifts,
+    2,
+  );
+  assert.strictEqual(
+    memberTotals(withExtra, mem, HOL_PERIOD, HOL_RATES).extraShifts,
+    0,
+  );
+  const txt = summaryText(withAnchor, "May 16 – Jun 15, 2026");
+  assert.ok(/Extra shifts ×2\s+17h/.test(txt), "summary lists extra shifts");
+  assert.ok(!summaryText(noAnchor, "x").includes("Extra shifts"));
+}
+
+// Overtime counted in minutes: each shift to the whole minute, and the
+// threshold too (173.33h is 173h 20m = 10,400 minutes).
+{
+  const MIN_RATES = { ...HOL_RATES, otUnit: "minutes" };
+  const aggM = (entries) => agg2(entries, MIN_RATES, HOL_BASEPAY);
+  const one = (hours) => ({ [PLAIN]: D({ am7: 1, hours: { am7: hours } }) });
+  // Exactly 173h 20m: a sliver of overtime in decimal hours, none in minutes.
+  const exact = String(173 + 1 / 3);
+  assert.ok(agg(one(exact)).otHours > 0);
+  assert.strictEqual(aggM(one(exact)).otHours, 0);
+  assert.strictEqual(aggM(one(exact)).overtimePay, 0);
+  // 183h 30m = 11,010 min → 610 min over = 10h 10m at $1,000/h × 1.5.
+  const m = aggM(one("183.5"));
+  assert.strictEqual(Math.round(m.otHours * 60), 610);
+  assert.strictEqual(round2(m.overtimePay), 15250);
+  assert.strictEqual(round2(agg(one("183.5")).overtimePay), 15255); // 10.17h
+  // A short shift typed as 6h 40m is stored as 6.666667h and counts 400 min.
+  const s = aggM(one("6.666667"));
+  assert.strictEqual(Math.round(s.totalHours * 60 * 1e6) / 1e6, 400);
+  // Holiday hours also go to the minute (the 10PM's pre-midnight leg).
+  const hol = aggM({ [HOL]: D({ am7: 1, pm10: 1, hours: { pm10: "8" } }) });
+  assert.strictEqual(Math.round(hol.holidayHours * 60 * 1e6) / 1e6, 107); // 2 × 8/9 h
+  // Formatting.
+  assert.strictEqual(fmtHM(0), "0m");
+  assert.strictEqual(fmtHM(0.75), "45m");
+  assert.strictEqual(fmtHM(9), "9h");
+  assert.strictEqual(fmtHM(16 + 2 / 3), "16h\u00a040m");
+  assert.strictEqual(fmtHM(1234.5), "1,234h\u00a030m");
+  assert.strictEqual(fmtDur(16.5, MIN_RATES), "16h\u00a030m");
+  assert.strictEqual(fmtDur(16.5, HOL_RATES), "16.5h");
+  assert.strictEqual(fmtHMc(13 + 2 / 3), "13h40");
+  assert.strictEqual(fmtHMc(9), "9h");
+  assert.strictEqual(fmtHMc(0.75), "45m");
+  const mt = summaryText(m, "x");
+  assert.ok(mt.includes("Overtime ×1.5 · 10h\u00a010m"), "summary in h m");
+  assert.ok(
+    summaryText(agg(one("183.5")), "x").includes("Overtime ×1.5 · 10.17h"),
+  );
 }
 
 // ratesAt: two Past rates entries with the same date — the one saved last

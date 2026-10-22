@@ -14,6 +14,8 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 - **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
 - **Base pay** — Monthly Basic + Compulsory Assignment
 - **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
+  - **Count overtime in hours or minutes** (Settings → Rates). _Hours_ (the default) uses decimal hours (6.5h). _Minutes_ counts every shift to the whole minute, takes the threshold as whole minutes (173.33h is 173h 20m), pays overtime per minute (hourly rate ÷ 60 × 1.5), shows time as hours and minutes everywhere, and lets you type a short shift as hours and minutes in the day editor. A saved result keeps the unit it was worked out in.
+  - **Extra shifts** (shifts outside a saved rotation) are listed on their own with their time in hours and minutes, per shift type and in all, apart from the overtime figure. Their time is already part of total hours, so it's never paid on top.
 - **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, orderly duty, or one side of a shift swap:
   - **Leave** (VL, DL, SL, TO) keeps the shift's hours as ordinary hours (total and overtime; never holiday ×2, even on a public holiday) but drops its SP1, SP2, meal and taxi.
   - **Exchange leave** (EXL): someone else covers your shift. It loses all its hours and allowances, as if it weren't worked (it also never counts as an extra shift or as a day's first shift for the holiday rule).

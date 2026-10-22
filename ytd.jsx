@@ -32,6 +32,10 @@ function YTDDashboard({ snapshots }) {
 
   if (thisYear.length === 0) return null;
 
+  // Hours read as hours and minutes once the latest saved period was
+  // counted in minutes.
+  const latest = [...thisYear].sort((a, b) => String(b.at).localeCompare(String(a.at)))[0];
+  const hrs = inMinutes(latest?.totals?.rates) ? fmtHM : hrs1;
   // Totals count up from zero when History opens.
   const count = (v, format) => <AnimatedNumber value={v} format={format} from={0} durationMs={900} />;
 
@@ -45,9 +49,9 @@ function YTDDashboard({ snapshots }) {
         <KpiTile label="Earned YTD" value={count(stats.total, fmt)} wide
           sub={thisYear.length > 1 ? `avg ${fmt(stats.total / thisYear.length)} per period` : null} />
         {/* Total, not "worked": it includes leave hours. */}
-        <KpiTile label="Total hours" value={count(stats.hours, hrs1)} small />
-        <KpiTile label="Holiday hours" value={count(stats.holHours, hrs1)} small />
-        <KpiTile label="OT hours" value={count(stats.otHours, hrs1)} small />
+        <KpiTile label="Total hours" value={count(stats.hours, hrs)} small />
+        <KpiTile label="Holiday hours" value={count(stats.holHours, hrs)} small />
+        <KpiTile label="OT hours" value={count(stats.otHours, hrs)} small />
       </div>
 
       <div className="label" style={{ marginBottom: 8 }}>By month</div>

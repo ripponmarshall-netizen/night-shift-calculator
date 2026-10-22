@@ -289,12 +289,16 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
         <Sub label="Base Pay subtotal" value={fmt(t.baseSubtotal)} />
 
         <Row label="Extra Hours" muted top />
-        <Row label="Total hours" value={fmtH(t.totalHours)} />
-        <Row label="Holiday hours" value={fmtH(t.holidayHours)} />
+        <Row label="Total hours" value={fmtDur(t.totalHours, t.rates)} />
+        <Row label="Holiday hours" value={fmtDur(t.holidayHours, t.rates)} />
+        <Row label="Overtime hours" value={fmtDur(t.otHours, t.rates)} />
         <Row label="Hourly rate" value={fmt(t.hourlyRate)} />
         <Row label="Holiday pay (×2)" value={fmt(t.holidayPay)} />
         <Row label="Overtime pay (×1.5)" value={fmt(t.overtimePay)} />
         <Sub label="Extra Hours subtotal" value={fmt(t.extraSubtotal)} />
+        {Number(t.extraShifts) > 0 && (
+          <Row label={`Extra shifts ×${t.extraShifts} · outside rotation`} value={fmtHM(t.extraHours)} faint />
+        )}
 
         <DutySummary totals={t} style={{ marginTop: 14 }} />
 
