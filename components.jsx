@@ -194,6 +194,13 @@ function AnimatedNumber({ value, format, durationMs = 350, from }) {
     const to = value;
     const from = fromRef.current;
     const tick = (now) => {
+      // On launch the screen mounts under the loading screen (index.html):
+      // hold the count until the page comes in, so it plays where it's seen.
+      if (document.documentElement.classList.contains("nsc-booting")) {
+        startRef.current = now;
+        rafRef.current = requestAnimationFrame(tick);
+        return;
+      }
       const t = Math.min(1, (now - startRef.current) / durationMs);
       // x(t) = 1 − (1 + ωt)·e^(−ωt), scaled so it's settled by t = 1.
       const eased = t >= 1 ? 1 : 1 - (1 + 7 * t) * Math.exp(-7 * t);

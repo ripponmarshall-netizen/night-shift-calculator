@@ -42,7 +42,9 @@ function DayModal({ dayKey, entry: liveEntry, mode, otUnit, slot, defaultDist, o
   const setHoliday = (v) => onChange((e) => ({ ...e, holiday: v }));
   const setDist = (k, v) => onChange((e) => ({ ...e, dist: { ...e.dist, [k]: v } }));
   const setHours = (k, raw) => onChange((e) => {
-    const v = sanitizeDecimal(raw);
+    // One shift is at most a day long (the math caps it there too).
+    let v = sanitizeDecimal(raw);
+    if (Number(v) > MAX_SHIFT_HOURS) v = String(MAX_SHIFT_HOURS);
     const hours = { ...(e.hours || {}) };
     if (v === "") delete hours[k]; else hours[k] = v;
     return { ...e, hours: Object.keys(hours).length ? hours : undefined };

@@ -8,10 +8,13 @@ function stdHours(key) { return key === "pm10" ? PM10_TOTAL : SHIFT_HOURS[key]; 
 /* Effective hours actually worked for a shift. An entry may carry an optional
    sparse override: hours: { am7?, pm3?, pm10? } (string or number). Absent,
    blank, or invalid => the standard hours, so old entries stay backward
-   compatible. pm10 override is the TOTAL across midnight (default 9). */
+   compatible. pm10 override is the TOTAL across midnight (default 9). One
+   shift can't run past a day, so anything over 24h (a typo like "77" for
+   7.7, or a hand-edited backup) counts as 24. */
+const MAX_SHIFT_HOURS = 24;
 function effHours(e, key) {
   const v = e && e.hours && e.hours[key];
-  return (v == null || v === "" || !(Number(v) >= 0)) ? stdHours(key) : Number(v);
+  return (v == null || v === "" || !(Number(v) >= 0)) ? stdHours(key) : Math.min(MAX_SHIFT_HOURS, Number(v));
 }
 /* Per-shift duty marks. An entry may carry a sparse map
    duty: { am7?, pm3?, pm10? } naming one of these keys; absent => a regular
@@ -69,7 +72,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.19";
+const APP_VERSION = "3.20";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -153,17 +156,33 @@ function jamaicaHolidays(year) {
   const offset = (1 - octFirst.getDay() + 7) % 7;
   const heroesDay = new Date(year, 9, 1 + offset + 14);
 
+  // Weekend dates move to the weekday that's kept as the public holiday
+  // (Holidays (Public General) Act; the Ministry of Labour applies it each
+  // year): New Year's, Emancipation, Independence and Christmas Day move
+  // from a Sunday to the Monday; Labour Day from a Saturday or a Sunday to
+  // the Monday. Christmas on a Sunday makes Monday the 26th and Tuesday the
+  // 27th the holidays; Boxing Day on a Sunday moves to Monday the 27th.
+  // Saturdays otherwise stay put.
+  const observed = (m, d, name, saturdayToo) => {
+    const date = new Date(year, m, d);
+    const dow = date.getDay();
+    const shift = dow === 0 ? 1 : saturdayToo && dow === 6 ? 2 : 0;
+    return { date: addDays(date, shift), name: shift ? `${name} (observed)` : name };
+  };
+  const xmasSunday = new Date(year, 11, 25).getDay() === 0;
   const list = [
-    { date: new Date(year, 0, 1), name: "New Year's Day" },
+    observed(0, 1, "New Year's Day"),
     { date: ashWed, name: "Ash Wednesday" },
     { date: goodFri, name: "Good Friday" },
     { date: easterMon, name: "Easter Monday" },
-    { date: new Date(year, 4, 23), name: "Labour Day" },
-    { date: new Date(year, 7, 1), name: "Emancipation Day" },
-    { date: new Date(year, 7, 6), name: "Independence Day" },
+    observed(4, 23, "Labour Day", true),
+    observed(7, 1, "Emancipation Day"),
+    observed(7, 6, "Independence Day"),
     { date: heroesDay, name: "National Heroes Day" },
-    { date: new Date(year, 11, 25), name: "Christmas Day" },
-    { date: new Date(year, 11, 26), name: "Boxing Day" },
+    observed(11, 25, "Christmas Day"),
+    xmasSunday
+      ? { date: new Date(year, 11, 27), name: "Boxing Day (observed)" }
+      : observed(11, 26, "Boxing Day"),
   ];
   const map = {};
   for (const h of list) map[ymd(h.date)] = h.name;
@@ -1256,7 +1275,7 @@ function toICS(entries) {
 }
 
 const _exports = {
-  SHIFT_HOURS, PM10_TOTAL, stdHours, effHours,
+  SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, stdHours, effHours,
   LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
   SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL,
