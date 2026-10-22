@@ -4,27 +4,36 @@
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #161513;
-  --bg-1: #1d1c19;
-  --bg-2: #252420;
-  --bg-3: #2e2d28;
-  --line: #36342e;
-  --line-soft: #2a2922;
-  --ink: #f5f3ee;
-  --ink-dim: #aba79c;
-  --ink-faint: #7f7b71;
-  --accent: oklch(72% 0.13 45);
-  --accent-ink: #141414;
-  --sp1: oklch(74% 0.12 220);
-  --sp2: oklch(72% 0.13 290);
-  --am: oklch(76% 0.11 145);
-  --holiday: oklch(70% 0.16 25);
-  --warn: oklch(78% 0.14 80);
-  --ok: oklch(72% 0.13 150);
-  --extra: oklch(70% 0.19 340);
+  /* iOS system colours: grouped backgrounds (black page, raised cards),
+     label greys and the system tints, so the app sits naturally next to
+     Apple's own apps. */
+  --bg: #000000;
+  --bg-1: #1c1c1e;
+  --bg-2: #2c2c2e;
+  --bg-3: #3a3a3c;
+  --line: #38383a;
+  --line-soft: #2c2c2e;
+  --ink: #f5f5f7;
+  --ink-dim: #aeaeb2;
+  --ink-faint: #98989d;
+  --accent: #ff9f0a;
+  --accent-ink: #000000;
+  --sp1: #0a84ff;
+  --sp2: #bf5af2;
+  --am: #30d158;
+  --holiday: #ff453a;
+  --warn: #ffd60a;
+  --ok: #30d158;
+  --extra: #ff375f;
   --chip-ink: #111216;
+  /* Gray fills (segmented controls, plain buttons) and the switch. */
+  --fill: rgba(118, 118, 128, 0.24);
+  --seg-pill: #636366;
+  --switch-on: #30d158;
+  --card-edge: rgba(255, 255, 255, 0.05);
+  --glass-edge: rgba(255, 255, 255, 0.1);
   --shadow: 0 16px 40px -16px rgba(0, 0, 0, 0.7);
-  --surface-translucent: rgba(26, 27, 32, 0.94);
+  --surface-translucent: rgba(30, 30, 32, 0.8);
   --r: 16px;
   --r-sm: 12px;
   --r-xs: 6px;
@@ -197,27 +206,34 @@
 
 [data-theme="light"] {
   color-scheme: light;
-  --bg: #faf9f7;
+  --bg: #f2f2f7;
   --bg-1: #ffffff;
-  --bg-2: #f3f1ec;
-  --bg-3: #ebe8e1;
-  --line: #d8d4cb;
-  --line-soft: #e8e4dc;
-  --ink: #1a1815;
-  --ink-dim: #6a665f;
-  --ink-faint: #767368;
-  --accent: oklch(54% 0.14 40);
+  --bg-2: #f2f2f7;
+  --bg-3: #e5e5ea;
+  --line: #d1d1d6;
+  --line-soft: #e5e5ea;
+  --ink: #1d1d1f;
+  --ink-dim: #6e6e73;
+  --ink-faint: #76767b;
+  /* The system tints, darkened where needed so text in them stays
+     readable on white (4.5:1). */
+  --accent: #b84f00;
   --accent-ink: #ffffff;
-  --sp1: oklch(56% 0.16 230);
-  --sp2: oklch(54% 0.18 295);
-  --am: oklch(56% 0.14 150);
-  --holiday: oklch(56% 0.2 25);
-  --warn: oklch(60% 0.17 70);
-  --ok: oklch(54% 0.15 150);
-  --extra: oklch(56% 0.21 340);
+  --sp1: #0071e3;
+  --sp2: #8944ab;
+  --am: #248a3d;
+  --holiday: #d70015;
+  --warn: #a35f00;
+  --ok: #248a3d;
+  --extra: #d30f45;
   --chip-ink: #ffffff;
-  --shadow: 0 16px 40px -20px rgba(36, 28, 12, 0.18);
-  --surface-translucent: rgba(255, 255, 255, 0.94);
+  --fill: rgba(118, 118, 128, 0.12);
+  --seg-pill: #ffffff;
+  --switch-on: #34c759;
+  --card-edge: transparent;
+  --glass-edge: rgba(0, 0, 0, 0.06);
+  --shadow: 0 16px 40px -20px rgba(0, 0, 0, 0.18);
+  --surface-translucent: rgba(255, 255, 255, 0.8);
 }
 
 * {
@@ -228,16 +244,15 @@ body {
   margin: 0;
   padding: 0;
 }
+/* San Francisco on Apple devices; Geist (loaded in index.html) elsewhere. */
 body {
   font-family:
-    "Geist",
-    -apple-system,
-    system-ui,
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Geist", system-ui,
     sans-serif;
   background: var(--bg);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "ss01", "cv11";
+  -webkit-text-size-adjust: 100%;
   overscroll-behavior-y: none;
   transition:
     background 0.18s ease,
@@ -254,9 +269,16 @@ button {
   color: inherit;
 }
 
+/* Figures: the body font with tabular digits (as Apple's apps set money
+   and times), so amounts line up and don't jitter while they count. Real
+   monospace is kept for the worked-out maths. */
 .mono {
-  font-family: "Geist Mono", ui-monospace, monospace;
-  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+pre.mono {
+  font-family: ui-monospace, "SF Mono", "Geist Mono", monospace;
+  letter-spacing: 0;
 }
 
 #root {
@@ -1091,7 +1113,7 @@ button:focus-visible {
 .nsc-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1114,8 +1136,8 @@ button:focus-visible {
 .nsc-modal {
   width: 100%;
   background: var(--bg-1);
-  border: 1px solid var(--line);
-  border-radius: 18px;
+  border: 1px solid var(--card-edge);
+  border-radius: 22px;
   padding: 18px;
   outline: none;
   box-shadow: var(--shadow);
@@ -1151,11 +1173,12 @@ button:focus-visible {
    it, so the usual exit keyframes stand aside. */
 .nsc-grabber {
   display: block;
-  width: 38px;
+  width: 36px;
   height: 5px;
   border-radius: 3px;
-  margin: -6px auto 10px;
-  background: var(--line);
+  margin: -8px auto 10px;
+  background: var(--ink-faint);
+  opacity: 0.45;
 }
 .nsc-modal.is-flung.is-closing,
 .nsc-backdrop.is-flung.is-closing {
@@ -1164,7 +1187,9 @@ button:focus-visible {
 /* Bottom sheets sit above the taskbar (margin-bottom 96px), so cap their
    height to what's left of the screen and scroll inside, or the top of a
    tall sheet (all three shifts, per-shift taxi) goes off-screen on phones. */
+/* Rounder than a dialog, like an iOS sheet. */
 .nsc-sheet {
+  border-radius: 28px;
   margin-bottom: calc(96px + var(--safe-bottom));
   max-height: calc(100vh - 120px - var(--safe-top) - var(--safe-bottom));
   max-height: calc(100dvh - 120px - var(--safe-top) - var(--safe-bottom));
@@ -1642,6 +1667,45 @@ button[role="tab"]:active,
   button:not(:disabled):active {
     scale: none;
   }
+}
+
+/* iOS switch for on/off settings (a styled checkbox, so it stays a real,
+   labelled form control). The knob slides on a spring. */
+input.nsc-switch {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  flex-shrink: 0;
+  width: 51px;
+  height: 31px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+[data-theme="dark"] input.nsc-switch {
+  background: rgba(120, 120, 128, 0.32);
+}
+input.nsc-switch::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.15),
+    0 3px 1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.45s var(--ease-snappy);
+}
+input.nsc-switch:checked {
+  background: var(--switch-on);
+}
+input.nsc-switch:checked::before {
+  transform: translateX(20px);
 }
 
 /* Reconcile rows: label · amount paid · variance. On a narrow phone there

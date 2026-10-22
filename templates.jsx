@@ -75,9 +75,9 @@ function TemplatesModal({ templates, onSave, onDelete, onApply, currentEntries, 
 
                 {selectedTpl && (
                   <>
-                    <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "4px 0", marginTop: 6 }}>
-                      <input type="checkbox" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} style={{ accentColor: "var(--accent)" }} />
-                      <span style={{ fontSize: 13.5 }}>Keep days that already have shifts</span>
+                    <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", padding: "4px 0", marginTop: 6 }}>
+                      <span style={{ fontSize: 14, flex: 1 }}>Keep days that already have shifts</span>
+                      <input type="checkbox" className="nsc-switch" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} />
                     </label>
                     <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
                       <button onClick={close} style={ghostBtn()}>Cancel</button>
@@ -142,7 +142,7 @@ function TemplateRow({ t, active, onSelect, onDelete }) {
           if (await askConfirm({ title: `Delete "${t.name}"?`, body: "Shifts already on your calendar aren't affected.", confirmLabel: "Delete", danger: true })) onDelete();
         }}
           style={{ ...iconBtn(), width: 36, height: 36, fontSize: 13 }}
-          aria-label="Delete template">✕</button>
+          aria-label="Delete template"><XIcon size={11} /></button>
       </div>
       <TemplatePreview dows={t.days} small />
     </div>

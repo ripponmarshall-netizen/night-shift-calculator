@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.18";
+const APP_VERSION = "3.19";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -909,7 +909,8 @@ function sanitizeCrewHistory(list) {
     for (const [k, v] of Object.entries(isObj(o) ? o : {})) {
       if (typeof v === "number" && Number.isFinite(v)) out[k] = v;
       else if (deep && isObj(v)) out[k] = nums(v, false);
-      else if (typeof v === "string" && (k === "mode" || k === "basicDistance")) out[k] = v.slice(0, 10);
+      // otUnit (inside rates) keeps hours shown in the unit they were counted in.
+      else if (typeof v === "string" && (k === "mode" || k === "basicDistance" || k === "otUnit")) out[k] = v.slice(0, 10);
     }
     return out;
   };
@@ -984,7 +985,7 @@ function crewText(rows, periodStr) {
   for (const { member: m, totals: t, net } of rows) {
     allow += Number(t.allowanceSubtotal) || 0; gross += Number(t.grand) || 0;
     lines.push("", (m.rank ? `${m.rank} ` : "") + (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
-    lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10} · ${fmtH0(t.totalHours)}h`);
+    lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10} · ${fmtDur(t.totalHours, t.rates)}`);
     const off = [t.leaveShifts > 0 && `${t.leaveShifts} on leave`, t.exchangedShifts > 0 && `${t.exchangedShifts} exchanged out`].filter(Boolean);
     if (off.length) lines.push("  " + off.join(" · "));
     lines.push(row("Allowances", fmt(t.allowanceSubtotal)));
@@ -1073,6 +1074,70 @@ function estimateNet(totals, tx) {
   const taxable = Math.max(0, grand - exempt);
   const r = calcTax(taxable, tx);
   return { ...r, taxable, exempt, net: grand - r.deductions };
+}
+
+/* ----- backup lists -----
+   Past rates, templates and saved results from a backup file, kept only in
+   the shape the screens read. A hand-edited or foreign file could otherwise
+   hold an entry with no rates, no days or no totals, which would crash
+   Settings, Templates or History the moment it's drawn. */
+const isPlainObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/* Every rate a number >= 0 (a missing one falls back to its default, so it
+   can't quietly pay $0); the threshold must stay above 0. */
+function sanitizeRates(r) {
+  const out = { ...DEFAULT_RATES };
+  if (!isPlainObj(r)) return out;
+  for (const k of Object.keys(DEFAULT_RATES)) {
+    const n = Number(r[k]);
+    if (r[k] !== "" && r[k] != null && Number.isFinite(n) && n >= 0 && (k !== "threshold" || n > 0)) out[k] = n;
+  }
+  return out;
+}
+
+function sanitizeRatesHistory(list) {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((e) => isPlainObj(e) && typeof e.effectiveFrom === "string" && DATE_KEY.test(e.effectiveFrom.slice(0, 10)))
+    .map((e) => ({ effectiveFrom: e.effectiveFrom.slice(0, 10), rates: sanitizeRates(e.rates) }));
+}
+
+function sanitizeTemplates(list) {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.filter((t) => isPlainObj(t) && isPlainObj(t.days)).map((t, i) => {
+    let id = typeof t.id === "string" && t.id ? t.id.slice(0, 40) : `tpl-${i}`;
+    if (seen.has(id)) id = `${id}-${i}`;
+    seen.add(id);
+    const days = {};
+    for (let dow = 0; dow < 7; dow++) {
+      const d = t.days[dow];
+      if (!isPlainObj(d) || !hasShifts(d)) continue;
+      const dist = {};
+      for (const k of ["am7", "pm3", "pm10"]) dist[k] = d.dist?.[k] === "L" ? "L" : "S";
+      days[dow] = { am7: !!d.am7, pm3: !!d.pm3, pm10: !!d.pm10, dist };
+    }
+    return { ...t, id, name: typeof t.name === "string" && t.name.trim() ? t.name.slice(0, 60) : "Template", days };
+  });
+}
+
+/* Saved results need their totals and a unique `at` (History finds, opens
+   and deletes each one by it). */
+function sanitizeSnapshots(list) {
+  if (!Array.isArray(list)) return [];
+  const seenAt = new Set();
+  return list.filter((s) => isPlainObj(s) && isPlainObj(s.totals)).map((s, i) => {
+    let at = typeof s.at === "string" && !Number.isNaN(Date.parse(s.at)) ? s.at : "";
+    // A unique stand-in that still reads as a date (1970, plus i ms).
+    if (!at || seenAt.has(at)) at = new Date(i).toISOString();
+    seenAt.add(at);
+    const out = { ...s, at };
+    if (typeof out.periodKey !== "string" || !DATE_KEY.test(out.periodKey)) delete out.periodKey;
+    if (typeof out.period !== "string") out.period = out.periodKey ? periodLabel(periodFor(fromYmd(out.periodKey))) : "Saved result";
+    if (!isPlainObj(out.reconcile)) delete out.reconcile;
+    return out;
+  });
 }
 
 /* ----- Rate history lookup ----- */
@@ -1202,6 +1267,7 @@ const _exports = {
   blankDay, sanitizeEntries, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
+  sanitizeRates, sanitizeRatesHistory, sanitizeTemplates, sanitizeSnapshots,
   calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   blankCrew, newMember, memberEntries, memberTotals, sameEntry, setMemberDay, memberDiffKeys,
   sortMembers, sanitizeCrew, crewDayFrom, crewRows, crewCsv, crewText,

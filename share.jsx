@@ -1,5 +1,9 @@
 /* share.jsx — render snapshot as PNG image for sharing */
 
+// The app's own type: San Francisco on Apple devices, Geist elsewhere.
+const SANS = '-apple-system, "SF Pro Display", "Geist", system-ui, sans-serif';
+const FIG = '-apple-system, "SF Pro Text", "Geist", system-ui, sans-serif';
+
 function renderSnapshotCanvas(snap, theme = "dark") {
   // Legacy/imported snapshots may lack totals; draw zeros rather than throw.
   snap = { ...snap, totals: snap.totals || {} };
@@ -16,31 +20,31 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   const isDark = theme !== "light";
   const colors = isDark ? {
-    bg: "#161513",
-    card: "#1d1c19",
-    section: "#252420",
-    line: "#36342e",
-    ink: "#f5f3ee",
-    dim: "#aba79c",
-    faint: "#7f7b71",
-    accent: "#e4875f",
-    accentInk: "#141414",
-    sp1: "#7eb3e0",
-    sp2: "#a48cd8",
-    am: "#86c69d",
+    bg: "#000000",
+    card: "#1c1c1e",
+    section: "#2c2c2e",
+    line: "#38383a",
+    ink: "#f5f5f7",
+    dim: "#aeaeb2",
+    faint: "#98989d",
+    accent: "#ff9f0a",
+    accentInk: "#000000",
+    sp1: "#0a84ff",
+    sp2: "#bf5af2",
+    am: "#30d158",
   } : {
-    bg: "#faf9f7",
+    bg: "#f2f2f7",
     card: "#ffffff",
-    section: "#f3f1ec",
-    line: "#d8d4cb",
-    ink: "#1a1815",
-    dim: "#6a665f",
-    faint: "#767368",
-    accent: "#a8502c",
+    section: "#f2f2f7",
+    line: "#d1d1d6",
+    ink: "#1d1d1f",
+    dim: "#6e6e73",
+    faint: "#76767b",
+    accent: "#b84f00",
     accentInk: "#ffffff",
-    sp1: "#3d72b3",
-    sp2: "#7757c0",
-    am: "#3f8b5d",
+    sp1: "#0071e3",
+    sp2: "#8944ab",
+    am: "#248a3d",
   };
 
   // bg
@@ -58,18 +62,18 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   // header
   ctx.fillStyle = colors.faint;
-  ctx.font = '600 22px "Geist Mono", monospace';
+  ctx.font = `600 22px ${FIG}`;
   ctx.textBaseline = "top";
   // Same taxi wording as the app (Short / Long / Varies).
   const taxi = snap.mode === "advanced" ? "TAXI VARIES" : snap.basicDistance === "L" ? "LONG TAXI" : "SHORT TAXI";
   ctx.fillText("NIGHT SHIFT · " + taxi, pad + 50, pad + 50);
 
   ctx.fillStyle = colors.ink;
-  ctx.font = '700 56px "Geist", system-ui';
+  ctx.font = `700 56px ${SANS}`;
   ctx.fillText("Pay Summary", pad + 50, pad + 88);
 
   ctx.fillStyle = colors.dim;
-  ctx.font = '500 28px "Geist", system-ui';
+  ctx.font = `500 28px ${SANS}`;
   ctx.fillText(snap.period, pad + 50, pad + 168);
 
   // big total chip
@@ -84,12 +88,12 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   ctx.stroke();
 
   ctx.fillStyle = colors.accent;
-  ctx.font = '700 22px "Geist Mono", monospace';
+  ctx.font = `700 22px ${FIG}`;
   // What the number actually is: gross only when a monthly basic was set.
   ctx.fillText(totalLabel(snap.totals).toUpperCase(), pad + 80, chipY + 26);
 
   ctx.fillStyle = colors.ink;
-  ctx.font = '700 68px "Geist Mono", monospace';
+  ctx.font = `700 68px ${FIG}`;
   ctx.fillText(fmt(snap.totals.grand), pad + 80, chipY + 62);
 
   // breakdown sections
@@ -130,7 +134,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
 
   // footer
   ctx.fillStyle = colors.faint;
-  ctx.font = '500 20px "Geist Mono", monospace';
+  ctx.font = `500 20px ${FIG}`;
   ctx.textAlign = "center";
   ctx.fillText("Night Shift Calculator · Estimate only · Saved " + new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), W / 2, H - pad - 60);
   ctx.textAlign = "left";
@@ -147,10 +151,10 @@ function drawSection(ctx, label, subtotal, x, y, w, accent, colors) {
   ctx.fillStyle = accent;
   ctx.fillRect(x + 12, y + 16, 8, 24);
   ctx.fillStyle = colors.ink;
-  ctx.font = '600 26px "Geist", system-ui';
+  ctx.font = `600 26px ${SANS}`;
   ctx.textBaseline = "middle";
   ctx.fillText(label, x + 32, y + 28);
-  ctx.font = '700 28px "Geist Mono", monospace';
+  ctx.font = `700 28px ${FIG}`;
   ctx.textAlign = "right";
   ctx.fillText(fmt(subtotal), x + w - 16, y + 28);
   ctx.textAlign = "left";
@@ -160,10 +164,10 @@ function drawSection(ctx, label, subtotal, x, y, w, accent, colors) {
 
 function drawLine(ctx, label, value, x, y, w, colors) {
   ctx.fillStyle = colors.dim;
-  ctx.font = '500 22px "Geist", system-ui';
+  ctx.font = `500 22px ${SANS}`;
   ctx.fillText(label, x, y);
   ctx.fillStyle = colors.ink;
-  ctx.font = '500 22px "Geist Mono", monospace';
+  ctx.font = `500 22px ${FIG}`;
   ctx.textAlign = "right";
   ctx.fillText(value, x + w, y);
   ctx.textAlign = "left";

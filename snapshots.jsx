@@ -222,9 +222,9 @@ function SnapRow({ snap, delta, onOpen, onDelete }) {
             </div>
           )}
         </div>
-        <span aria-hidden style={{ color: "var(--ink-faint)", fontSize: 18, paddingLeft: 2 }}>›</span>
+        <span aria-hidden style={{ color: "var(--ink-faint)", display: "inline-flex", paddingLeft: 2 }}><ChevronIcon size={13} /></span>
       </button>
-      <button onClick={onDelete} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", marginRight: 4, flexShrink: 0 }} aria-label={`Delete ${snap.period}`} title="Delete">✕</button>
+      <button onClick={onDelete} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", marginRight: 4, flexShrink: 0 }} aria-label={`Delete ${snap.period}`} title="Delete"><XIcon /></button>
     </div>
   );
 }

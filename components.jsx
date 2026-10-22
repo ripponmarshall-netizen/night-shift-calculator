@@ -5,8 +5,8 @@ function Card({ children, style, id }) {
   return (
     <section id={id} style={{
       background: "var(--bg-1)",
-      border: "1px solid var(--line-soft)",
-      borderRadius: 16,
+      border: "1px solid var(--card-edge)",
+      borderRadius: 20,
       padding: 18,
       marginBottom: 14,
       ...style,
@@ -18,7 +18,7 @@ function SectionHead({ title, subtitle, right }) {
   return (
     <div style={{ marginBottom: 12, display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 15, fontWeight: 600, letterSpacing: "-0.005em" }}>{title}</div>
+        <div style={{ fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>{title}</div>
         {subtitle && <div style={{ fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>{subtitle}</div>}
       </div>
       {right}
@@ -91,13 +91,15 @@ function SegToggle({ options, value, onChange, small, full, wrap, fit }) {
           ? { display: "flex", flexWrap: "wrap" }
           : { display: full ? "grid" : "inline-grid", gridAutoFlow: "column", gridAutoColumns: full ? "1fr" : undefined }),
       position: "relative", isolation: "isolate",
-      background: "var(--bg-2)", border: "1px solid var(--line)",
-      borderRadius: 10, padding: 3, gap: 2,
+      // An iOS segmented control: a gray track and a raised pill.
+      background: "var(--fill)", border: "1px solid transparent",
+      borderRadius: 10, padding: 2, gap: 2,
     }}>
       {pill && (
         <span aria-hidden className="nsc-seg-pill" style={{
           position: "absolute", left: 0, top: 0, zIndex: -1,
-          width: pill.w, height: pill.h, borderRadius: 8, background: "var(--ink)",
+          width: pill.w, height: pill.h, borderRadius: 8, background: "var(--seg-pill)",
+          boxShadow: "0 3px 8px rgba(0,0,0,0.12), 0 3px 1px rgba(0,0,0,0.04)",
           transform: `translate(${pill.x}px, ${pill.y}px)`,
         }} />
       )}
@@ -111,8 +113,8 @@ function SegToggle({ options, value, onChange, small, full, wrap, fit }) {
             flex: fit ? "1 1 auto" : undefined,
             borderRadius: 8, border: "none",
             // Until the pill is measured, paint the active option directly.
-            background: active && !pill ? "var(--ink)" : "transparent",
-            color: active ? "var(--bg)" : "var(--ink-dim)",
+            background: active && !pill ? "var(--seg-pill)" : "transparent",
+            color: active ? "var(--ink)" : "var(--ink-dim)",
             fontSize: small ? 12 : 13, fontWeight: active ? 600 : 500,
             cursor: "pointer", whiteSpace: "nowrap", fontFamily: "inherit",
             transition: "color 0.2s ease, var(--press)",
@@ -123,11 +125,12 @@ function SegToggle({ options, value, onChange, small, full, wrap, fit }) {
   );
 }
 
-/* 44px: Apple's minimum comfortable tap target. */
+/* 44px: Apple's minimum comfortable tap target. A round gray button, as
+   iOS draws toolbar and close buttons. */
 function iconBtn() {
   return {
-    width: 44, height: 44, borderRadius: 12,
-    background: "var(--bg-2)", border: "1px solid var(--line)",
+    width: 44, height: 44, borderRadius: 999,
+    background: "var(--fill)", border: "1px solid transparent",
     color: "var(--ink)", cursor: "pointer",
     display: "inline-flex", alignItems: "center", justifyContent: "center",
     fontSize: 16, fontFamily: "inherit",
@@ -135,15 +138,16 @@ function iconBtn() {
 }
 function primaryBtn() {
   return {
-    padding: "10px 16px", borderRadius: 10, border: "none",
-    background: "var(--ink)", color: "var(--bg)",
+    padding: "10px 16px", borderRadius: 12, border: "none",
+    background: "var(--ink)", color: "var(--bg-1)",
     fontWeight: 600, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit",
   };
 }
 function ghostBtn() {
   return {
-    padding: "10px 14px", borderRadius: 10,
-    border: "1px solid var(--line)", background: "var(--bg-2)",
+    padding: "10px 14px", borderRadius: 12,
+    // A gray (not outlined) button, as iOS draws secondary actions.
+    border: "1px solid transparent", background: "var(--fill)",
     color: "var(--ink)", fontSize: 13, cursor: "pointer", fontWeight: 500, fontFamily: "inherit",
   };
 }
@@ -157,7 +161,7 @@ function linkBtn(fontSize = "inherit") {
 }
 function accentBtn() {
   return {
-    padding: "10px 14px", borderRadius: 10, border: "none",
+    padding: "10px 14px", borderRadius: 12, border: "none",
     background: "var(--accent)", color: "var(--accent-ink)",
     fontWeight: 600, fontSize: 13.5, cursor: "pointer", fontFamily: "inherit",
   };
@@ -386,8 +390,8 @@ function ToastHost() {
     }}>
       <div key={toast.id} className={"nsc-toast" + (toast.leaving ? " is-leaving" : "")} style={{
         background: "var(--surface-translucent)",
-        backdropFilter: "blur(24px) saturate(140%)", WebkitBackdropFilter: "blur(24px) saturate(140%)",
-        border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
+        backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        border: "1px solid var(--glass-edge)",
         color: "var(--ink)", borderRadius: 999, padding: toast.action ? "6px 6px 6px 16px" : "10px 16px", fontSize: 13,
         boxShadow: "0 12px 32px -16px rgba(0,0,0,0.7)", maxWidth: 420,
         display: "flex", alignItems: "center", gap: 12,
@@ -611,8 +615,24 @@ function ModalHead({ eyebrow, title, onClose, children }) {
         <div style={{ fontSize: eyebrow ? 17 : 18, fontWeight: 600, marginTop: eyebrow ? 2 : 0 }}>{title}</div>
         {children}
       </div>
-      <button onClick={onClose} style={{ ...iconBtn(), flexShrink: 0 }} aria-label="Close">✕</button>
+      <button onClick={onClose} style={{ ...iconBtn(), flexShrink: 0, color: "var(--ink-dim)" }} aria-label="Close"><XIcon /></button>
     </div>
+  );
+}
+
+/* The close mark (SF Symbols' xmark), drawn so it's crisp at any size. */
+function XIcon({ size = 13 }) {
+  return (
+    <svg aria-hidden width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M2 2l10 10M12 2L2 12" />
+    </svg>
+  );
+}
+function ChevronIcon({ dir = "right", size = 14 }) {
+  return (
+    <svg aria-hidden width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d={dir === "left" ? "M9 2L4 7l5 5" : "M5 2l5 5-5 5"} />
+    </svg>
   );
 }
 
@@ -624,8 +644,8 @@ function PeriodNav({ period, onShift, style }) {
         <div className="label">Pay period</div>
         <div style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>{periodLabel(period)}</div>
       </div>
-      <button onClick={() => onShift(-1)} style={iconBtn()} aria-label="Previous period">‹</button>
-      <button onClick={() => onShift(1)} style={iconBtn()} aria-label="Next period">›</button>
+      <button onClick={() => onShift(-1)} style={iconBtn()} aria-label="Previous period"><ChevronIcon dir="left" /></button>
+      <button onClick={() => onShift(1)} style={iconBtn()} aria-label="Next period"><ChevronIcon /></button>
     </div>
   );
 }
@@ -637,7 +657,7 @@ function ChoiceCard({ active, onClick, title, detail, color }) {
     <button onClick={onClick} aria-pressed={active} style={{
       padding: "12px 14px", borderRadius: 12, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
       background: active ? "color-mix(in oklab, var(--accent) 12%, var(--bg-2))" : "var(--bg-2)",
-      border: `1.5px solid ${active ? "var(--accent)" : "var(--line)"}`,
+      border: `1.5px solid ${active ? "var(--accent)" : "transparent"}`,
       color: "var(--ink)", display: "flex", flexDirection: "column", gap: 4,
       transition: "background 0.15s, border-color 0.15s, var(--press)",
     }}>
@@ -659,9 +679,10 @@ function DutySummary({ totals, style }) {
   if (!kinds.length) return null;
   const leaveH = Number(totals.leaveHours) || 0;
   const exchH = Number(totals.exchangedHours) || 0;
+  // In the unit the result was counted in (16.5h, or 16h 30m by the minute).
   const hoursNote = [
-    leaveH > 0 && <span key="l"><span className="mono">{fmtH0(leaveH)}</span>h on leave</span>,
-    exchH > 0 && <span key="x"><span className="mono">{fmtH0(exchH)}</span>h swapped out</span>,
+    leaveH > 0 && <span key="l"><span className="mono">{fmtDur(leaveH, totals.rates)}</span> on leave</span>,
+    exchH > 0 && <span key="x"><span className="mono">{fmtDur(exchH, totals.rates)}</span> swapped out</span>,
   ].filter(Boolean);
   const notes = [
     Number(totals.leaveShifts) > 0 && "Leave hours count as ordinary hours toward your total and overtime, never holiday ×2. No SP1, SP2, meal or taxi on those shifts.",
@@ -957,7 +978,7 @@ function useModalDismiss(onClose) {
 Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
-  ModalFrame, ModalHead, PeriodNav, ChoiceCard,
+  ModalFrame, ModalHead, PeriodNav, ChoiceCard, XIcon, ChevronIcon,
   AnimatedNumber, springTo, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
   openBackLayer, closeBackLayer,
   prefersReducedMotion, Collapse, showToast, ToastHost,

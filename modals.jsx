@@ -533,9 +533,9 @@ function TaxTab({ tax, setTax }) {
   const field = (k, label, unit) => <RateInput label={label} unit={unit} value={draft[k]} onChange={(v) => set(k, v)} error={errors[k]} />;
   return (
     <div>
-      <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", cursor: "pointer" }}>
-        <input type="checkbox" checked={draft.enabled} onChange={(e) => set("enabled", e.target.checked)} style={{ accentColor: "var(--accent)", width: 18, height: 18 }} />
-        <span style={{ fontSize: 13.5 }}>Calculate Jamaica payroll deductions (NIS, NHT, Education Tax, PAYE)</span>
+      <label style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", cursor: "pointer" }}>
+        <span style={{ fontSize: 14, flex: 1 }}>Calculate Jamaica payroll deductions (NIS, NHT, Education Tax, PAYE)</span>
+        <input type="checkbox" className="nsc-switch" checked={draft.enabled} onChange={(e) => set("enabled", e.target.checked)} />
       </label>
       {draft.enabled && (
         <>
@@ -611,7 +611,7 @@ function RateHistoryTab({ ratesHistory, setRatesHistory, currentRates }) {
                   </div>
                 </div>
                 {/* Delete by identity: `list` is sorted, so its index doesn't match ratesHistory's. */}
-                <button onClick={() => remove(e)} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", flexShrink: 0 }} aria-label="Delete these rates" title="Delete">✕</button>
+                <button onClick={() => remove(e)} style={{ ...iconBtn(), background: "transparent", border: "none", color: "var(--ink-faint)", flexShrink: 0 }} aria-label="Delete these rates" title="Delete"><XIcon /></button>
               </div>
             </AnimatedRow>
           ))}
@@ -633,9 +633,9 @@ function ThemeTab({ theme, setTheme }) {
     <div>
       <div className="label" style={{ marginBottom: 12 }}>Appearance</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#161513", ink: "#f5f3ee", accent: "#e4875f" }} />
-        <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#faf9f7", ink: "#1a1815", accent: "#a8502c" }} />
-        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #161513 0%, #161513 49%, #faf9f7 51%, #faf9f7 100%)", ink: "#aba79c", accent: "#c66c45" }} />
+        <ThemeCard active={theme === "dark"} onClick={() => setTheme("dark")} label="Dark" preview={{ bg: "#000000", ink: "#f5f5f7", accent: "#ff9f0a" }} />
+        <ThemeCard active={theme === "light"} onClick={() => setTheme("light")} label="Light" preview={{ bg: "#f2f2f7", ink: "#1d1d1f", accent: "#b84f00" }} />
+        <ThemeCard active={theme === "auto"} onClick={() => setTheme("auto")} label="Auto" preview={{ bg: "linear-gradient(135deg, #000000 0%, #000000 49%, #f2f2f7 51%, #f2f2f7 100%)", ink: "#8e8e93", accent: "#ff9f0a" }} />
       </div>
       <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 10 }}>
         Auto follows your phone's light or dark setting.
@@ -766,9 +766,9 @@ function AutofillModal({ period, mode, defaultDist, rotationAnchor, existing, on
           </>
         )}
 
-        <label style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14, cursor: "pointer", padding: "8px 0" }}>
-          <input type="checkbox" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} style={{ accentColor: "var(--accent)", width: 18, height: 18 }} />
-          <span style={{ fontSize: 13.5 }}>Keep days that already have shifts</span>
+        <label style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, cursor: "pointer", padding: "8px 0" }}>
+          <span style={{ fontSize: 14, flex: 1 }}>Keep days that already have shifts</span>
+          <input type="checkbox" className="nsc-switch" checked={preserve} onChange={(e) => setPreserve(e.target.checked)} />
         </label>
 
         <div style={{
