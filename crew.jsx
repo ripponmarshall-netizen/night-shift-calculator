@@ -444,7 +444,11 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "16px 20px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-        <button onClick={onBack} style={{ ...ghostBtn(), padding: "8px 12px" }}>‹ Watch</button>
+        {/* An iOS back button: the tint colour, a chevron and where it goes. */}
+        <button onClick={onBack} style={{
+          display: "inline-flex", alignItems: "center", gap: 4, minHeight: 44, padding: "0 8px 0 0",
+          background: "transparent", border: "none", color: "var(--accent)", fontSize: 16, fontWeight: 500, cursor: "pointer",
+        }}><ChevronIcon dir="left" size={16} />Watch</button>
         <div style={{ flex: 1, minWidth: 0, fontSize: 16, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {m.name || "Unnamed"}
         </div>

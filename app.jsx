@@ -99,7 +99,7 @@ function App() {
       // wrong theme); keep the two in step.
       document.documentElement.setAttribute("data-theme", resolved);
       const meta = document.getElementById("theme-color-meta");
-      if (meta) meta.setAttribute("content", resolved === "light" ? "#faf9f7" : "#161513");
+      if (meta) meta.setAttribute("content", resolved === "light" ? "#f2f2f7" : "#000000");
     };
     apply();
     if (theme === "auto" && mq) {
@@ -228,7 +228,8 @@ function App() {
       return;
     }
     const ics = toICS(periodEntries);
-    downloadBlob(new Blob([ics], { type: "text/calendar" }), `night-shift-${periodAnchor}.ics`);
+    // Named for the period it holds (periodAnchor can be any day in it).
+    downloadBlob(new Blob([ics], { type: "text/calendar" }), `night-shift-${periodKey(period)}.ics`);
   };
 
   /* clipboard (long-press to copy day shifts) */
@@ -319,13 +320,15 @@ function App() {
           }
           return out;
         };
-        if (isObj(obj.rates)) setRates(numbers(DEFAULT_RATES, obj.rates));
+        if (isObj(obj.rates)) setRates(sanitizeRates(obj.rates));
         if (isObj(obj.tax)) setTax(numbers(DEFAULT_TAX, obj.tax));
-        if (Array.isArray(obj.ratesHistory)) setRatesHistory(obj.ratesHistory);
-        if (Array.isArray(obj.templates)) setTemplates(obj.templates);
+        // Lists keep only entries in the shape their screens read, so one
+        // broken entry can't crash Settings, Templates or History.
+        if (Array.isArray(obj.ratesHistory)) setRatesHistory(sanitizeRatesHistory(obj.ratesHistory));
+        if (Array.isArray(obj.templates)) setTemplates(sanitizeTemplates(obj.templates));
         if (oneOf(obj.theme, ["auto", "dark", "light"])) setTheme(obj.theme);
         if (oneOf(obj.otUnit, OT_UNITS)) setOtUnit(obj.otUnit);
-        if (Array.isArray(obj.snapshots)) setSnapshots(obj.snapshots);
+        if (Array.isArray(obj.snapshots)) setSnapshots(sanitizeSnapshots(obj.snapshots));
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
         if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
         const importedCrew = sanitizeCrew(obj.crew);
@@ -344,14 +347,18 @@ function App() {
 
   /* Home setup: the wizard hands over generated entries; the calculator's own
      state and engine do the rest. replace clears only this period's days. */
-  const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c, anchor }) => {
+  const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c, anchor, keepTaxi }) => {
     setEntries((prev) => mergePeriodFill(prev, period, fill, replace));
     // Rotation answers save the rotation; totals don't follow one, so clear it.
     if (anchor !== undefined) setRotationAnchor(anchor);
     setBasePay(bp);
-    setBasicDistance(dist);
-    setDefaultDist(dist);
-    if (replace) setMode("basic");
+    // keepTaxi (Home's one-tap rotation fill): no taxi question was asked,
+    // so the Short / Long / Varies choice stays as it was.
+    if (!keepTaxi) {
+      setBasicDistance(dist);
+      setDefaultDist(dist);
+      if (replace) setMode("basic");
+    }
     if (c) setCounts(c);
     setOnboarded(true);
   };
@@ -453,7 +460,7 @@ function App() {
       {view === "home" && (
         <HomeView
           period={period} entries={entries} mode={mode}
-          basePay={basePay} basicDistance={basicDistance} counts={counts}
+          basePay={basePay} basicDistance={basicDistance} defaultDist={defaultDist} counts={counts}
           totals={totals} tax={tax} rates={calcRates}
           ratesEffective={ratesEffectiveLabel}
           onboarded={onboarded}
@@ -1079,9 +1086,9 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
           style={{ display: "flex", justifyContent: "center", padding: "0 16px 8px", pointerEvents: "none" }}>
           <div ref={totalChipRef} className="total-chip" style={{
             background: "var(--surface-translucent)",
-            backdropFilter: "blur(24px) saturate(140%)",
-            WebkitBackdropFilter: "blur(24px) saturate(140%)",
-            border: "1px solid color-mix(in oklab, var(--accent) 35%, var(--line))",
+            backdropFilter: "blur(20px) saturate(180%)",
+            WebkitBackdropFilter: "blur(20px) saturate(180%)",
+            border: "1px solid var(--glass-edge)",
             borderRadius: 999,
             padding: "8px 16px",
             display: "inline-flex", alignItems: "center", gap: 10,
@@ -1099,11 +1106,12 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
 
       <div className="nsc-dock" style={{ maxWidth: 420, margin: "0 auto", padding: "0 16px 12px", pointerEvents: "auto" }}>
         <div role="tablist" style={{
+          // A floating capsule of frosted glass, like the iOS tab bar.
           background: "var(--surface-translucent)",
-          backdropFilter: "blur(24px) saturate(140%)",
-          WebkitBackdropFilter: "blur(24px) saturate(140%)",
-          border: "1px solid var(--line)",
-          borderRadius: 20,
+          backdropFilter: "blur(20px) saturate(180%)",
+          WebkitBackdropFilter: "blur(20px) saturate(180%)",
+          border: "1px solid var(--glass-edge)",
+          borderRadius: 30,
           padding: 5,
           display: "grid",
           gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
@@ -1119,7 +1127,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
               position: "absolute", top: 5, bottom: 5, left: 5, zIndex: -1,
               width: `calc((100% - 10px - ${(tabs.length - 1) * 4}px) / ${tabs.length})`,
               transform: `translateX(calc(${activeIndex} * (100% + 4px)))`,
-              borderRadius: 15, background: "color-mix(in oklab, var(--accent) 16%, transparent)",
+              borderRadius: 25, background: "var(--fill)",
             }} />
           )}
           {tabs.map((t) => {
@@ -1135,7 +1143,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
                   padding: "9px 6px 7px",
                   border: "none",
-                  borderRadius: 15,
+                  borderRadius: 25,
                   background: "transparent",
                   color: active ? "var(--accent)" : "var(--ink-dim)",
                   cursor: "pointer",
@@ -1147,7 +1155,7 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
                 {/* Keyed by state, so the icon squashes and springs back
                     each time its tab is picked. */}
                 <span key={active ? "on" : "off"} className={active ? "nsc-tab-pop" : undefined} style={{ display: "inline-flex" }}><Icon /></span>
-                <span style={{ fontSize: 11.5, fontWeight: active ? 600 : 500 }}>{t.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.005em" }}>{t.label}</span>
                 {t.badge > 0 && !active && (
                   // Keyed by the count, so it pops when a period is saved.
                   <span key={t.badge} className="mono nsc-pop" style={{

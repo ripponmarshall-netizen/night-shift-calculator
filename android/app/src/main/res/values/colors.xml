@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="barColor">#161513</color>
+    <color name="barColor">#000000</color>
     <color name="iconBackground">#0B0B0C</color>
 </resources>

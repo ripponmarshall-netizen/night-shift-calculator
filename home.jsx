@@ -9,7 +9,7 @@ function periodShiftDays(entries, period) {
 }
 
 function HomeView(props) {
-  const { period, entries, basePay, basicDistance, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply, onWizardChange } = props;
+  const { period, entries, mode, basePay, basicDistance, defaultDist, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply, onWizardChange } = props;
   const [wizard, setWizard] = useStateH(false);
   // The app hides the tab bar while setup is open, so the wizard's own
   // Back / See my pay bar can sit at the bottom of the screen.
@@ -49,11 +49,13 @@ function HomeView(props) {
   }, [wizard]);
   const shiftDays = periodShiftDays(entries, period);
   // A saved rotation runs on into every period, so an empty new period can be
-  // filled in one tap with the same pay and distance answers.
+  // filled in one tap with the same pay and distance answers. With taxi set
+  // to Varies, new shifts start at the distance Varies seeds them with, and
+  // the taxi choice itself is left alone.
   const fillRotation = () => {
     onApply({
-      fill: rotationEntries(period, rotationAnchor, basicDistance),
-      replace: true, basePay, dist: basicDistance,
+      fill: rotationEntries(period, rotationAnchor, mode === "advanced" ? defaultDist || "S" : basicDistance),
+      replace: true, basePay, dist: basicDistance, keepTaxi: true,
       counts: { pm3: "", pm10: "", am7: "" }, anchor: rotationAnchor,
     });
     showToast("Rotation filled for this period");
@@ -326,9 +328,9 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
           {shiftDays > 0 && (
             <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "var(--bg-2)", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
               {draft.method === "rotation" ? (
-                <label style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer" }}>
-                  <input type="checkbox" checked={draft.keep} onChange={(e) => set({ keep: e.target.checked })} style={{ accentColor: "var(--accent)", marginTop: 2 }} />
-                  <span>Keep the {shiftDays} day{shiftDays === 1 ? "" : "s"} already logged and only fill empty days. {draft.keep ? "" : "Unticked: this period's calendar will be replaced."}</span>
+                <label style={{ display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}>
+                  <span style={{ flex: 1 }}>Keep the {shiftDays} day{shiftDays === 1 ? "" : "s"} already logged and only fill empty days. {draft.keep ? "" : "Switched off: this period's calendar will be replaced."}</span>
+                  <input type="checkbox" className="nsc-switch" checked={draft.keep} onChange={(e) => set({ keep: e.target.checked })} />
                 </label>
               ) : (
                 <>This replaces the {shiftDays} day{shiftDays === 1 ? "" : "s"} already logged for this period.</>
@@ -345,7 +347,8 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
 
       {last && (
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 14, lineHeight: 1.5 }}>
-          {ratesEffective === "Current rates" ? "Using the current JFB rates" : `Using ${ratesEffective.toLowerCase()}`}: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)}.{" "}
+          {/* "Rates effective Oct 2026" → "Using rates effective Oct 2026" (only the first letter drops). */}
+          {ratesEffective === "Current rates" ? "Using the current JFB rates" : `Using ${ratesEffective.charAt(0).toLowerCase()}${ratesEffective.slice(1)}`}: SP1 {fmt(rates.sp1)} · SP2 {fmt(rates.sp2)} · Meal {fmt(rates.meal)}.{" "}
           <button onClick={onOpenSettings} style={linkBtn()}>Check rates</button>
         </div>
       )}

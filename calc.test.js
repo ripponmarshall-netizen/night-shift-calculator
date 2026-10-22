@@ -1587,6 +1587,113 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.ok(D.documentXml({ ...snap, rows: [many] }).includes("20/6/26"));
 }
 
+// ----- Saved watches keep the overtime unit -----
+// A watch saved while counting in minutes must still read in minutes after a
+// reload (sanitizeCrewHistory runs on every load), or its Word sheets and
+// summary come back in decimal hours.
+{
+  const H = require("./helpers.jsx");
+  const p = H.periodFor(new Date(2026, 5, 20));
+  const crew = {
+    ...H.blankCrew(),
+    entries: H.rotationEntries(p, H.ymd(p.start), "S"),
+    members: [H.newMember("A. Person", "1")],
+  };
+  const rates = { ...DEFAULT_RATES, otUnit: "minutes" };
+  const snap = {
+    ...H.crewSnapshot(crew, p, rates, DEFAULT_TAX),
+    at: "2026-07-01T00:00:00.000Z",
+  };
+  const back = H.sanitizeCrewHistory(JSON.parse(JSON.stringify([snap])));
+  assert.strictEqual(back[0].rows[0].totals.rates.otUnit, "minutes");
+  assert.strictEqual(back[0].rows[0].totals.mode, "basic");
+  // The watch's plain-text summary shows hours in that unit too.
+  const txt = H.crewText(back[0].rows, back[0].period);
+  assert.ok(/\d+h( \d+m)?\n/.test(txt.replace(/ /g, " ")), txt);
+  assert.ok(
+    !/\d\.\d+h/.test(txt),
+    "no decimal hours in a by-the-minute summary",
+  );
+}
+
+// ----- Backup lists are sanitised -----
+// Past rates, templates and saved results from a hand-edited backup keep
+// only entries the screens can draw.
+{
+  const H = require("./helpers.jsx");
+  const hist = H.sanitizeRatesHistory([
+    {
+      effectiveFrom: "2026-01-01",
+      rates: { sp1: "70", threshold: 0, meal: -5 },
+    },
+    { effectiveFrom: "2025-06-01T00:00:00Z", rates: null },
+    { effectiveFrom: 20260101 },
+    "junk",
+  ]);
+  assert.strictEqual(hist.length, 2);
+  assert.strictEqual(hist[0].rates.sp1, 70);
+  assert.strictEqual(
+    hist[0].rates.threshold,
+    DEFAULT_RATES.threshold,
+    "a 0 threshold falls back",
+  );
+  assert.strictEqual(
+    hist[0].rates.meal,
+    DEFAULT_RATES.meal,
+    "a negative rate falls back",
+  );
+  assert.strictEqual(hist[1].effectiveFrom, "2025-06-01");
+  assert.deepStrictEqual(hist[1].rates, DEFAULT_RATES);
+  assert.deepStrictEqual(H.sanitizeRatesHistory("x"), []);
+
+  const tpls = H.sanitizeTemplates([
+    {
+      id: "a",
+      name: "Week",
+      days: {
+        1: { pm3: true, dist: { pm3: "L" } },
+        2: { holiday: true },
+        9: { am7: true },
+      },
+    },
+    { id: "a", days: {} },
+    { name: "No days" },
+    null,
+  ]);
+  assert.strictEqual(tpls.length, 2);
+  assert.deepStrictEqual(Object.keys(tpls[0].days), ["1"]);
+  assert.strictEqual(tpls[0].days[1].dist.pm3, "L");
+  assert.notStrictEqual(tpls[0].id, tpls[1].id, "template ids stay unique");
+  assert.strictEqual(tpls[1].name, "Template");
+  // A sanitised template applies without throwing.
+  H.applyTemplate(tpls[0], H.periodFor(new Date(2026, 5, 20)));
+
+  const snaps = H.sanitizeSnapshots([
+    {
+      at: "2026-07-01T00:00:00.000Z",
+      periodKey: "2026-06-16",
+      totals: { grand: 5 },
+    },
+    {
+      at: "2026-07-01T00:00:00.000Z",
+      totals: { grand: 6 },
+      periodKey: "bad",
+      reconcile: "x",
+    },
+    { at: "2026-07-02T00:00:00.000Z" },
+    42,
+  ]);
+  assert.strictEqual(snaps.length, 2);
+  assert.notStrictEqual(
+    snaps[0].at,
+    snaps[1].at,
+    "each saved result keeps a unique at",
+  );
+  assert.strictEqual(snaps[0].period, "Jun 16 – Jul 15, 2026");
+  assert.strictEqual(snaps[1].periodKey, undefined);
+  assert.strictEqual(snaps[1].reconcile, undefined);
+}
+
 // ----- Service worker -----
 let swChecks = Promise.resolve();
 // Offline start needs every file index.html loads to be precached, and the
