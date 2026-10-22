@@ -51,7 +51,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
             return (extras.includes(s.k) ? "extra " : "") + s.label + (duty ? ` (${DUTY_TYPES[duty].label})` : "");
           });
           const ariaLabel = has
-            ? `${dateStr}: ${shiftList.join(", ")}, ${fmtH0(hours)} hours${isHol ? ", holiday" : ""}`
+            ? `${dateStr}: ${shiftList.join(", ")}, ${inMinutes(totals.rates) ? fmtHM(hours) : `${fmtH0(hours)} hours`}${isHol ? ", holiday" : ""}`
             : `${dateStr}: ${isOff ? "off day" : "no shifts"}${isHol ? ", holiday" : ""}`;
           return (
             <DayButton
@@ -104,8 +104,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
                 {isOff && <span style={{ fontSize: 10.5, color: "var(--ink-faint)", textAlign: "center" }}>Off</span>}
               </div>
               {(partial || holidayHrs > 0) && (
-                <div className="mono" style={{ fontSize: 9, color: "var(--ink-faint)", textAlign: "right", paddingRight: 2 }}>
-                  {fmtH0(hours)}h{holidayHrs > 0 ? "*" : ""}
+                <div className="mono" style={{ fontSize: 9, color: "var(--ink-faint)", textAlign: "right", paddingRight: 2, whiteSpace: "nowrap" }}>
+                  {/* Compact (13h40) so a cell never wraps it on a narrow phone. */}
+                  {inMinutes(totals.rates) ? fmtHMc(hours) : `${fmtH0(hours)}h`}{holidayHrs > 0 ? "*" : ""}
                 </div>
               )}
             </DayButton>
@@ -127,10 +128,10 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         {/* Home prints the same counts above its calendar. */}
         {!compact && <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
           <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
-          {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra</>}
+          {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra{totals.extraHours > 0 && <> (<span className="mono" style={{ color: "var(--extra)" }}>{fmtHM(totals.extraHours)}</span>)</>}</>}
           {leaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{leaveCount}</span> leave</>}
           {exchLeaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{exchLeaveCount}</span> swapped out</>}
-          {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(totals.totalHours)}</span>h
+          {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(totals.totalHours, totals.rates)}</span>
         </div>}
       </div>
 

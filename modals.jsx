@@ -2,7 +2,7 @@
 const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
-function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, onChange, onClear }) {
+function DayModal({ dayKey, entry: liveEntry, mode, otUnit, slot, defaultDist, onClose, onChange, onClear }) {
   const dismiss = useModalDismiss(onClose);
   const { close } = dismiss;
   // While the sheet slides away (after Clear day, say), keep showing the day
@@ -65,7 +65,7 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
         </ModalHead>
 
         {DAY_SHIFTS.map((sh) => (
-          <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} slot={slot}
+          <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} otUnit={otUnit} slot={slot}
             onToggle={() => toggle(sh.k)} onHours={setHours}
             onDist={(v) => setDist(sh.k, v)} onDuty={(v) => setDuty(sh.k, v)} />
         ))}
@@ -114,7 +114,7 @@ const DAY_SHIFTS = SHIFTS.map((s) => ({
 
 /* One shift in the day editor: the tick box, then (while it's on) its
    hours, taxi distance and duty, sliding open under it. */
-function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }) {
+function ShiftBlock({ sh, entry, mode, otUnit, slot, onToggle, onHours, onDist, onDuty }) {
   const on = !!entry[sh.k];
   const duty = shiftDuty(entry, sh.k);
   const pay = duty ? DUTY_TYPES[duty].pay : "full";
@@ -128,7 +128,9 @@ function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }
               taxi distance, so those rows fold away instead of showing
               settings that can't change anything. */}
           <Collapse open={pay !== "none"}>
-            <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
+            {otUnit === "minutes"
+              ? <MinutesRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
+              : <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />}
           </Collapse>
           {mode === "advanced" && (
             <Collapse open={pay === "full"}>
@@ -286,8 +288,62 @@ function HoursRow({ keyName, entry, onChange, hint }) {
   );
 }
 
+/* The same, as hours and minutes, when overtime is counted in minutes.
+   Stored as decimal hours (6h 40m is 6.666667), which the math rounds back
+   to the whole minute. Both boxes blank = standard hours. */
+const hmFromRaw = (r) => {
+  if (r === "" || !(Number(r) >= 0)) return { h: "", m: "" };
+  const t = Math.round(Number(r) * 60);
+  return { h: String(Math.floor(t / 60)), m: t % 60 ? String(t % 60) : "" };
+};
+function MinutesRow({ keyName, entry, onChange, hint }) {
+  const std = stdHours(keyName);
+  const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
+  // The boxes keep what's typed (a blank minutes box mid-edit); they only
+  // reload when the stored hours change from elsewhere (shift ticked off).
+  const [draft, setDraft] = useStateM(() => hmFromRaw(raw));
+  const sent = React.useRef(raw);
+  React.useEffect(() => {
+    if (raw !== sent.current) { sent.current = raw; setDraft(hmFromRaw(raw)); }
+  }, [raw]);
+  const update = (patch) => {
+    const d = { ...draft, ...patch };
+    setDraft(d);
+    const out = d.h === "" && d.m === "" ? ""
+      : String(Math.round(((Number(d.h) || 0) + (Number(d.m) || 0) / 60) * 1e6) / 1e6);
+    sent.current = out;
+    onChange(keyName, out);
+  };
+  const box = { width: 46, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 8px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit", textAlign: "right" };
+  const unit = { fontSize: 11, color: "var(--ink-faint)" };
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, margin: "0 0 8px 38px", flexWrap: "wrap" }}>
+      <span style={{ fontSize: 12, color: "var(--ink-faint)", marginRight: 2 }}>
+        Time worked{hint ? ` · ${hint}` : ""}
+      </span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <input
+          inputMode="numeric" value={draft.h} placeholder={String(Math.floor(std))} maxLength={2}
+          onChange={(e) => update({ h: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+          aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
+        />
+        <span className="mono" style={unit}>h</span>
+        <input
+          inputMode="numeric" value={draft.m} placeholder="00" maxLength={2}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, "").slice(0, 2);
+            update({ m: v !== "" && Number(v) > 59 ? "59" : v });
+          }}
+          aria-label={`Minutes worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
+        />
+        <span className="mono" style={unit}>m</span>
+      </span>
+    </div>
+  );
+}
+
 /* ============ Settings ============ */
-function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, ratesEffective, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
+function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHistory, theme, setTheme, otUnit, setOtUnit, ratesEffective, onExportICS, onReset, onExport, onImport, onAbout, onClose }) {
   const [tab, setTab] = useStateM("rates");
   // About opens once Settings has closed (with its exit, and its Back entry
   // gone), so About's own entry lands where Back expects it.
@@ -305,7 +361,7 @@ function SettingsModal({ rates, setRates, tax, setTax, ratesHistory, setRatesHis
             { v: "data", l: "Backup" },
           ]} value={tab} onChange={setTab} small />
         </div>
-        <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} ratesEffective={ratesEffective} /></div>
+        <div style={{ display: tab === "rates" ? "block" : "none" }}><RatesTab rates={rates} setRates={setRates} ratesEffective={ratesEffective} otUnit={otUnit} setOtUnit={setOtUnit} /></div>
         <div style={{ display: tab === "tax" ? "block" : "none" }}><TaxTab tax={tax} setTax={setTax} /></div>
         <div style={{ display: tab === "history" ? "block" : "none" }}><RateHistoryTab ratesHistory={ratesHistory} setRatesHistory={setRatesHistory} currentRates={rates} /></div>
         <div style={{ display: tab === "theme" ? "block" : "none" }}><ThemeTab theme={theme} setTheme={setTheme} /></div>
@@ -371,7 +427,7 @@ function useSyncedDraft(value, toDraft, setDraft, errors) {
 /* Rates and tax save as you type: each valid field is applied straight away,
    and a field that isn't valid keeps its last saved value until it's fixed.
    Closing Settings never throws edits away. */
-function RatesTab({ rates, setRates, ratesEffective }) {
+function RatesTab({ rates, setRates, ratesEffective, otUnit, setOtUnit }) {
   const [draft, setDraft] = useStateM(() => ratesToDraft(rates));
   const [errors, setErrors] = useStateM({});
   const set = (k, v) => {
@@ -408,6 +464,19 @@ function RatesTab({ rates, setRates, ratesEffective }) {
         <RateInput label="Taxi — Short" unit="$" value={draft.taxiShort} onChange={(v) => set("taxiShort", v)} error={errors.taxiShort} />
         <RateInput label="Taxi — Long" unit="$" value={draft.taxiLong} onChange={(v) => set("taxiLong", v)} error={errors.taxiLong} />
       </div>
+      {setOtUnit && (
+        <div style={{ marginTop: 14, padding: "10px 12px", background: "var(--bg-2)", borderRadius: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13.5, fontWeight: 500 }}>Count overtime in</span>
+            <SegToggle small options={[{ v: "hours", l: "Hours" }, { v: "minutes", l: "Minutes" }]} value={otUnit} onChange={setOtUnit} />
+          </div>
+          <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
+            {otUnit === "minutes"
+              ? `Every shift counts to the minute and you enter short shifts as hours and minutes. Overtime is the minutes over ${fmtHM(Number(rates.threshold) || DEFAULT_RATES.threshold)}, paid at the hourly rate ÷ 60 × 1.5.`
+              : "Hours are decimal (6.5h). Switch to Minutes to enter and see time as hours and minutes (6h 30m)."}
+          </div>
+        </div>
+      )}
       <SettingsFooter onDefaults={resetDefaults} />
     </div>
   );

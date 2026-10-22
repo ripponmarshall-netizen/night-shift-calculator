@@ -10,8 +10,15 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const taxBreak = estimateNet(totals, tax);
   const net = taxBreak.net;
 
-  // unit "h" shows the result as hours; money otherwise.
-  const showMath = (label, formula, value, unit) => setMath({ label, formula, value, unit });
+  // unit "h" shows the result as hours (in the unit overtime is counted
+  // in); money otherwise.
+  const showMath = (label, formula, value, unit) => setMath({ label, formula, value, unit, rates: totals.rates });
+  const byMin = inMinutes(totals.rates);
+  const hrs = (v) => (byMin ? fmtHM(v) : fmtH(v));
+  const thrLabel = byMin ? fmtHM(totals.rates.threshold) : String(totals.rates.threshold);
+  // Extra shifts per shift type. Always hours and minutes: it's a count of
+  // time worked, read against the roster, not a figure in the pay math.
+  const extraKinds = SHIFTS.filter((s) => totals.extraBy?.[s.k]?.n > 0);
   const n = (k, word) => `${k} ${word}${k === 1 ? "" : "s"}`;
   const toggle = (k) => setOpenSec((p) => ({ ...p, [k]: !p[k] }));
 
@@ -109,13 +116,35 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
       <SecHeader dim={part && part !== "extra"} onEnter={() => setPart("extra")} onLeave={() => setPart(null)} title="Extra Hours" subtotal={totals.extraSubtotal} open={openSec.extra} onToggle={() => toggle("extra")} accent="var(--sp2)" />
       <Collapse open={openSec.extra}>
         <div style={{ paddingLeft: 8, marginBottom: 10 }}>
-          <Row label="Total hours" value={fmtH(totals.totalHours)} />
-          {totals.exchangedShifts > 0 && <Row label="Exchange leave (not counted)" value={fmtH(totals.exchangedHours)} faint />}
-          <Row label="Holiday hours" value={fmtH(totals.holidayHours)} />
-          <Row label="Non-holiday hours" value={fmtH(totals.nonHolidayHours)} />
-          <Row label={`Hours over ${totals.rates.threshold}`} value={fmtH(totals.otHours)} formula onClick={() => showMath("Overtime hours", `Non-holiday hours − threshold\n${fmtH(totals.nonHolidayHours)} − ${totals.rates.threshold} (clamped ≥ 0)`, totals.otHours, "h")} />
-          <Row label="Holiday pay (×2)" value={fmt(totals.holidayPay)} formula onClick={() => showMath("Holiday pay", `${fmtH(totals.holidayHours)} hours × ${fmt(totals.hourlyRate)}/h × 2`, totals.holidayPay)} />
-          <Row label="Overtime pay (×1.5)" value={fmt(totals.overtimePay)} formula onClick={() => showMath("Overtime pay", `${fmtH(totals.otHours)} hours × ${fmt(totals.hourlyRate)}/h × 1.5`, totals.overtimePay)} />
+          <Row label="Total hours" value={hrs(totals.totalHours)} />
+          {totals.exchangedShifts > 0 && <Row label="Exchange leave (not counted)" value={hrs(totals.exchangedHours)} faint />}
+          <Row label="Holiday hours" value={hrs(totals.holidayHours)} />
+          <Row label="Non-holiday hours" value={hrs(totals.nonHolidayHours)} />
+          <Row label={`${byMin ? "Time" : "Hours"} over ${thrLabel}`} value={hrs(totals.otHours)} formula onClick={() => showMath(byMin ? "Overtime time" : "Overtime hours",
+            byMin
+              ? `Non-holiday time − threshold, in whole minutes\n${hrs(totals.nonHolidayHours)} − ${thrLabel} (clamped ≥ 0)\n= ${Math.round(totals.otHours * 60).toLocaleString("en-JM")} minutes`
+              : `Non-holiday hours − threshold\n${fmtH(totals.nonHolidayHours)} − ${totals.rates.threshold} (clamped ≥ 0)`,
+            totals.otHours, "h")} />
+          <Row label="Holiday pay (×2)" value={fmt(totals.holidayPay)} formula onClick={() => showMath("Holiday pay", byMin
+            ? `${hrs(totals.holidayHours)} (${Math.round(totals.holidayHours * 60).toLocaleString("en-JM")} min) × ${fmt(totals.hourlyRate / 60)}/min × 2`
+            : `${fmtH(totals.holidayHours)} hours × ${fmt(totals.hourlyRate)}/h × 2`, totals.holidayPay)} />
+          <Row label="Overtime pay (×1.5)" value={fmt(totals.overtimePay)} formula onClick={() => showMath("Overtime pay", byMin
+            ? `${hrs(totals.otHours)} (${Math.round(totals.otHours * 60).toLocaleString("en-JM")} min) × ${fmt(totals.hourlyRate / 60)}/min × 1.5\n(${fmt(totals.hourlyRate)}/h ÷ 60 = ${fmt(totals.hourlyRate / 60)}/min)`
+            : `${fmtH(totals.otHours)} hours × ${fmt(totals.hourlyRate)}/h × 1.5`, totals.overtimePay)} />
+          {/* Extra shifts are time, not a pay line: their hours are already
+              in the total above, and overtime is only the time over the
+              threshold, so the two are shown apart. */}
+          {totals.extraShifts > 0 && (
+            <>
+              <Row muted top label="Extra shifts · outside your rotation" />
+              {extraKinds.map((s) => (
+                <Row key={s.k} label={`${s.label} × ${totals.extraBy[s.k].n}`} value={fmtHM(totals.extraBy[s.k].h)} />
+              ))}
+              <Row label={`All extra shifts × ${totals.extraShifts}`} value={fmtHM(totals.extraHours)} formula onClick={() => showMath("Extra shift time",
+                `${extraKinds.map((s) => `${s.label} × ${totals.extraBy[s.k].n} = ${fmtHM(totals.extraBy[s.k].h)}`).join("\n")}\n\nAlready part of total hours. Overtime pay is only the time over ${thrLabel}, so extra shifts aren't paid again on top.`,
+                totals.extraHours, "hm")} />
+            </>
+          )}
         </div>
       </Collapse>
 
@@ -160,7 +189,7 @@ function SecHeader({ title, subtotal, open, onToggle, accent, dim, onEnter, onLe
   );
 }
 
-function MathPopover({ label, formula, value, unit, onClose }) {
+function MathPopover({ label, formula, value, unit, rates, onClose }) {
   const dismiss = useModalDismiss(onClose);
   const { close } = dismiss;
   return (
@@ -176,7 +205,7 @@ function MathPopover({ label, formula, value, unit, onClose }) {
         }}>{formula}</pre>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 12 }}>
           <span className="label">Result</span>
-          <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{unit === "h" ? `${fmtH(value)}h` : fmt(value)}</span>
+          <span className="mono" style={{ fontSize: 18, fontWeight: 700 }}>{unit === "hm" || (unit === "h" && inMinutes(rates)) ? fmtHM(value) : unit === "h" ? `${fmtH(value)}h` : fmt(value)}</span>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
           <button onClick={close} style={primaryBtn()}>Got it</button>

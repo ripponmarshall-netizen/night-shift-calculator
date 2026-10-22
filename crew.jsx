@@ -35,8 +35,8 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
   React.useLayoutEffect(() => { window.scrollTo?.(0, 0); }, [openId]);
 
   const crewTotals = useMemoW(
-    () => aggregate(crew.entries, period, "basic", "S", null, {}, rates),
-    [crew.entries, period, rates]
+    () => aggregate(crew.entries, period, "basic", "S", null, {}, rates, crew.rotationAnchor),
+    [crew.entries, period, rates, crew.rotationAnchor]
   );
   const rows = useMemoW(() => crewRows(crew, period, rates, tax), [crew, period, rates, tax]);
   // The crew's result as it would be saved; compared with the saved one.
@@ -172,7 +172,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
               <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.am7}</span> 7AM ·{" "}
               <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm3}</span> 3PM ·{" "}
               <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm10}</span> 10PM ·{" "}
-              <span className="mono" style={{ color: "var(--ink)" }}>{fmtH0(crewTotals.totalHours)}</span>h
+              <span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(crewTotals.totalHours, rates)}</span>
             </div>
           </Card>
 
@@ -194,6 +194,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
           dayKey={dayEdit.key}
           entry={editEntry || blankDay()}
           mode="basic"
+          otUnit={rates.otUnit}
           slot={rotationSlot(dayEdit.key, crew.rotationAnchor)}
           defaultDist={editing === "crew" ? "S" : editing.dist}
           onClose={() => setDayEdit(null)}
@@ -424,7 +425,7 @@ function CrewHistory({ list, onDelete }) {
 /* ----- one person ----- */
 function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeriod, onBack, onChange, onOpenDay, onRemove }) {
   const entries = useMemoW(() => memberEntries(crew.entries, m), [crew.entries, m]);
-  const t = useMemoW(() => memberTotals(crew.entries, m, period, rates), [crew.entries, m, period, rates]);
+  const t = useMemoW(() => memberTotals(crew.entries, m, period, rates, crew.rotationAnchor), [crew.entries, m, period, rates, crew.rotationAnchor]);
   const diffs = memberDiffKeys(m, period);
   const showNet = netApplies(t, tax);
   const net = showNet ? estimateNet(t, tax).net : null;
@@ -510,11 +511,12 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
           {t.baseSubtotal > 0 && (
             <>
               <Row label="Monthly basic + compulsory" value={fmt(t.baseSubtotal)} />
-              <Row label={`Holiday ×2 · ${fmtH0(t.holidayHours)}h`} value={fmt(t.holidayPay)} />
-              <Row label={`Overtime ×1.5 · ${fmtH0(t.otHours)}h`} value={fmt(t.overtimePay)} />
+              <Row label={`Holiday ×2 · ${fmtDur(t.holidayHours, rates)}`} value={fmt(t.holidayPay)} />
+              <Row label={`Overtime ×1.5 · ${fmtDur(t.otHours, rates)}`} value={fmt(t.overtimePay)} />
             </>
           )}
-          <Row label="Total hours" value={`${fmtH0(t.totalHours)}h`} faint />
+          <Row label="Total hours" value={fmtDur(t.totalHours, rates)} faint />
+          {t.extraShifts > 0 && <Row label={`Extra shifts ×${t.extraShifts}`} value={fmtHM(t.extraHours)} faint />}
           {net != null && <Sub label="Estimated net" value={fmt(net)} />}
         </div>
         <DutySummary totals={t} style={{ marginTop: 10 }} />

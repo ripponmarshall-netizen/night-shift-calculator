@@ -69,7 +69,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.17";
+const APP_VERSION = "3.18";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -201,6 +201,26 @@ const fmtShort = (n) => {
 const fmtH = (n) => (Number(n) || 0).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /* Hours without trailing zeros: 183, 7.5, 183.33. */
 const fmtH0 = (n) => (Math.round((Number(n) || 0) * 100) / 100).toLocaleString("en-JM", { maximumFractionDigits: 2 });
+/* Hours as whole hours and minutes: 16h 40m, 9h, 45m, 0m. The space is a
+   no-break space, so a value never splits across two lines. */
+function fmtHM(n) {
+  const m = Math.max(0, Math.round((Number(n) || 0) * 60));
+  const h = Math.floor(m / 60), r = m % 60;
+  if (!h) return `${r}m`;
+  return h.toLocaleString("en-JM") + "h" + (r ? `\u00a0${r}m` : "");
+}
+/* The same, compact for a calendar cell: 13h40, 9h, 45m. */
+function fmtHMc(n) {
+  const t = fmtHM(n);
+  return t.includes("h") ? t.replace(/\u00a0(\d+)m$/, "$1") : t;
+}
+/* Overtime can be counted in hours (decimal, the default) or to the minute.
+   The choice travels with the rates handed to aggregate() as otUnit, so a
+   result (and a saved one) always shows hours the way it worked them out. */
+const OT_UNITS = ["hours", "minutes"];
+const inMinutes = (rates) => rates?.otUnit === "minutes";
+/* A duration in the unit its result was counted in: "16h 40m" or "16.67h". */
+const fmtDur = (n, rates) => (inMinutes(rates) ? fmtHM(n) : `${fmtH0(n)}h`);
 
 /* ----- shareable plain-text summary -----
    One source of truth for the "Copy summary" text (used by the live view and
@@ -217,6 +237,7 @@ function summaryText(totals, periodStr, net) {
   const rule = (ch) => ch.repeat(W);
   const now = new Date();
   const generated = `${monthName(now.getMonth())} ${now.getDate()}, ${now.getFullYear()}`;
+  const hrs = (n) => (inMinutes(totals.rates) ? fmtHM(n) : `${fmtH(n)}h`);
   // One section: a header, its line items, a thin divider, then its subtotal.
   const section = (title, items, subtotal) => [
     title,
@@ -245,11 +266,17 @@ function summaryText(totals, periodStr, net) {
     ], fmt(totals.baseSubtotal)),
     "",
     ...section("EXTRA HOURS", [
-      [`Holiday ×2 · ${fmtH(totals.holidayHours)}h`, fmt(totals.holidayPay)],
-      [`Overtime ×1.5 · ${fmtH(totals.otHours)}h`, fmt(totals.overtimePay)],
+      [`Holiday ×2 · ${hrs(totals.holidayHours)}`, fmt(totals.holidayPay)],
+      [`Overtime ×1.5 · ${hrs(totals.otHours)}`, fmt(totals.overtimePay)],
     ], fmt(totals.extraSubtotal)),
-    "",
   ];
+  // Extra shifts (outside the rotation) are a record of time, not a pay
+  // line: their hours are already in the total that overtime comes from.
+  const nExtra = Number(totals.extraShifts) || 0;
+  if (nExtra > 0) {
+    lines.push(row(`Extra shifts ×${nExtra}`, fmtHM(totals.extraHours), 2), "    (already in total hours)");
+  }
+  lines.push("");
   // Leave, orderly duty and exchanges: a record of the shifts, no money of
   // their own (their effect is already in the lines above).
   const dutyItems = DUTY_KEYS
@@ -261,8 +288,8 @@ function summaryText(totals, periodStr, net) {
   if (dutyItems.length) {
     lines.push("LEAVE & DUTIES", ...dutyItems.map(([label, value]) => row(label, value, 2)));
     const notes = [];
-    if (Number(totals.leaveShifts) > 0) notes.push(row("Leave hours (no allowances)", `${fmtH(totals.leaveHours)}h`, 2));
-    if (Number(totals.exchangedShifts) > 0) notes.push(row("Exchanged away (not paid)", `${fmtH(totals.exchangedHours)}h`, 2));
+    if (Number(totals.leaveShifts) > 0) notes.push(row("Leave hours (no allowances)", hrs(totals.leaveHours), 2));
+    if (Number(totals.exchangedShifts) > 0) notes.push(row("Exchanged away (not paid)", hrs(totals.exchangedHours), 2));
     if (notes.length) lines.push("  " + rule("─").slice(2), ...notes);
     lines.push("");
   }
@@ -482,7 +509,10 @@ function mergePeriodFill(entries, period, fill, replace) {
 }
 
 /* ----- aggregate (calculation engine) ----- */
-function aggregate(entries, period, mode, basicDistance, counts, basePay, rates) {
+/* anchor (optional): the saved rotation, so shifts outside it can be counted
+   as extra shifts. rates.otUnit "minutes" counts every shift to the whole
+   minute and overtime on whole minutes over the threshold. */
+function aggregate(entries, period, mode, basicDistance, counts, basePay, rates, anchor) {
   let calPm3 = 0, calPm10 = 0, cal7am = 0, sameDayPair = 0;
   let shortPm3 = 0, longPm3 = 0, shortPm10 = 0, longPm10 = 0, shortAm7 = 0, longAm7 = 0;
   let totalHours = 0, holidayHours = 0;
@@ -492,6 +522,9 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
   const duties = {};
   for (const k of DUTY_KEYS) duties[k] = 0;
   let leaveShifts = 0, leaveHours = 0, exchangedShifts = 0, exchangedHours = 0;
+  // Shifts outside the rotation, and their hours, per shift and in all.
+  const extraBy = { am7: { n: 0, h: 0 }, pm3: { n: 0, h: 0 }, pm10: { n: 0, h: 0 } };
+  let extraShifts = 0, extraHours = 0;
 
   // Normalize rates so corrupted storage or imported data can never produce
   // negative pay or a divide-by-zero. threshold must stay > 0 (it divides).
@@ -504,6 +537,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     taxiLong: nn(rates.taxiLong),
     threshold: Number(rates.threshold) > 0 ? Number(rates.threshold) : DEFAULT_RATES.threshold,
   };
+  // Counting in minutes: each shift's hours go to the nearest whole minute
+  // (6.67h is 6h 40m), so the sums below are exact minutes.
+  const byMin = inMinutes(rates);
+  const toMin = (h) => Math.round(h * 60);
+  const hrsOf = (e, k) => (byMin ? toMin(effHours(e, k)) / 60 : effHours(e, k));
 
   const days = periodDays(period);
   const dayHours = {}; // key -> hours for stripe viz
@@ -542,21 +580,21 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       const duty = shiftDuty(e, k);
       onLeave[k] = isLeave(duty);
       if (duty) duties[duty]++;
-      if (e[k] && onLeave[k]) { leaveShifts++; leaveHours += effHours(e, k); }
-      if (e[k] && !work[k]) { exchangedShifts++; exchangedHours += effHours(e, k); }
+      if (e[k] && onLeave[k]) { leaveShifts++; leaveHours += hrsOf(e, k); }
+      if (e[k] && !work[k]) { exchangedShifts++; exchangedHours += hrsOf(e, k); }
       credit[k] = work[k] && !onLeave[k] && effHours(e, k) > stdHours(k) / 2;
     }
 
     if (work.am7) {
       if (credit.am7) cal7am++;
-      const ha = effHours(e, "am7");
+      const ha = hrsOf(e, "am7");
       h += ha;
       if (isHol && firstSeg !== "am7" && !onLeave.am7) hHol += ha;
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (work.pm3) {
       if (credit.pm3) calPm3++;
-      const hp3 = effHours(e, "pm3");
+      const hp3 = hrsOf(e, "pm3");
       h += hp3;
       if (isHol && firstSeg !== "pm3" && !onLeave.pm3) hHol += hp3;
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
@@ -565,9 +603,9 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
       if (credit.pm10) calPm10++;
       // Single editable total; split the pre-midnight vs carryover legs
       // proportionally so the holiday rule scales (default 9 → 2h pre-midnight).
-      const tot = effHours(e, "pm10");
+      const tot = hrsOf(e, "pm10");
       const ratio = PM10_TOTAL > 0 ? tot / PM10_TOTAL : 0;
-      const startSeg = SHIFT_HOURS.pm10_start * ratio;
+      const startSeg = byMin ? toMin(SHIFT_HOURS.pm10_start * ratio) / 60 : SHIFT_HOURS.pm10_start * ratio;
       h += tot;
       // The carryover leg starts at 00:00 next day, so it is always that day's
       // first segment and never earns holiday pay; only the pre-midnight leg can.
@@ -579,6 +617,12 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
         const r10 = (e.dist?.pm10 === "L") ? R.taxiLong : R.taxiShort;
         sameDayPairLegSum += r3 + r10;
       }
+    }
+
+    for (const k of extraShiftKeys(e, rotationSlot(key, anchor))) {
+      const hx = hrsOf(e, k);
+      extraBy[k].n++; extraBy[k].h += hx;
+      extraShifts++; extraHours += hx;
     }
 
     totalHours += h;
@@ -618,7 +662,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
 
   const hourlyRate = monthlyBasic > 0 ? monthlyBasic / R.threshold : 0;
   const nonHolidayHours = Math.max(0, totalHours - holidayHours);
-  const otHours = Math.max(0, nonHolidayHours - R.threshold);
+  // In minutes, the threshold is whole minutes too (173.33h is 173h 20m),
+  // and the difference is taken in integer minutes so no float dust is paid.
+  const otHours = byMin
+    ? Math.max(0, toMin(nonHolidayHours) - toMin(R.threshold)) / 60
+    : Math.max(0, nonHolidayHours - R.threshold);
   const holidayPay = holidayHours * hourlyRate * 2;
   const overtimePay = otHours * hourlyRate * 1.5;
   const extraSubtotal = holidayPay + overtimePay;
@@ -645,6 +693,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates)
     totalHours, holidayHours, nonHolidayHours, otHours, hourlyRate,
     holidayPay, overtimePay, extraSubtotal,
     duties, leaveShifts, leaveHours, exchangedShifts, exchangedHours,
+    extraShifts, extraHours, extraBy,
     grand,
     mismatch, hasMismatch,
     rates, mode, basicDistance,
@@ -674,8 +723,8 @@ function memberEntries(crewEntries, member) {
   }
   return out;
 }
-function memberTotals(crewEntries, member, period, rates) {
-  return aggregate(memberEntries(crewEntries, member), period, "basic", member?.dist === "L" ? "L" : "S", null, member?.basePay || {}, rates);
+function memberTotals(crewEntries, member, period, rates, anchor) {
+  return aggregate(memberEntries(crewEntries, member), period, "basic", member?.dist === "L" ? "L" : "S", null, member?.basePay || {}, rates, anchor);
 }
 
 /* Two day entries that pay the same: the same shifts, duty marks, hours and
@@ -808,7 +857,7 @@ function shiftSheet(entries, period, anchor) {
 /* One row per person for the crew report, in the given order. */
 function crewRows(crew, period, rates, tax) {
   return sortMembers(crew.members, crew.sortBy).map((m) => {
-    const t = memberTotals(crew.entries, m, period, rates);
+    const t = memberTotals(crew.entries, m, period, rates, crew.rotationAnchor);
     const hasBasic = Number(t.monthlyBasic) > 0 && !!tax?.enabled;
     return {
       member: m, totals: t, net: hasBasic ? estimateNet(t, tax).net : null,
@@ -1149,7 +1198,7 @@ const _exports = {
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,
-  fmt, fmtShort, fmtH, fmtH0, summaryText,
+  fmt, fmtShort, fmtH, fmtH0, fmtHM, fmtHMc, fmtDur, OT_UNITS, inMinutes, summaryText,
   blankDay, sanitizeEntries, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,

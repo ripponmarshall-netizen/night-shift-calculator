@@ -50,7 +50,8 @@
     const n = Number(v) || 0;
     return n.toLocaleString("en-JM", { maximumFractionDigits: 2 });
   };
-  const hrs = (v) => (Number(v) > 0 ? H.fmtH0(v) : "");
+  // Hours in the unit the result was counted in (16.67 or 16h 40m).
+  const hrs = (v, r) => (Number(v) > 0 ? (H.inMinutes(r) ? H.fmtHM(v) : H.fmtH0(v)) : "");
   const SHIFT_ROWS = [["am7", "7am-3pm"], ["pm3", "3pm-10pm"], ["pm10", "10pm-7am"]];
 
   /* 14 date boxes per shift (two blocks of 7). A rotation's col keeps each
@@ -132,8 +133,8 @@
     ]));
     out.push(para("", { after: 300 }), label("OVERTIME", 160));
     out.push(shiftGrid(sh.overtime, [
-      { span: "Hours of Overtime" }, ["Worked:", hrs((Number(t.otHours) || 0) + (Number(t.holidayHours) || 0))], null, null,
-      ["T&H:", hrs(t.otHours)], null, ["D:", hrs(t.holidayHours)],
+      { span: "Hours of Overtime" }, ["Worked:", hrs((Number(t.otHours) || 0) + (Number(t.holidayHours) || 0), t.rates)], null, null,
+      ["T&H:", hrs(t.otHours, t.rates)], null, ["D:", hrs(t.holidayHours, t.rates)],
     ]));
     out.push(para("", { after: 240 }));
     const box = (w, text) => cell(w, para(run(text, { sz: 9 }), { jc: "center" }), { box: true, v: "center" });
