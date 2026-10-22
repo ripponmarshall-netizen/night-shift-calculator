@@ -300,7 +300,9 @@ function App() {
         // leave the screens and the math disagreeing about the mode.
         const oneOf = (v, list) => list.includes(v);
         if (oneOf(obj.mode, ["basic", "advanced"])) setMode(obj.mode);
-        if (typeof obj.periodAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.periodAnchor)) setPeriodAnchor(obj.periodAnchor);
+        // The period the backup was viewing isn't restored: like a fresh
+        // start, a restore stays on today's pay period, so an old backup
+        // doesn't open on (and stay stuck on) a past month.
         if (isObj(obj.entries)) setEntries(sanitizeEntries(obj.entries));
         if (oneOf(obj.basicDistance, ["S", "L"])) setBasicDistance(obj.basicDistance);
         if (oneOf(obj.defaultDist, ["S", "L"])) setDefaultDist(obj.defaultDist);
@@ -881,7 +883,7 @@ function AboutView({ onBack, rates }) {
             <>{b("Tap a day")} to open it, then tick 7AM, 3PM or 10PM. Ticking again takes the shift off.</>,
             <>Worked fewer hours? Type them under the shift. Blank means the standard hours (7AM 8h, 3PM 7h, 10PM 9h across midnight).</>,
             <>{b("Duty → Change")} marks a shift as orderly, exchange for, leave (VL, DL, SL, TO) or exchange leave. See {b("Shift labels")} below for what each does to your pay.</>,
-            <>Public holidays fill in on their own. To change one, open the day and use {b("Public holiday → Change")}.</>,
+            <>Public holidays fill in on their own, on the day they're kept: one that falls on a weekend moves to the weekday it's observed (Labour Day 2026 was Monday 25 May). To change one, open the day and use {b("Public holiday → Change")}.</>,
             <>{b("Taxi distance")} under the calendar: Short or Long for the whole period, or {b("Varies")} to set it on each shift.</>,
           ]} />
           <GuideNote>Shortcuts: {b("Auto-fill")} fills a rotation or one shift type across the period. {b("Templates")} saves a week's pattern to reuse. {b("Hold a day")} to copy it, then tap empty days to paste.</GuideNote>

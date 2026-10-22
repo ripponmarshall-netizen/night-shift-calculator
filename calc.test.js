@@ -46,6 +46,8 @@ const {
   newMember,
   blankDay,
   DEFAULT_RATES,
+  jamaicaHolidays,
+  isJamaicaHoliday,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -189,8 +191,8 @@ const D = (opts = {}) => ({
   dist: { am7: "S", pm3: "S", pm10: "S" },
   ...(opts.hours ? { hours: opts.hours } : {}),
 });
-const HOL = "2026-05-23"; // Labour Day (JM)
-const PREV = "2026-05-22";
+const HOL = "2026-05-25"; // Labour Day (JM): the 23rd is a Saturday, kept on the Monday
+const PREV = "2026-05-24";
 const PLAIN = "2026-05-20";
 const agg = (entries) =>
   aggregate(
@@ -249,6 +251,49 @@ assert.strictEqual(r.holidayHours, 8);
 holNear(r.holidayPay, 16000);
 assert.strictEqual(r.dayHolidayHours[PREV], 0);
 
+// Weekend public holidays are kept on the weekday the Holidays (Public
+// General) Act moves them to: Labour Day from a Saturday or Sunday to the
+// Monday; New Year's, Emancipation, Independence and Christmas Day from a
+// Sunday to the Monday; Christmas on a Sunday makes the 26th and 27th the
+// holidays; Boxing Day on a Sunday moves to the 27th. Saturdays otherwise
+// stay. Checked against the Ministry of Labour's announcements (Labour Day
+// 2021 on Mon 24 May, Independence Day 2023 on Mon 7 Aug, Christmas 2022
+// on Mon 26 and Tue 27 Dec, Boxing Day 2021 on Mon 27 Dec).
+{
+  const names = (y) =>
+    Object.fromEntries(
+      jamaicaHolidays(y).list.map((h) => [ymd(h.date), h.name]),
+    );
+  const y21 = names(2021),
+    y22 = names(2022),
+    y23 = names(2023),
+    y26 = names(2026),
+    y27 = names(2027),
+    y28 = names(2028);
+  assert.strictEqual(y21["2021-05-24"], "Labour Day (observed)");
+  assert.strictEqual(y26["2026-05-25"], "Labour Day (observed)");
+  assert.strictEqual(y26["2026-05-23"], undefined);
+  assert.ok(!isJamaicaHoliday(fromYmd("2026-05-23")));
+  assert.ok(isJamaicaHoliday(fromYmd("2026-05-25")));
+  assert.strictEqual(y28["2028-05-23"], "Labour Day"); // a Tuesday
+  assert.strictEqual(y26["2026-08-01"], "Emancipation Day"); // Saturday stays
+  assert.strictEqual(y27["2027-08-02"], "Emancipation Day (observed)");
+  assert.strictEqual(y23["2023-08-07"], "Independence Day (observed)");
+  assert.strictEqual(y28["2028-08-07"], "Independence Day (observed)");
+  assert.strictEqual(y23["2023-01-02"], "New Year's Day (observed)");
+  assert.strictEqual(y28["2028-01-01"], "New Year's Day"); // Saturday stays
+  assert.strictEqual(y22["2022-12-25"], undefined);
+  assert.strictEqual(y22["2022-12-26"], "Christmas Day (observed)");
+  assert.strictEqual(y22["2022-12-27"], "Boxing Day (observed)");
+  assert.strictEqual(y21["2021-12-25"], "Christmas Day"); // Saturday stays
+  assert.strictEqual(y21["2021-12-27"], "Boxing Day (observed)");
+  assert.strictEqual(y26["2026-12-26"], "Boxing Day"); // Saturday stays
+  // Ten holidays every year, never two on one date.
+  for (let y = 2020; y <= 2035; y++) {
+    assert.strictEqual(Object.keys(names(y)).length, 10, `holidays in ${y}`);
+  }
+}
+
 // Partial-hours rule: actual hours always count toward total/overtime/holiday
 // hours, but a shift earns its full per-shift allowance only when MORE THAN half
 // its standard hours were worked (half or less => no allowance credit).
@@ -284,6 +329,11 @@ r = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: "" } }) });
 assert.strictEqual(r.totalHours, 7);
 r = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: "abc" } }) });
 assert.strictEqual(r.totalHours, 7);
+// One shift can't run past a day: a typo like "77" counts as 24h, not 77.
+r = agg({ [PLAIN]: D({ pm3: 1, hours: { pm3: "77" } }) });
+assert.strictEqual(r.totalHours, 24);
+r = agg({ [PLAIN]: D({ pm10: 1, hours: { pm10: 24 } }) });
+assert.strictEqual(r.totalHours, 24);
 
 // pm10 partial on a holiday (am7 + pm10, am7 is first/regular): pm10 total 6h,
 // ratio 6/9, pre-midnight leg = 2*6/9 = 1.333h earns holiday pay.
@@ -783,7 +833,19 @@ assert.deepStrictEqual(
 {
   const MIN_RATES = { ...HOL_RATES, otUnit: "minutes" };
   const aggM = (entries) => agg2(entries, MIN_RATES, HOL_BASEPAY);
-  const one = (hours) => ({ [PLAIN]: D({ am7: 1, hours: { am7: hours } }) });
+  // `hours` worked in the period: 24h shifts from May 16 (one shift is at
+  // most a day), then the rest on the next day. Clear of the holiday.
+  const one = (hours) => {
+    const out = {};
+    let left = Number(hours),
+      i = 0;
+    for (; left > 24; i++, left -= 24) {
+      out[ymd(new Date(2026, 4, 16 + i))] = D({ am7: 1, hours: { am7: "24" } });
+    }
+    const rest = i ? String(Math.round(left * 1e6) / 1e6) : hours;
+    out[ymd(new Date(2026, 4, 16 + i))] = D({ am7: 1, hours: { am7: rest } });
+    return out;
+  };
   // Exactly 173h 20m: a sliver of overtime in decimal hours, none in minutes.
   const exact = String(173 + 1 / 3);
   assert.ok(agg(one(exact)).otHours > 0);
@@ -914,7 +976,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   // Leave hours still count toward overtime.
   const many = {};
   for (let i = 0; i < 20; i++) {
-    const k = ymd(new Date(2026, 4, 24 + i)); // clear of Labour Day
+    const k = ymd(new Date(2026, 4, 26 + i)); // clear of Labour Day
     many[k] = withDuty({ pm10: 1 }, { pm10: "vacation" });
   }
   r = agg(many);

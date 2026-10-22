@@ -74,26 +74,67 @@
             root.classList.remove("nsc-intro");
           }, 1400);
         };
-        // The app's spring curve (styles.css --ease-snappy) when this browser
-        // can animate with it, else a one-overshoot cubic-bezier.
-        var spring = function () {
-          var v = getComputedStyle(root)
-            .getPropertyValue("--ease-snappy")
-            .trim();
-          return v &&
-            window.CSS &&
-            CSS.supports("transition-timing-function", v)
-            ? v
-            : "cubic-bezier(0.3, 1.3, 0.5, 1)";
+        // A damped spring released from rest, as a function of t in [0, 1]:
+        // it settles (to 0.2%) by t = 1 and is nudged to land exactly on 1.
+        // z is the damping ratio: 0.62 overshoots ~8% (the app's
+        // --ease-snappy), 0.78 ~2% (--ease-soft).
+        var springFn = function (z) {
+          var wn = Math.log(500) / z;
+          var wd = wn * Math.sqrt(1 - z * z);
+          var k = z / Math.sqrt(1 - z * z);
+          var raw = function (t) {
+            return (
+              1 -
+              Math.exp(-z * wn * t) * (Math.cos(wd * t) + k * Math.sin(wd * t))
+            );
+          };
+          var miss = 1 - raw(1);
+          return function (t) {
+            return t <= 0 ? 0 : t >= 1 ? 1 : raw(t) + miss * t * t * t;
+          };
+        };
+        var smooth = function (a, b, t) {
+          var u = Math.min(1, Math.max(0, (t - a) / (b - a)));
+          return u * u * (3 - 2 * u);
         };
         var rect = function (n) {
           var r = n && n.getBoundingClientRect();
           return r && r.width > 0 && r.height > 0 ? r : null;
         };
+        // A new animation normally waits for the next frame to start, and
+        // holds its first keyframe until then: a moving part taken over
+        // mid-stride would stand still for a frame or two. Starting it at
+        // this frame's time (the time its current position was read at)
+        // carries the motion straight on.
+        var startNow = function (a) {
+          var now = document.timeline && document.timeline.currentTime;
+          if (a && now != null) a.startTime = now;
+          return a;
+        };
+        // Take a CSS-animated part over from wherever it is right now and
+        // ease it to `to`, so changing what it's doing never makes it jump.
+        var takeOver = function (node, to, ms, easing) {
+          if (!node || !node.animate) return;
+          var from = getComputedStyle(node).transform;
+          node.style.animation = "none";
+          node.style.transform = to;
+          var frames = [
+            { transform: from && from !== "none" ? from : "none" },
+            { transform: to },
+          ];
+          try {
+            startNow(node.animate(frames, { duration: ms, easing: easing }));
+          } catch (e) {
+            startNow(
+              node.animate(frames, { duration: ms, easing: "ease-out" }),
+            );
+          }
+        };
 
-        // Accelerate the truck from wherever it is in its loop off the right
-        // edge, then call next. Falls back to a plain fade if the browser
-        // can't read or animate the lane.
+        // Floor it: the truck speeds up from wherever it is in its loop,
+        // starting at the speed it was already driving at (so it never
+        // stalls before pulling away), and accelerates steadily off the right
+        // edge. Then call next. Without the animation API it just moves on.
         var dashOff = function (el, next) {
           var lane = el.querySelector(".nsc-lane");
           if (reduce || !lane || !lane.animate || !window.DOMMatrix) {
@@ -102,17 +143,61 @@
           try {
             var x = new DOMMatrix(getComputedStyle(lane).transform).m41;
             var end = lane.offsetWidth + 150;
-            var left = Math.max(0, end - x);
+            var left = Math.max(1, end - x);
+            // Cruising speed (px/ms): the drive loop (nscDrive) covers the
+            // lane plus the truck's width in 2.2s.
+            var v0 = end / 2200;
+            // Long enough to end about four times faster than it cruised,
+            // short enough not to keep the app waiting.
+            var ms = Math.max(
+              left / (4 * v0),
+              Math.min(200, (0.8 * left) / v0),
+            );
+            ms = Math.round(Math.min(560, ms));
+            // Constant acceleration from v0: a quadratic, as a cubic-bezier
+            // whose first handle sets the starting speed.
+            var s0 = Math.min(0.8, (v0 * ms) / left);
             lane.style.animation = "none";
             lane.style.transform = "translateX(" + end + "px)";
-            var ms = Math.round(Math.max(220, Math.min(520, left * 0.9)));
-            lane.animate(
-              [
-                { transform: "translateX(" + x + "px)" },
-                { transform: "translateX(" + end + "px)" },
-              ],
-              { duration: ms, easing: "cubic-bezier(0.55, 0, 0.9, 0.45)" },
+            startNow(
+              lane.animate(
+                [
+                  { transform: "translateX(" + x + "px)" },
+                  { transform: "translateX(" + end + "px)" },
+                ],
+                {
+                  duration: ms,
+                  easing:
+                    "cubic-bezier(0.3333, " +
+                    (s0 / 3).toFixed(4) +
+                    ", 0.6667, " +
+                    ((1 + s0) / 3).toFixed(4) +
+                    ")",
+                },
+              ),
             );
+            // The weight shifts back: the nose lifts about the rear wheel
+            // and the springs hold it there. The suspension's origin is at
+            // (75px, 50.6px), so pivoting on the rear wheel (30px, 54.4px)
+            // means moving there, turning, and moving back.
+            takeOver(
+              el.querySelector(".nsc-susp"),
+              "translate(-45px, 3.75px) rotate(-3.5deg) translate(45px, -3.75px)",
+              450,
+              getComputedStyle(root).getPropertyValue("--ease-wobbly").trim() ||
+                "ease-out",
+            );
+            // The bump is behind it now: wheels settle back onto the road.
+            el.querySelectorAll(".nsc-hop").forEach(function (h) {
+              takeOver(h, "none", 160, "ease-out");
+            });
+            // Faster streaks, from where each one already is.
+            el.querySelectorAll(".nsc-speed").forEach(function (s) {
+              (s.getAnimations ? s.getAnimations() : []).forEach(function (a) {
+                if (a.updatePlaybackRate) a.updatePlaybackRate(1.8);
+                else a.playbackRate = 1.8;
+              });
+            });
             el.classList.add("is-dashing");
             setTimeout(next, Math.max(0, ms - 140));
           } catch (e) {
@@ -141,54 +226,69 @@
             return;
           }
           var ms = 860;
-          var ease = "cubic-bezier(0.45, 0, 0.15, 1)";
-          var land = spring();
           var s = b.width / a.width;
           var dx = b.left + b.width / 2 - (a.left + a.width / 2);
           var dy = b.top + b.height / 2 - (a.top + a.height / 2);
           var svg = brand.querySelector("svg");
           var radius =
             parseFloat(getComputedStyle(toLogo).borderTopLeftRadius) || 0;
-          var mid = Math.sqrt(s);
-          var at = function (fx, fy, sx, sy, deg) {
-            return (
-              "translate(" +
-              dx * fx +
-              "px, " +
-              dy * fy +
-              "px) scale(" +
-              sx +
-              ", " +
-              sy +
-              ") rotate(" +
-              deg +
-              "deg)"
-            );
-          };
+          // The flight is worked out frame by frame rather than as a few
+          // keyframes, because across and up need different timing: with
+          // one easing for both, the logo came to a dead stop at the top of
+          // its arc and then set off again. Each axis is a damped spring
+          // (springFn): across overshoots the header logo a touch and comes
+          // back; up leads (it rises before it moves across, like a jump)
+          // and barely overshoots, so it never leaves the screen.
+          var springX = springFn(0.62);
+          var springY = springFn(0.78);
+          var STEPS = 48; // one keyframe every ~18ms, joined linearly
+          // Scale about the centre (the drop scales from the bottom, so it
+          // can squash on landing); the measured centres then line up.
+          brand.style.transformOrigin = "50% 50%";
           root.classList.add("nsc-handoff");
           el.classList.add("is-flying");
           el.setAttribute("aria-hidden", "true");
-          // A jump, not a slide: it crouches (anticipation), springs up on
-          // an arc (it rises faster than it moves across, stretched and
-          // tilted into the turn), then lands on a spring that carries it
-          // a touch past the header logo and back.
-          var flight = brand.animate(
-            [
-              { transform: "none", easing: "ease-in-out" },
-              {
-                offset: 0.16,
-                transform: at(0, 0, 1.08, 0.9, 0),
-                easing: "cubic-bezier(0.3, 0, 0.5, 1)",
-              },
-              {
-                offset: 0.55,
-                transform: at(0.48, 0.86, mid * 0.92, mid * 1.1, -14),
-                easing: land,
-              },
-              { transform: at(1, 1, s, s, 0) },
-            ],
-            { duration: ms, fill: "forwards" },
-          );
+          // A jump, not a slide: it crouches with its base on the ground
+          // (anticipation), stretches as it springs off, tilts into the
+          // turn, and lands on the header logo's spot.
+          var CROUCH = 0.14;
+          var logoFrames = [];
+          for (var i = 0; i <= STEPS; i++) {
+            var t = i / STEPS;
+            var tau = Math.max(0, (t - CROUCH) / (1 - CROUCH));
+            var g = 1 + (s - 1) * springY(Math.min(1, tau * 1.1));
+            var sq =
+              t < CROUCH
+                ? -0.1 * Math.sin((Math.PI / 2) * (t / CROUCH))
+                : -0.1 +
+                  0.18 * smooth(CROUCH, CROUCH + 0.1, t) -
+                  0.08 * smooth(CROUCH + 0.1, 0.5, t);
+            // While crouching, keep its base planted.
+            var plant =
+              Math.max(0, -sq) *
+              (a.height / 2) *
+              (1 - smooth(CROUCH, CROUCH + 0.08, t));
+            var tilt = Math.sin(Math.PI * smooth(CROUCH, 0.7, t));
+            logoFrames.push({
+              transform:
+                "translate(" +
+                (dx * springX(tau)).toFixed(2) +
+                "px, " +
+                (dy * springY(Math.min(1, tau * 1.3)) + plant).toFixed(2) +
+                "px) rotate(" +
+                (-12 * tilt * tilt).toFixed(2) +
+                "deg) scale(" +
+                (g * (1 - sq * 0.8)).toFixed(4) +
+                ", " +
+                (g * (1 + sq)).toFixed(4) +
+                ")",
+            });
+          }
+          var flight = brand.animate(logoFrames, {
+            duration: ms,
+            easing: "linear",
+            fill: "forwards",
+          });
           if (svg) {
             svg.animate(
               [
@@ -197,7 +297,11 @@
                 },
                 { borderRadius: radius / s + "px", boxShadow: "none" },
               ],
-              { duration: ms, easing: ease, fill: "forwards" },
+              {
+                duration: ms,
+                easing: "cubic-bezier(0.45, 0, 0.15, 1)",
+                fill: "forwards",
+              },
             );
           }
           var c = rect(title);
@@ -205,37 +309,43 @@
           if (c && d) {
             // The header title is left-aligned and may be a little smaller
             // (it scales with the screen), so pin the left edge. It follows
-            // a beat behind the logo, like a tail.
+            // a beat behind the logo, like a tail, and rises later than the
+            // logo does, so the logo is always clear above it.
             var ts =
               parseFloat(getComputedStyle(toTitle).fontSize) /
               parseFloat(getComputedStyle(title).fontSize);
             var tx = d.left - c.left;
             var ty = d.top + d.height / 2 - (c.top + c.height / 2);
-            var tAt = function (f, g, k) {
-              return (
-                "translate(" + tx * f + "px, " + ty * g + "px) scale(" + k + ")"
-              );
-            };
-            title.animate(
-              [
-                { transform: "none", easing: "cubic-bezier(0.4, 0, 0.6, 1)" },
-                {
-                  offset: 0.5,
-                  transform: tAt(0.4, 0.82, (1 + ts) / 2),
-                  easing: land,
-                },
-                { transform: tAt(1, 1, ts) },
-              ],
-              { duration: ms - 90, delay: 80, fill: "forwards" },
-            );
+            var titleFrames = [];
+            for (var j = 0; j <= STEPS; j++) {
+              var u = Math.max(0, (j / STEPS - 0.12) / 0.88);
+              var qx = springX(u);
+              titleFrames.push({
+                transform:
+                  "translate(" +
+                  (tx * qx).toFixed(2) +
+                  "px, " +
+                  (ty * springY(Math.pow(u, 1.3))).toFixed(2) +
+                  "px) scale(" +
+                  (1 + (ts - 1) * qx).toFixed(4) +
+                  ")",
+              });
+            }
+            title.animate(titleFrames, {
+              duration: ms - 90,
+              delay: 80,
+              easing: "linear",
+              fill: "forwards",
+            });
           } else {
             title.style.opacity = "0";
           }
-          // Let the page start falling in once the logo is most of the way
-          // up, so the cards don't fade in underneath it as it passes.
+          // Let the page start falling in once the logo has landed and the
+          // title (trailing it) has risen past the first card, so the cards
+          // don't fade in underneath either of them as they pass.
           setTimeout(function () {
             root.classList.remove("nsc-booting");
-          }, ms * 0.5);
+          }, ms * 0.6);
           // Swap to the real header logo on the flight's last frame (a timer
           // alone can fire a frame early); the timer is the backstop.
           var landed = false;
@@ -319,38 +429,37 @@
               <span class="nsc-puff nsc-puff-4"></span>
               <span class="nsc-puff nsc-puff-f1"></span>
               <span class="nsc-puff nsc-puff-f2"></span>
-              <svg viewBox="0 0 160 66" width="150" height="62">
-                <defs>
-                  <linearGradient id="nsc-beam-fill" x1="0" x2="1">
-                    <stop offset="0" stop-color="#ffe7a3" stop-opacity="0.55" />
-                    <stop offset="1" stop-color="#ffe7a3" stop-opacity="0" />
-                  </linearGradient>
-                </defs>
-                <!-- Shadow on the road: stays put while the body rides. -->
-                <ellipse class="nsc-shadow" cx="80" cy="65" rx="72" ry="2.2" />
-                <g class="nsc-susp">
-                  <g class="nsc-body">
-                    <!-- Headlight beam and the light bar's glow -->
+              <!-- Each moving part is its own layer (suspension, body,
+                   lights, wheels), not a group inside one SVG: the browser
+                   animates layers on the GPU, so the lights keep flashing
+                   and the wheels keep turning while the app's scripts are
+                   still compiling. The art is drawn in a 160 × 66 box at
+                   150 × 62 (× 0.9375); styles.css places the layers. -->
+              <span class="nsc-shadow"></span>
+              <div class="nsc-susp">
+                <div class="nsc-body">
+                  <span class="nsc-glow nsc-glow-r"></span>
+                  <span class="nsc-glow nsc-glow-b"></span>
+                  <svg viewBox="0 0 160 66" width="150" height="62">
+                    <defs>
+                      <linearGradient id="nsc-beam-fill" x1="0" x2="1">
+                        <stop
+                          offset="0"
+                          stop-color="#ffe7a3"
+                          stop-opacity="0.55"
+                        />
+                        <stop
+                          offset="1"
+                          stop-color="#ffe7a3"
+                          stop-opacity="0"
+                        />
+                      </linearGradient>
+                    </defs>
+                    <!-- Headlight beam -->
                     <path
                       class="nsc-beam"
                       d="M149 34 L240 18 L240 60 Z"
                       fill="url(#nsc-beam-fill)"
-                    />
-                    <circle
-                      class="nsc-glow-r"
-                      cx="113"
-                      cy="14"
-                      r="9"
-                      fill="#ff3b3b"
-                      opacity="0.6"
-                    />
-                    <circle
-                      class="nsc-glow-b"
-                      cx="121"
-                      cy="14"
-                      r="9"
-                      fill="#3b82ff"
-                      opacity="0.6"
                     />
                     <!-- Ladder -->
                     <rect x="8" y="9" width="92" height="2.5" fill="#c9ced6" />
@@ -399,25 +508,6 @@
                     <path d="M104 52V21q0-4 4-4h26l14 15v20z" fill="#e63030" />
                     <path d="M121 21h12l11 12h-23z" fill="#9fd3f2" />
                     <path d="M108 21h10v12h-10z" fill="#9fd3f2" />
-                    <!-- Light bar -->
-                    <rect
-                      class="nsc-light-r"
-                      x="110"
-                      y="12.5"
-                      width="7"
-                      height="4.5"
-                      rx="1.5"
-                      fill="#ff3b3b"
-                    />
-                    <rect
-                      class="nsc-light-b"
-                      x="117"
-                      y="12.5"
-                      width="7"
-                      height="4.5"
-                      rx="1.5"
-                      fill="#3b82ff"
-                    />
                     <!-- Stripe, bumper, headlight -->
                     <rect x="4" y="40" width="144" height="4" fill="#f4f1e8" />
                     <rect
@@ -439,10 +529,15 @@
                     <!-- Wheel arches -->
                     <path d="M18 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
                     <path d="M112 52a14 14 0 0 1 28 0z" fill="#2a2c31" />
-                  </g>
-                </g>
-                <g class="nsc-hop-r">
-                  <g class="nsc-wheel">
+                  </svg>
+                  <!-- Light bar, flashing red and blue -->
+                  <span class="nsc-light nsc-light-r"></span>
+                  <span class="nsc-light nsc-light-b"></span>
+                </div>
+              </div>
+              <div class="nsc-hop nsc-hop-r">
+                <div class="nsc-wheel">
+                  <svg viewBox="21 43 22 22">
                     <circle cx="32" cy="54" r="11" fill="#1d1e22" />
                     <circle cx="32" cy="54" r="5" fill="#b9bec7" />
                     <path
@@ -450,10 +545,12 @@
                       stroke="#1d1e22"
                       stroke-width="2"
                     />
-                  </g>
-                </g>
-                <g class="nsc-hop-f">
-                  <g class="nsc-wheel">
+                  </svg>
+                </div>
+              </div>
+              <div class="nsc-hop nsc-hop-f">
+                <div class="nsc-wheel">
+                  <svg viewBox="115 43 22 22">
                     <circle cx="126" cy="54" r="11" fill="#1d1e22" />
                     <circle cx="126" cy="54" r="5" fill="#b9bec7" />
                     <path
@@ -461,9 +558,9 @@
                       stroke="#1d1e22"
                       stroke-width="2"
                     />
-                  </g>
-                </g>
-              </svg>
+                  </svg>
+                </div>
+              </div>
             </div>
           </div>
         </div>

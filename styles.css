@@ -287,8 +287,10 @@ pre.mono {
 
 /* Loading screen in index.html: an overlay above the app. A fire truck drives
    a night road while the scripts load: it rides on springs, hits a bump and
-   bobs over it, headlight on and lights flashing. .is-dashing floors it off
-   the road (the nose lifts as the weight shifts back); .is-ready drops the
+   bobs over it, headlight on and lights flashing. Flooring it off the road
+   (the nose lifts as the weight shifts back) is driven from index.html,
+   dashOff, as is the flight into the header; .is-dashing only marks that
+   phase. .is-ready drops the
    app logo in under gravity, bouncing to rest, its ring draws and its hands
    wind round; .is-flying clears the backdrop while the logo and title fly
    into the header (.is-leaving is the plain-fade fallback). See
@@ -298,7 +300,6 @@ pre.mono {
   inset: 0;
   z-index: 200;
   overflow: hidden;
-  background: var(--bg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -307,12 +308,24 @@ pre.mono {
   padding: 24px;
   transition:
     opacity 0.45s ease,
-    visibility 0s linear 0.45s,
-    background-color 0.5s ease;
+    visibility 0s linear 0.45s;
+}
+/* The backdrop is its own layer, faded by opacity, so clearing it while the
+   logo flies costs the GPU a blend instead of repainting the whole screen
+   on every frame. */
+.nsc-splash::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--bg);
+  transition: opacity 0.5s ease;
 }
 .nsc-splash.is-flying {
-  background-color: transparent;
   pointer-events: none;
+}
+.nsc-splash.is-flying::before {
+  opacity: 0;
 }
 .nsc-splash.is-leaving {
   opacity: 0;
@@ -495,10 +508,6 @@ pre.mono {
 .nsc-splash.is-flying .nsc-brand-glow {
   animation: nscGlowOut 0.3s ease-out forwards;
 }
-/* Faster streaks as the truck floors it off the road. */
-.nsc-splash.is-dashing .nsc-speed {
-  animation-duration: 0.22s;
-}
 /* The header's own logo and title stay hidden until the splash copies
    land on them, so the swap is invisible. */
 .nsc-booting [data-splash-target],
@@ -669,50 +678,109 @@ pre.mono {
   width: 150px;
   height: 62px;
 }
+/* The truck's parts are stacked layers of one 150 × 62 box (the art's
+   160 × 66 units at × 0.9375), so positions below are art units × 0.9375. */
+/* Positioned, so the art paints in source order with the layers around it
+   (the light bar's glow under the cab, the lights on top). */
 .nsc-truck svg {
   position: relative;
   display: block;
   overflow: visible;
 }
+.nsc-susp,
+.nsc-body,
+.nsc-hop {
+  position: absolute;
+  inset: 0;
+}
 /* Suspension. The body sits on springs: a constant idle jiggle (.nsc-body),
    plus the bump (.nsc-susp) — the front wheel hops first and pitches the
    nose up, then the rear, and the body rocks back and forth, smaller each
    time, until the springs settle. Timed to the drive loop, so it happens as
-   each wheel reaches the hump. */
+   each wheel reaches the hump. Flooring it (index.html, dashOff) takes the
+   suspension over from wherever it is and squats it on the rear wheel. */
 .nsc-susp {
-  transform-box: view-box;
-  transform-origin: 80px 54px;
+  transform-origin: 75px 50.6px;
   animation: nscPitch 2.2s linear infinite;
 }
 .nsc-body {
   animation: nscJiggle 0.24s ease-in-out infinite alternate;
 }
-.nsc-hop-f,
-.nsc-hop-r {
+.nsc-hop-f {
   animation: nscHopF 2.2s linear infinite;
 }
 .nsc-hop-r {
-  animation-name: nscHopR;
+  animation: nscHopR 2.2s linear infinite;
 }
 .nsc-wheel {
-  transform-box: fill-box;
-  transform-origin: center;
+  position: absolute;
+  top: 40.3px;
+  width: 20.625px;
+  height: 20.625px;
   animation: nscSpin 0.35s linear infinite;
+}
+.nsc-wheel svg {
+  width: 100%;
+  height: 100%;
+}
+.nsc-hop-r .nsc-wheel {
+  left: 19.7px;
+}
+.nsc-hop-f .nsc-wheel {
+  left: 107.8px;
+}
+/* The light bar (art: 7 × 4.5 at x 110 / 117, y 12.5) and its glow (r 9
+   at x 113 / 121, y 14), flashing red and blue in turn. */
+.nsc-light,
+.nsc-glow {
+  position: absolute;
+}
+.nsc-light {
+  top: 11.7px;
+  width: 6.6px;
+  height: 4.2px;
+  border-radius: 1.4px;
+}
+.nsc-glow {
+  top: 4.7px;
+  width: 16.9px;
+  height: 16.9px;
+  border-radius: 50%;
+  opacity: 0.6;
+  filter: blur(3.75px);
+}
+.nsc-light-r {
+  left: 103.1px;
+}
+.nsc-light-b {
+  left: 109.7px;
+}
+.nsc-glow-r {
+  left: 97.5px;
+}
+.nsc-glow-b {
+  left: 105px;
 }
 .nsc-light-r,
 .nsc-glow-r {
+  background: #ff3b3b;
   animation: nscBlink 0.5s steps(1) infinite;
 }
 .nsc-light-b,
 .nsc-glow-b {
+  background: #3b82ff;
   animation: nscBlink 0.5s steps(1) infinite reverse;
 }
-.nsc-glow-r,
-.nsc-glow-b {
-  filter: blur(4px);
-}
+/* Shadow on the road (art: rx 72, ry 2.2 at 80, 65): stays put while the
+   body rides. */
 .nsc-shadow {
-  fill: #000;
+  position: absolute;
+  left: 7.5px;
+  top: 58.9px;
+  width: 135px;
+  height: 4.1px;
+  border-radius: 50%;
+  background: #000;
   opacity: 0.35;
 }
 [data-theme="light"] .nsc-shadow {
@@ -720,16 +788,6 @@ pre.mono {
 }
 [data-theme="light"] .nsc-beam {
   opacity: 0.55;
-}
-/* Flooring it: the weight shifts back, the nose lifts and the rear
-   squats, then the springs hold it there as it pulls away. */
-.nsc-splash.is-dashing .nsc-susp {
-  transform-origin: 32px 58px;
-  animation: nscSquat 0.45s var(--ease-wobbly) forwards;
-}
-.nsc-splash.is-dashing .nsc-hop-f,
-.nsc-splash.is-dashing .nsc-hop-r {
-  animation: none;
 }
 .nsc-puff {
   position: absolute;
@@ -855,14 +913,6 @@ pre.mono {
   }
   80% {
     transform: none;
-  }
-}
-@keyframes nscSquat {
-  from {
-    transform: none;
-  }
-  to {
-    transform: rotate(-3.5deg);
   }
 }
 @keyframes nscSpin {
