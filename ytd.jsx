@@ -1,13 +1,16 @@
 /* ytd.jsx — Year-to-date dashboard */
 const { useState: useStateY } = React;
 
+/* Attribute each snapshot to its pay period's year (consistent with the
+   monthly buckets below), falling back to capture date for legacy snapshots
+   saved before periodKey existed. */
+const periodYear = (s) => (s.periodKey ? fromYmd(s.periodKey).getFullYear() : new Date(s.at).getFullYear());
+/* The saved periods the dashboard covers: this year's. None, no dashboard. */
+const ytdSnapshots = (snapshots) => snapshots.filter((s) => periodYear(s) === new Date().getFullYear());
+
 function YTDDashboard({ snapshots }) {
   const year = new Date().getFullYear();
-  // Attribute each snapshot to its pay period's year (consistent with the
-  // monthly buckets below), falling back to capture date for legacy snapshots
-  // saved before periodKey existed.
-  const periodYear = (s) => (s.periodKey ? fromYmd(s.periodKey).getFullYear() : new Date(s.at).getFullYear());
-  const thisYear = snapshots.filter((s) => periodYear(s) === year);
+  const thisYear = ytdSnapshots(snapshots);
 
   const stats = (() => {
     // Legacy/imported snapshots may omit newer totals fields; coerce so a single
@@ -191,4 +194,4 @@ function CompKey({ color, label, value, pct, opacity, onEnter }) {
   );
 }
 
-Object.assign(window, { YTDDashboard });
+Object.assign(window, { YTDDashboard, ytdSnapshots });

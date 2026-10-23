@@ -30,6 +30,8 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 
 Motion across the app runs on damped springs: `styles.css` defines `--ease-bouncy`, `--ease-snappy`, `--ease-soft` and `--ease-wobbly`, CSS `linear()` easings sampled from a spring simulation (with a cubic-bezier fallback for older browsers), so pills, chevrons, ticks, dialogs and cards overshoot and settle like real objects. Bottom sheets can be pulled down to close; a flick flies them off at the finger's speed and a short pull springs back (`useSheetDrag` / `springTo` in `components.jsx`).
 
+On an iPad (from 744px wide, an iPad mini held upright) the screens go two columns, each as wide as a phone: Shifts puts the calendar beside the summary, Home the result beside the calendar, Watch the watch calendar beside the people and totals (a person's page: their calendar beside their details and pay), and History the year to date beside the saved periods. On a screen tall enough, the calendar (or year to date) stays pinned while the other column scrolls. Phones keep the single column. The layout lives in `styles.css` (`.nsc-page`, `.nsc-split`, `.calc-grid`).
+
 | File             | Purpose                                                                                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `index.html`     | App shell, script loaders, service-worker registration                                                                                                                         |
@@ -47,7 +49,7 @@ Motion across the app runs on damped springs: `styles.css` defines `--ease-bounc
 | `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
 | `crew.jsx`       | Watch tab: several people on the same shift — shared watch calendar, per-person days/pay/taxi, watch totals, copy summary and CSV export                                       |
 | `crewdoc.jsx`    | Watch as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                |
-| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, About guide, two-column desktop layout                                                         |
+| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, About guide, two-column iPad and desktop layout                                                |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
 | `manifest.json`  | PWA manifest                                                                                                                                                                   |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |

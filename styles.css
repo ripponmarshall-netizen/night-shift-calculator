@@ -1387,6 +1387,20 @@ button:focus-visible {
 .calc-grid.nsc-view > .calc-right > * {
   animation: nscRise var(--rise-dur, 0.7s) var(--ease-snappy) backwards;
 }
+/* The same for the other two-column screens: the cards (or columns) rise,
+   not the wrapper around them. */
+.nsc-view > .nsc-split {
+  animation: none;
+}
+.nsc-split > * {
+  animation: nscRise var(--rise-dur, 0.7s) var(--ease-snappy) backwards;
+}
+.nsc-split > :nth-child(2) {
+  animation-delay: var(--rise-step, 0.05s);
+}
+.nsc-split > :nth-child(n + 3) {
+  animation-delay: calc(var(--rise-step, 0.05s) * 2);
+}
 
 /* App chrome. The header only fades (no movement), so the splash can
    measure where its logo will land while the header is still hidden. The
@@ -1559,16 +1573,50 @@ button[role="tab"]:active,
   }
 }
 
-/* Shifts screen: two columns on desktop, the calendar pinned while the
-   summary scrolls. Header (12 + 44 + 12 + 1px border) plus the 16px gap. */
-@media (min-width: 1024px) {
-  .calc-grid {
+/* Page widths. A screen is a phone-width column until there's room for two
+   (744px: an iPad mini held upright), then the split screens below widen. */
+.nsc-page {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.nsc-page.is-narrow {
+  max-width: 560px;
+}
+
+/* Two columns from an iPad upright, side by side: the Shifts screen
+   (calendar | summary), Home (result | calendar), Watch (calendar | people
+   and totals), a watch member (calendar | details and pay) and History
+   (year to date | saved periods). Each column is as wide as a phone, so
+   nothing inside changes. A column can be pinned while the other scrolls,
+   but only on a screen tall enough to show all of it (not a phone turned
+   sideways). Header (12 + 44 + 12 + 1px border) plus the 16px gap. */
+@media (min-width: 744px) {
+  .nsc-page.is-split {
+    max-width: 1180px;
+  }
+  .calc-grid,
+  .nsc-split {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-    gap: 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0 16px;
     align-items: start;
   }
-  .calc-left {
+  .calc-grid {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: 16px;
+  }
+  /* A watch member: the calendar on the left, beside both cards. */
+  .nsc-split > .is-left {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .nsc-split > .is-right {
+    grid-column: 2;
+  }
+}
+@media (min-width: 744px) and (min-height: 600px) {
+  .calc-left,
+  .nsc-split > .is-pinned {
     position: sticky;
     top: calc(var(--safe-top) + 85px);
   }

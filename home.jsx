@@ -61,9 +61,13 @@ function HomeView(props) {
     showToast("Rotation filled for this period");
   };
   const canQuickFill = !wizard && shiftDays === 0 && !!rotationAnchor;
+  const welcome = shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor;
+  // Setup and the welcome stay one phone-width column; the result goes side
+  // by side with the calendar on an iPad.
+  const split = !wizard && !welcome;
 
   return (
-    <main className="nsc-view" style={{ maxWidth: 560, margin: "0 auto", padding: "16px 20px 0" }}>
+    <main className={"nsc-view nsc-page " + (split ? "is-split" : "is-narrow")} style={{ padding: "16px 20px 0" }}>
       {canQuickFill && (
         <Card style={{ padding: 18, border: "1px solid color-mix(in oklab, var(--accent) 40%, var(--line-soft))" }}>
           <div style={{ fontSize: 16, fontWeight: 600 }}>New pay period</div>
@@ -77,7 +81,7 @@ function HomeView(props) {
       )}
       {wizard ? (
         <SetupWizard {...props} shiftDays={shiftDays} onDone={closeWizard} />
-      ) : shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor ? (
+      ) : welcome ? (
         <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
       ) : (
         <HomeSummary {...props} basicDistance={basicDistance} totals={totals} tax={tax} shiftDays={shiftDays} onUpdate={() => setWizard(true)} />
@@ -119,7 +123,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
   const [part, setPart] = useStateH(null);
 
   return (
-    <>
+    <div className="nsc-split">
       <Card style={{ padding: 20 }}>
         <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
 
@@ -198,8 +202,7 @@ function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAn
           <button onClick={() => onOpenCalc()} style={{ ...ghostBtn(), whiteSpace: "nowrap" }}>Full breakdown</button>
         </div>
       </Card>
-
-    </>
+    </div>
   );
 }
 

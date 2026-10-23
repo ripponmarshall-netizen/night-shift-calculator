@@ -72,7 +72,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.20";
+const APP_VERSION = "3.21";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -209,10 +209,15 @@ const fmt = (n) => {
   const s = "$" + Math.abs(v).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return v < 0 && s !== "$0.00" ? "−" + s : s;
 };
+/* Short money for chart labels: $950, $1.5k, $541.0k, $2.61M. A year's
+   earnings run past a million, so they read $2.1M rather than $2,100.0k
+   (anything that would round to 1,000.0k counts as a million). */
 const fmtShort = (n) => {
   const v = Number(n) || 0;
   const a = Math.abs(v);
-  const s = a >= 999.5
+  const s = a >= 999950
+    ? "$" + (a / 1e6).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + "M"
+    : a >= 999.5
     ? "$" + (a / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k"
     : "$" + a.toLocaleString("en-JM", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return v < 0 && s !== "$0" ? "−" + s : s;

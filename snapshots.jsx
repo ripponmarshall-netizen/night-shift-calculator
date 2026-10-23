@@ -32,70 +32,75 @@ function SnapshotsView({ snapshots, crewHistory, onDeleteCrew, theme, onDelete, 
   const [isLeaving, remove] = useFoldAway(onDelete);
   // Saved crews go first when they're all there is, not under an empty card.
   const crewCard = crewHistory?.length > 0 && <CrewHistory list={crewHistory} onDelete={onDeleteCrew} />;
+  const ytd = ytdSnapshots(list).length > 0;
 
   return (
-    <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
-      {list.length > 0 && <YTDDashboard snapshots={list} />}
+    // On an iPad, with this year's periods saved: the year to date on the
+    // left, the saved periods beside it.
+    <main className={"nsc-view nsc-page" + (ytd ? " is-split nsc-split" : "")} style={{ padding: "20px 20px 0" }}>
+      {ytd && <div className="is-pinned"><YTDDashboard snapshots={list} /></div>}
       {list.length === 0 && crewCard}
-      <Card>
-        <SectionHead title={crewCard ? "Your saved periods" : "Saved periods"} subtitle={list.length ? `${list.length} saved` : null} right={
-          list.length > 0 && <button onClick={onClear} style={ghostBtn()}>Clear all</button>
-        } />
+      <div>
+        <Card>
+          <SectionHead title={crewCard ? "Your saved periods" : "Saved periods"} subtitle={list.length ? `${list.length} saved` : null} right={
+            list.length > 0 && <button onClick={onClear} style={ghostBtn()}>Clear all</button>
+          } />
 
-        {/* Sparkline */}
-        {sortedAsc.length >= 2 && (
-          <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
-            {/* On a narrow phone the change wraps under the total rather than
-                running out of the box. */}
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "6px 12px", marginBottom: 8 }}>
-              <div>
-                <div className="label">{trendAt == null ? "Latest" : latest.period}</div>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>
-                  <AnimatedNumber value={g(latest)} format={fmt} from={0} durationMs={trendAt == null ? 900 : 220} />
+          {/* Sparkline */}
+          {sortedAsc.length >= 2 && (
+            <div style={{ marginBottom: 16, padding: "14px", background: "var(--bg-2)", borderRadius: 12, border: "1px solid var(--line-soft)" }}>
+              {/* On a narrow phone the change wraps under the total rather than
+                  running out of the box. */}
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "6px 12px", marginBottom: 8 }}>
+                <div>
+                  <div className="label">{trendAt == null ? "Latest" : latest.period}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>
+                    <AnimatedNumber value={g(latest)} format={fmt} from={0} durationMs={trendAt == null ? 900 : 220} />
+                  </div>
+                  {/* The counting number is too chatty to announce; read the settled value instead. */}
+                  <span aria-live="polite" style={srOnly}>{trendAt == null ? "" : `${latest.period}: ${fmt(g(latest))}`}</span>
                 </div>
-                {/* The counting number is too chatty to announce; read the settled value instead. */}
-                <span aria-live="polite" style={srOnly}>{trendAt == null ? "" : `${latest.period}: ${fmt(g(latest))}`}</span>
+                <div style={{ textAlign: "right", marginLeft: "auto" }}>
+                  <div className="label">vs previous</div>
+                  {/* Under a cent either way reads as no change, not a green ▲. */}
+                  <div className="mono" style={{
+                    fontSize: 14, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap",
+                    color: Math.abs(delta) < 0.005 ? "var(--ink-dim)" : delta > 0 ? "var(--ok)" : "var(--holiday)",
+                  }}>
+                    {!prev ? "First saved"
+                      : Math.abs(delta) < 0.005 ? "No change"
+                      : <>{delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))} ({deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%)</>}
+                  </div>
+                </div>
               </div>
-              <div style={{ textAlign: "right", marginLeft: "auto" }}>
-                <div className="label">vs previous</div>
-                {/* Under a cent either way reads as no change, not a green ▲. */}
-                <div className="mono" style={{
-                  fontSize: 14, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap",
-                  color: Math.abs(delta) < 0.005 ? "var(--ink-dim)" : delta > 0 ? "var(--ok)" : "var(--holiday)",
-                }}>
-                  {!prev ? "First saved"
-                    : Math.abs(delta) < 0.005 ? "No change"
-                    : <>{delta > 0 ? "▲" : "▼"} {fmt(Math.abs(delta))} ({deltaPct >= 0 ? "+" : ""}{deltaPct.toFixed(1)}%)</>}
-                </div>
+              <Sparkline points={sortedAsc.map(g)} avg={avg} cursor={cursor} />
+              <div className="mono" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10 }}>
+                <svg aria-hidden width="14" height="2"><line x1="0" x2="14" y1="1" y2="1" stroke="var(--ink-faint)" strokeDasharray="3 3" /></svg>
+                avg {fmt(avg)} · high {fmt(max)}
               </div>
             </div>
-            <Sparkline points={sortedAsc.map(g)} avg={avg} cursor={cursor} />
-            <div className="mono" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10.5, color: "var(--ink-faint)", marginTop: 10 }}>
-              <svg aria-hidden width="14" height="2"><line x1="0" x2="14" y1="1" y2="1" stroke="var(--ink-faint)" strokeDasharray="3 3" /></svg>
-              avg {fmt(avg)} · high {fmt(max)}
+          )}
+
+          {list.length === 0 ? (
+            <EmptyState onBack={onBack} />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {sortedDesc.map((s, i) => {
+                const prevSnap = sortedDesc[i + 1];
+                const raw = prevSnap ? g(s) - g(prevSnap) : 0;
+                const d = Math.abs(raw) < 0.005 ? 0 : raw;
+                return (
+                  <AnimatedRow key={s.at} index={i} leaving={isLeaving(s.at)}>
+                    <SnapRow snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => remove(s.at)} />
+                  </AnimatedRow>
+                );
+              })}
             </div>
-          </div>
-        )}
+          )}
+        </Card>
 
-        {list.length === 0 ? (
-          <EmptyState onBack={onBack} />
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            {sortedDesc.map((s, i) => {
-              const prevSnap = sortedDesc[i + 1];
-              const raw = prevSnap ? g(s) - g(prevSnap) : 0;
-              const d = Math.abs(raw) < 0.005 ? 0 : raw;
-              return (
-                <AnimatedRow key={s.at} index={i} leaving={isLeaving(s.at)}>
-                  <SnapRow snap={s} delta={d} onOpen={() => setSelectedAt(s.at)} onDelete={() => remove(s.at)} />
-                </AnimatedRow>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {list.length > 0 && crewCard}
+        {list.length > 0 && crewCard}
+      </div>
 
       {selected && <SnapshotDetail snap={selected} theme={theme} onClose={() => setSelectedAt(null)} onReconcile={onReconcile} />}
     </main>
