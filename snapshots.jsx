@@ -246,7 +246,7 @@ function EmptyState({ onBack }) {
       </svg>
       <div style={{ fontSize: 14, marginBottom: 6, color: "var(--ink)" }}>Nothing saved yet</div>
       <div style={{ fontSize: 12.5, color: "var(--ink-faint)", maxWidth: 320, margin: "0 auto 14px", lineHeight: 1.5 }}>
-        Tap <strong>Save to History</strong> on Home or Shifts to keep this period's result. Then you can compare periods and check it against your pay slip.
+        Tap <strong>Save to History</strong> on Home or Details to keep this period's result. Then you can compare periods and check it against your pay slip.
       </div>
       <button onClick={onBack} style={primaryBtn()}>Go to my shifts</button>
     </div>

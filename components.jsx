@@ -260,7 +260,7 @@ function useChartCursor(count, valid = () => true) {
 }
 
 /* PAY_PARTS — the three parts every total splits into, in the same order
-   and colours on Home, Shifts and History. */
+   and colours on Home, Details and History. */
 const PAY_PARTS = [
   { key: "allow", label: "Allowance", field: "allowanceSubtotal", color: "var(--sp1)" },
   { key: "base", label: "Base", field: "baseSubtotal", color: "var(--am)" },
@@ -643,7 +643,7 @@ function ChevronIcon({ dir = "right", size = 14 }) {
   );
 }
 
-/* PeriodNav — the pay period with previous / next buttons (Home and Shifts). */
+/* PeriodNav — the pay period with previous / next buttons (Home and Details). */
 function PeriodNav({ period, onShift, style }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, ...style }}>

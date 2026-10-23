@@ -1,4 +1,4 @@
-/* app.jsx — main app with bottom taskbar (Home / Shifts / Watch / History + live total), two columns on iPad and desktop, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home / Details / Watch / History + live total), two columns on iPad and desktop, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -44,7 +44,7 @@ function App() {
   const [highlightDays, setHighlightDays] = useState(null);
   const [clipboard, setClipboard] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
-  // Whether the Shifts screen's own total is on screen: null until it has
+  // Whether the Details screen's own total is on screen: null until it has
   // been measured, so the floating total doesn't flash in on arrival.
   const [heroVisible, setHeroVisible] = useState(null);
 
@@ -491,7 +491,7 @@ function App() {
   };
 
   return (
-    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : view === "crew" ? "Watch" : "Calculator"}
+    <div data-screen-label={view === "history" ? "History" : view === "about" ? "About" : view === "home" ? "Home" : view === "crew" ? "Watch" : "Details"}
          style={{ paddingBottom: `calc(130px + var(--safe-bottom))` }}>
       <Header onSettings={() => setSettingsOpen(true)} />
 
@@ -914,7 +914,7 @@ function AboutView({ onBack, rates }) {
           <GuideNote>Next pay period, Home offers {b("Fill my rotation")}: one tap carries your cycle on. The app always opens on today's pay period (the 16th to the 15th).</GuideNote>
         </GuideSection>
 
-        <GuideSection id="shifts" open={openGuide} onToggle={toggle} title="Logging shifts day by day" detail="The Shifts tab">
+        <GuideSection id="shifts" open={openGuide} onToggle={toggle} title="Logging shifts day by day" detail="The Details tab">
           <GuideSteps steps={[
             <>{b("Tap a day")} to open it, then tick 7AM, 3PM or 10PM. Ticking again takes the shift off.</>,
             <>Worked fewer hours? Type them under the shift. Blank means the standard hours (7AM 8h, 3PM 7h, 10PM 9h across midnight).</>,
@@ -928,7 +928,7 @@ function AboutView({ onBack, rates }) {
         <GuideSection id="read" open={openGuide} onToggle={toggle} title="Reading your result" detail="Totals, the maths and tax">
           <GuideSteps steps={[
             <>The big number is your {b("estimated gross")} (or {b("estimated allowances")} until a monthly basic is set). The bar under it splits it into Allowance, Base and Extra.</>,
-            <>On Shifts, tap {b("Allowance")}, {b("Base Pay")} or {b("Extra Hours")} to see the lines, and {b("ƒ")} on a line to see exactly how it was worked out.</>,
+            <>On Details, tap {b("Allowance")}, {b("Base Pay")} or {b("Extra Hours")} to see the lines, and {b("ƒ")} on a line to see exactly how it was worked out.</>,
             <>{b("Show est. net")} lists NIS, NHT, Education Tax and PAYE. Meal and taxi are tax-free. Set the rates in Settings → Tax.</>,
             <>{b("Check against roster")}: type your roster's counts and the app tells you if the calendar disagrees. It never changes the pay.</>,
           ]} />
@@ -1105,7 +1105,7 @@ function LabelRow({ chip, title, detail, last }) {
 function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, hasInputs, snapshotCount, totalChipRef }) {
   const tabs = [
     { id: "home", label: "Home", icon: HomeIcon },
-    { id: "calc", label: "Shifts", icon: ShiftsIcon },
+    { id: "calc", label: "Details", icon: DetailsIcon },
     { id: "crew", label: "Watch", icon: CrewIcon },
     { id: "history", label: "History", icon: HistoryIcon, badge: snapshotCount },
   ];
@@ -1226,7 +1226,7 @@ function HomeIcon() {
     <path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>
   </svg>;
 }
-function ShiftsIcon() {
+function DetailsIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17h2"/>
   </svg>;
