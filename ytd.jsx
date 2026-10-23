@@ -163,7 +163,7 @@ function MonthlyBars({ monthly }) {
   );
 }
 
-/* The year's pay split into its parts (the same bar Home and Shifts show
+/* The year's pay split into its parts (the same bar Home and Details show
    under their totals). Pointing at a part or its key spotlights it. */
 function Composition({ allow, base, extra, total }) {
   const [focus, setFocus] = useStateY(null);
