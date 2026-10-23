@@ -51,11 +51,12 @@ function HomeView(props) {
   // A saved rotation runs on into every period, so an empty new period can be
   // filled in one tap with the same pay and distance answers. With taxi set
   // to Varies, new shifts start at the distance Varies seeds them with, and
-  // the taxi choice itself is left alone.
+  // the taxi choice itself is left alone. Like every rotation fill it keeps
+  // what's already there (here, any holiday changed by hand).
   const fillRotation = () => {
     onApply({
       fill: rotationEntries(period, rotationAnchor, mode === "advanced" ? defaultDist || "S" : basicDistance),
-      replace: true, basePay, dist: basicDistance, keepTaxi: true,
+      replace: false, basePay, dist: basicDistance, keepTaxi: true,
       counts: { pm3: "", pm10: "", am7: "" }, anchor: rotationAnchor,
     });
     showToast("Rotation filled for this period");
@@ -248,7 +249,9 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
     totals: shiftDays > 0
       ? { pm3: String(totals.cal.pm3), pm10: String(totals.cal.pm10), am7: String(totals.cal.am7), pairs: String(totals.cal.sameDayPair) }
       : blankTotals,
-    keep: false,
+    // Days already logged stay as they are, as in Auto-fill: a leave day or
+    // swap is worth more than a clean slate. Switching it off replaces them.
+    keep: true,
   }));
   const set = (patch) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -263,7 +266,9 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
       : replace ? { pm3: "", pm10: "", am7: "" } : counts;
     const nextMode = replace ? "basic" : mode;
     const bp = { monthly: draft.monthly, compulsory: draft.compulsory };
-    const preview = aggregate(mergePeriodFill(entries, period, fill, replace), period, nextMode, draft.dist, nextCounts, bp, rates);
+    // The rotation as anchor, so kept shifts that fall outside it count as extra.
+    const anchor = draft.method === "rotation" ? draft.am7Key : null;
+    const preview = aggregate(mergePeriodFill(entries, period, fill, replace), period, nextMode, draft.dist, nextCounts, bp, rates, anchor);
     return { fill, nextCounts, bp, preview };
   }, [draft, period, entries, mode, counts, rates, replace]);
 
@@ -332,7 +337,11 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
             <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "var(--bg-2)", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
               {draft.method === "rotation" ? (
                 <label style={{ display: "flex", gap: 12, alignItems: "center", cursor: "pointer" }}>
-                  <span style={{ flex: 1 }}>Keep the {shiftDays} day{shiftDays === 1 ? "" : "s"} already logged and only fill empty days. {draft.keep ? "" : "Switched off: this period's calendar will be replaced."}</span>
+                  <span style={{ flex: 1 }}>
+                    Keep the {shiftDays} day{shiftDays === 1 ? "" : "s"} already logged and only fill empty days.{" "}
+                    {!draft.keep ? "Switched off: this period's calendar will be replaced."
+                      : plan.preview.extraShifts > 0 && <span style={{ color: "var(--extra)", fontWeight: 600 }}>{plan.preview.extraShifts} kept shift{plan.preview.extraShifts === 1 ? " falls" : "s fall"} outside this rotation and will show as extra.</span>}
+                  </span>
                   <input type="checkbox" className="nsc-switch" checked={draft.keep} onChange={(e) => set({ keep: e.target.checked })} />
                 </label>
               ) : (
