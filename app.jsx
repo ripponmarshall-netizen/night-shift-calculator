@@ -399,6 +399,42 @@ function App() {
   // screen was left at.
   // Before paint, so the new screen never flashes at the old offset.
   React.useLayoutEffect(() => { window.scrollTo?.(0, 0); }, [view]);
+  // A side column is pinned on wide screens only while all of it fits
+  // between the header and the tab bar. A taller one (the calendar on an
+  // iPad turned sideways) scrolls with the page, or its last rows would sit
+  // under the tab bar where no amount of scrolling reaches them. Its height
+  // changes as days are filled in, and the room changes as Safari's toolbar
+  // shows and hides, so this re-checks on both.
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const header = document.querySelector(".nsc-header");
+      const dock = document.querySelector(".nsc-dock");
+      const top = header ? header.getBoundingClientRect().bottom + 16 : 0;
+      // Sizes, not positions: the dock may still be sliding in.
+      const bottom = window.innerHeight - 8 - (dock
+        ? dock.offsetHeight + (parseFloat(getComputedStyle(dock.parentElement).paddingBottom) || 0)
+        : 0);
+      document.querySelectorAll(".calc-left, .nsc-split > .is-pinned").forEach((el) => {
+        ro.observe(el);
+        el.classList.toggle("is-fit", el.offsetHeight <= bottom - top);
+      });
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(check); };
+    const ro = new ResizeObserver(schedule);
+    ro.observe(document.body);
+    // Columns come and go without a screen change (a watch member opening).
+    const mo = new MutationObserver(schedule);
+    mo.observe(document.getElementById("root") || document.body, { childList: true, subtree: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      ro.disconnect(); mo.disconnect();
+      window.removeEventListener("resize", schedule);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
 
   const openCalc = (m) => {
     if (m === "basic" || m === "advanced") setMode(m);
@@ -1075,13 +1111,22 @@ function Taskbar({ activeTab, onTab, total, totalShort, totalSlot, showTotal, ha
   ];
   const activeIndex = tabs.findIndex((t) => t.id === activeTab);
 
+  // iOS keeps fixed bars on the layout viewport, so with the on-screen
+  // keyboard up the tab bar floats loose over the page (on an iPad, often
+  // mid-screen) and moves as it scrolls. Step it aside while typing; the
+  // keyboard shrinks the visual viewport, which is how it's spotted.
+  const [keyboard, setKeyboard] = useState(false);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setKeyboard(vv.scale < 1.05 && window.innerHeight - vv.height > 120);
+    onResize();
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
+
   return (
-    <nav aria-label="Main" style={{
-      position: "fixed", left: 0, right: 0, bottom: 0,
-      paddingBottom: "var(--safe-bottom)",
-      zIndex: 40,
-      pointerEvents: "none",
-    }}>
+    <nav aria-label="Main" className={"nsc-tabbar" + (keyboard ? " is-away" : "")} aria-hidden={keyboard || undefined}>
       {/* Live total — floats above the tabs while logging shifts */}
       {totalSlot && (
         <div className={"total-chip-slot" + (showTotal ? "" : " is-hidden")} aria-hidden={showTotal ? undefined : "true"}

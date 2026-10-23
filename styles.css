@@ -244,6 +244,12 @@ body {
   margin: 0;
   padding: 0;
 }
+/* No rubber-band at the ends of the page. It has to be set on the root:
+   on body it doesn't reach the page's own scrolling, so the whole app
+   (tab bar included) could still be dragged past its ends and spring back. */
+html {
+  overscroll-behavior: none;
+}
 /* San Francisco on Apple devices; Geist (loaded in index.html) elsewhere. */
 body {
   font-family:
@@ -1424,6 +1430,34 @@ button:focus-visible {
   border-bottom-color: var(--line-soft);
   box-shadow: 0 10px 24px -22px rgba(0, 0, 0, 0.9);
 }
+/* The tab bar is fixed to the bottom on its own compositing layer, so iOS
+   doesn't repaint it a frame behind the page (it judders or drifts during
+   momentum scrolling, worst on an iPad's large screen). */
+.nsc-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  padding-bottom: var(--safe-bottom);
+  pointer-events: none;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transition:
+    transform 0.3s var(--ease-snappy),
+    opacity 0.2s ease,
+    visibility 0s;
+}
+.nsc-tabbar.is-away {
+  transform: translateY(110%);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    transform 0.2s ease-in,
+    opacity 0.2s ease,
+    visibility 0s linear 0.2s;
+}
 .nsc-dock {
   animation: nscDockIn 0.8s var(--ease-bouncy) 0.18s backwards;
 }
@@ -1588,8 +1622,9 @@ button[role="tab"]:active,
    and totals), a watch member (calendar | details and pay) and History
    (year to date | saved periods). Each column is as wide as a phone, so
    nothing inside changes. A column can be pinned while the other scrolls,
-   but only on a screen tall enough to show all of it (not a phone turned
-   sideways). Header (12 + 44 + 12 + 1px border) plus the 16px gap. */
+   but only while all of it fits between the header and the tab bar (App
+   sets .is-fit); otherwise its last rows would be stuck under the tab bar.
+   Header (12 + 44 + 12 + 1px border) plus the 16px gap. */
 @media (min-width: 744px) {
   .nsc-page.is-split {
     max-width: 1180px;
@@ -1614,9 +1649,9 @@ button[role="tab"]:active,
     grid-column: 2;
   }
 }
-@media (min-width: 744px) and (min-height: 600px) {
-  .calc-left,
-  .nsc-split > .is-pinned {
+@media (min-width: 744px) {
+  .calc-left.is-fit,
+  .nsc-split > .is-pinned.is-fit {
     position: sticky;
     top: calc(var(--safe-top) + 85px);
   }
