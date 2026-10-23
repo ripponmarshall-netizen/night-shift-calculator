@@ -150,41 +150,46 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
           onRemove={() => removeMember(member)}
         />
       ) : (
-        <main key="crew" className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "16px 20px 0" }}>
-          <Card style={{ padding: 0, overflow: "hidden" }}>
-            <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
-            <div style={{ padding: "0 16px 10px" }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>Watch shift</div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, lineHeight: 1.45 }}>
-                The shifts everyone on the watch works. Each person starts from this calendar; open a person to mark their leave, swaps or extra shifts.
+        <main key="crew" className="nsc-view nsc-page is-split nsc-split" style={{ padding: "16px 20px 0" }}>
+          {/* On an iPad: the watch calendar pinned on the left, the people and totals beside it. */}
+          <div className="is-pinned">
+            <Card style={{ padding: 0, overflow: "hidden" }}>
+              <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
+              <div style={{ padding: "0 16px 10px" }}>
+                <div style={{ fontSize: 15, fontWeight: 600 }}>Watch shift</div>
+                <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 2, lineHeight: 1.45 }}>
+                  The shifts everyone on the watch works. Each person starts from this calendar; open a person to mark their leave, swaps or extra shifts.
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => setFillOpen(true)} style={crewToolBtn}>Fill rotation</button>
+                  <button onClick={copyMine} style={crewToolBtn}>Copy my shifts</button>
+                  {periodDays(period).some((d) => crew.entries[ymd(d)]) && <button onClick={clearCrew} style={crewToolBtn}>Clear</button>}
+                </div>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-                <button onClick={() => setFillOpen(true)} style={crewToolBtn}>Fill rotation</button>
-                <button onClick={copyMine} style={crewToolBtn}>Copy my shifts</button>
-                {periodDays(period).some((d) => crew.entries[ymd(d)]) && <button onClick={clearCrew} style={crewToolBtn}>Clear</button>}
+              <div style={{ padding: "0 12px" }}>
+                <Calendar compact period={period} entries={crew.entries} mode="basic" totals={crewTotals}
+                  rotationAnchor={crew.rotationAnchor} onOpenDay={(d) => setDayEdit({ who: "crew", key: ymd(d) })} />
               </div>
-            </div>
-            <div style={{ padding: "0 12px" }}>
-              <Calendar compact period={period} entries={crew.entries} mode="basic" totals={crewTotals}
-                rotationAnchor={crew.rotationAnchor} onOpenDay={(d) => setDayEdit({ who: "crew", key: ymd(d) })} />
-            </div>
-            <div style={{ padding: "6px 16px 14px", fontSize: 12, color: "var(--ink-dim)" }}>
-              <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.am7}</span> 7AM ·{" "}
-              <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm3}</span> 3PM ·{" "}
-              <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm10}</span> 10PM ·{" "}
-              <span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(crewTotals.totalHours, rates)}</span>
-            </div>
-          </Card>
+              <div style={{ padding: "6px 16px 14px", fontSize: 12, color: "var(--ink-dim)" }}>
+                <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.am7}</span> 7AM ·{" "}
+                <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm3}</span> 3PM ·{" "}
+                <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm10}</span> 10PM ·{" "}
+                <span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(crewTotals.totalHours, rates)}</span>
+              </div>
+            </Card>
+          </div>
 
-          <CrewPeople crew={crew} rows={rows} period={period}
-            onSort={(v) => setCrew((c) => ({ ...c, sortBy: v }))}
-            onAdd={addMember} onOpen={setOpenId} />
+          <div>
+            <CrewPeople crew={crew} rows={rows} period={period}
+              onSort={(v) => setCrew((c) => ({ ...c, sortBy: v }))}
+              onAdd={addMember} onOpen={setOpenId} />
 
-          {rows.length > 0 && (
-            <CrewTotals snap={live} crew={crew} saveStatus={saveStatus}
-              onDetails={(k, v) => setCrew((c) => ({ ...c, [k]: v }))}
-              onSave={() => onSave(live)} />
-          )}
+            {rows.length > 0 && (
+              <CrewTotals snap={live} crew={crew} saveStatus={saveStatus}
+                onDetails={(k, v) => setCrew((c) => ({ ...c, [k]: v }))}
+                onSave={() => onSave(live)} />
+            )}
+          </div>
         </main>
       )}
 
@@ -442,7 +447,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
   };
 
   return (
-    <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "16px 20px 0" }}>
+    <main className="nsc-view nsc-page is-split" style={{ padding: "16px 20px 0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
         {/* An iOS back button: the tint colour, a chevron and where it goes. */}
         <button onClick={onBack} style={{
@@ -454,81 +459,90 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
         </div>
       </div>
 
-      <Card>
-        <SectionHead title="Details" subtitle="Saved as you type" />
-        <CrewField label="Name" value={m.name} onChange={(v) => onChange((x) => ({ ...x, name: v.slice(0, 60) }))} capitalize="words" />
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
-          <CrewField label="Employee no." value={m.empNo} onChange={(v) => onChange((x) => ({ ...x, empNo: v.slice(0, 30) }))} capitalize="characters" maxLength={30} />
-          <CrewField label="Rank" value={m.rank || ""} onChange={(v) => onChange((x) => ({ ...x, rank: v.slice(0, 40) }))} capitalize="words" maxLength={40} />
-        </div>
-        {dupe && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone else on the watch has this employee number.</div>}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12, alignItems: "end" }}>
-          <RateInput label="Monthly basic" unit="$" value={m.basePay.monthly} onChange={(v) => setPay("monthly", v)} />
-          <RateInput label="Compulsory" unit="$" value={m.basePay.compulsory} onChange={(v) => setPay("compulsory", v)} />
-        </div>
-        <div className="label" style={{ margin: "12px 0 6px" }}>Taxi distance</div>
-        <SegToggle full options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={m.dist} onChange={(v) => onChange((x) => ({ ...x, dist: v }))} />
-        <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-          Leave the monthly basic blank to work out allowances only.
-        </div>
-      </Card>
-
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
-        <div style={{ padding: "0 16px 10px", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
-          The watch's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
-        </div>
-        <div style={{ padding: "0 12px 12px" }}>
-          <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotationAnchor} onOpenDay={onOpenDay} />
-        </div>
-        {diffs.length > 0 && (
-          <div style={{ padding: "8px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
-              <span className="label">Different from the watch</span>
-              {diffs.length > 1 && <button onClick={matchAll} style={linkBtn(12.5)}>Match all</button>}
+      {/* On an iPad: the calendar pinned on the left, the details and pay beside it. */}
+      <div className="nsc-split">
+        <div className="is-right">
+          <Card>
+            <SectionHead title="Details" subtitle="Saved as you type" />
+            <CrewField label="Name" value={m.name} onChange={(v) => onChange((x) => ({ ...x, name: v.slice(0, 60) }))} capitalize="words" />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+              <CrewField label="Employee no." value={m.empNo} onChange={(v) => onChange((x) => ({ ...x, empNo: v.slice(0, 30) }))} capitalize="characters" maxLength={30} />
+              <CrewField label="Rank" value={m.rank || ""} onChange={(v) => onChange((x) => ({ ...x, rank: v.slice(0, 40) }))} capitalize="words" maxLength={40} />
             </div>
-            {diffs.map((k) => (
-              <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: 13 }}>
-                <span style={{ width: 92, flexShrink: 0, color: "var(--ink-dim)" }}>{fromYmd(k).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  {crewDayText(crew.entries[k])} <span style={{ color: "var(--ink-faint)" }}>→</span> <strong style={{ fontWeight: 600 }}>{crewDayText(m.days[k])}</strong>
-                </span>
-                <button onClick={() => matchCrew(k)} style={{ ...linkBtn(12.5), whiteSpace: "nowrap" }}>Match watch</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            {dupe && <div style={{ fontSize: 12, color: "var(--warn)", marginTop: 6 }}>Someone else on the watch has this employee number.</div>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12, alignItems: "end" }}>
+              <RateInput label="Monthly basic" unit="$" value={m.basePay.monthly} onChange={(v) => setPay("monthly", v)} />
+              <RateInput label="Compulsory" unit="$" value={m.basePay.compulsory} onChange={(v) => setPay("compulsory", v)} />
+            </div>
+            <div className="label" style={{ margin: "12px 0 6px" }}>Taxi distance</div>
+            <SegToggle full options={[{ v: "S", l: "Short" }, { v: "L", l: "Long" }]} value={m.dist} onChange={(v) => onChange((x) => ({ ...x, dist: v }))} />
+            <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
+              Leave the monthly basic blank to work out allowances only.
+            </div>
+          </Card>
+        </div>
 
-      <Card>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(t)}</div>
-        <div style={{ fontSize: "clamp(24px, 7.6vw, 30px)", fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
-          <AnimatedNumber value={t.grand} format={fmt} from={0} durationMs={700} />
+        <div className="is-left is-pinned">
+          <Card style={{ padding: 0, overflow: "hidden" }}>
+            <PeriodNav period={period} onShift={onShiftPeriod} style={{ padding: "14px 16px 8px" }} />
+            <div style={{ padding: "0 16px 10px", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.45 }}>
+              The watch's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
+            </div>
+            <div style={{ padding: "0 12px 12px" }}>
+              <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotationAnchor} onOpenDay={onOpenDay} />
+            </div>
+            {diffs.length > 0 && (
+              <div style={{ padding: "8px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                  <span className="label">Different from the watch</span>
+                  {diffs.length > 1 && <button onClick={matchAll} style={linkBtn(12.5)}>Match all</button>}
+                </div>
+                {diffs.map((k) => (
+                  <div key={k} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px dashed var(--line-soft)", fontSize: 13 }}>
+                    <span style={{ width: 92, flexShrink: 0, color: "var(--ink-dim)" }}>{fromYmd(k).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      {crewDayText(crew.entries[k])} <span style={{ color: "var(--ink-faint)" }}>→</span> <strong style={{ fontWeight: 600 }}>{crewDayText(m.days[k])}</strong>
+                    </span>
+                    <button onClick={() => matchCrew(k)} style={{ ...linkBtn(12.5), whiteSpace: "nowrap" }}>Match watch</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
-        {t.grand > 0 && <div style={{ marginTop: 12 }}><SplitBar totals={t} /></div>}
-        <div style={{ marginTop: 12 }}>
-          <Row label={`SP1 · ${t.cal.pm3} × 3PM`} value={fmt(t.sp1)} />
-          <Row label={`SP2 · ${t.cal.pm10} × 10PM`} value={fmt(t.sp2)} />
-          <Row label="Meal" value={fmt(t.meal)} />
-          <Row label={`Taxi · ${m.dist === "L" ? "Long" : "Short"}`} value={fmt(t.taxi)} />
-          <Sub label="Allowances" value={fmt(t.allowanceSubtotal)} />
-          {t.baseSubtotal > 0 && (
-            <>
-              <Row label="Monthly basic + compulsory" value={fmt(t.baseSubtotal)} />
-              <Row label={`Holiday ×2 · ${fmtDur(t.holidayHours, rates)}`} value={fmt(t.holidayPay)} />
-              <Row label={`Overtime ×1.5 · ${fmtDur(t.otHours, rates)}`} value={fmt(t.overtimePay)} />
-            </>
-          )}
-          <Row label="Total hours" value={fmtDur(t.totalHours, rates)} faint />
-          {t.extraShifts > 0 && <Row label={`Extra shifts ×${t.extraShifts}`} value={fmtHM(t.extraHours)} faint />}
-          {net != null && <Sub label="Estimated net" value={fmt(net)} />}
+
+        <div className="is-right">
+          <Card>
+            <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(t)}</div>
+            <div style={{ fontSize: "clamp(24px, 7.6vw, 30px)", fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
+              <AnimatedNumber value={t.grand} format={fmt} from={0} durationMs={700} />
+            </div>
+            {t.grand > 0 && <div style={{ marginTop: 12 }}><SplitBar totals={t} /></div>}
+            <div style={{ marginTop: 12 }}>
+              <Row label={`SP1 · ${t.cal.pm3} × 3PM`} value={fmt(t.sp1)} />
+              <Row label={`SP2 · ${t.cal.pm10} × 10PM`} value={fmt(t.sp2)} />
+              <Row label="Meal" value={fmt(t.meal)} />
+              <Row label={`Taxi · ${m.dist === "L" ? "Long" : "Short"}`} value={fmt(t.taxi)} />
+              <Sub label="Allowances" value={fmt(t.allowanceSubtotal)} />
+              {t.baseSubtotal > 0 && (
+                <>
+                  <Row label="Monthly basic + compulsory" value={fmt(t.baseSubtotal)} />
+                  <Row label={`Holiday ×2 · ${fmtDur(t.holidayHours, rates)}`} value={fmt(t.holidayPay)} />
+                  <Row label={`Overtime ×1.5 · ${fmtDur(t.otHours, rates)}`} value={fmt(t.overtimePay)} />
+                </>
+              )}
+              <Row label="Total hours" value={fmtDur(t.totalHours, rates)} faint />
+              {t.extraShifts > 0 && <Row label={`Extra shifts ×${t.extraShifts}`} value={fmtHM(t.extraHours)} faint />}
+              {net != null && <Sub label="Estimated net" value={fmt(net)} />}
+            </div>
+            <DutySummary totals={t} style={{ marginTop: 10 }} />
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 14 }}>
+              <button onClick={copySummary} style={ghostBtn()}>Copy summary</button>
+              <button onClick={onRemove} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Remove from watch</button>
+            </div>
+          </Card>
         </div>
-        <DutySummary totals={t} style={{ marginTop: 10 }} />
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginTop: 14 }}>
-          <button onClick={copySummary} style={ghostBtn()}>Copy summary</button>
-          <button onClick={onRemove} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Remove from watch</button>
-        </div>
-      </Card>
+      </div>
     </main>
   );
 }

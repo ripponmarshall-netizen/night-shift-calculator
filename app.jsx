@@ -1,4 +1,4 @@
-/* app.jsx — main app with bottom taskbar (Home / Shifts / Watch / History + live total), desktop 2-col, cross-check highlights */
+/* app.jsx — main app with bottom taskbar (Home / Shifts / Watch / History + live total), two columns on iPad and desktop, cross-check highlights */
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
@@ -645,7 +645,7 @@ function Header({ onSettings }) {
   );
 }
 
-/* ============ Calc view (with desktop 2-col layout) ============ */
+/* ============ Calc view (two columns from an iPad upright) ============ */
 /* Order of use: log shifts → confirm distance → read the result. Base pay
    (set once on Home) and the roster cross-check fold away until needed. */
 function CalcView(props) {

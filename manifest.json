@@ -4,7 +4,7 @@
   "description": "Calculate night shift pay quickly and accurately.",
   "start_url": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
