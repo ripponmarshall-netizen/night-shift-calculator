@@ -651,6 +651,26 @@ assert.deepStrictEqual(
   });
 }
 
+// Rotation fills keep logged days by default (Home setup, Fill my rotation and
+// Auto-fill alike). A kept shift on one of the new rotation's off days stays,
+// counts as extra against that rotation, and the anchor never changes the pay.
+{
+  const am7Key = "2026-05-16"; // 16 7AM, 17 3PM, 18 10PM, 19 off
+  const logged = { "2026-05-19": D({ pm3: 1 }) };
+  const merged = mergePeriodFill(
+    logged,
+    HOL_PERIOD,
+    rotationEntries(HOL_PERIOD, am7Key, "S"),
+    false,
+  );
+  assert.deepStrictEqual(merged["2026-05-19"], logged["2026-05-19"]);
+  const run = (anchor) =>
+    aggregate(merged, HOL_PERIOD, "basic", "S", {}, {}, DEFAULT_RATES, anchor);
+  assert.strictEqual(run(am7Key).extraShifts, 1);
+  assert.strictEqual(run(null).extraShifts, 0);
+  assert.strictEqual(run(am7Key).grand, run(null).grand);
+}
+
 // Rotation anchored on ANY 7AM day: the cycle runs both ways, so the days
 // before the chosen date are filled too (not just the days after it).
 {
