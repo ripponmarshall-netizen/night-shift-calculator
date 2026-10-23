@@ -209,10 +209,15 @@ const fmt = (n) => {
   const s = "$" + Math.abs(v).toLocaleString("en-JM", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return v < 0 && s !== "$0.00" ? "−" + s : s;
 };
+/* Short money for chart labels: $950, $1.5k, $541.0k, $2.61M. A year's
+   earnings run past a million, so they read $2.1M rather than $2,100.0k
+   (anything that would round to 1,000.0k counts as a million). */
 const fmtShort = (n) => {
   const v = Number(n) || 0;
   const a = Math.abs(v);
-  const s = a >= 999.5
+  const s = a >= 999950
+    ? "$" + (a / 1e6).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + "M"
+    : a >= 999.5
     ? "$" + (a / 1000).toLocaleString("en-JM", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + "k"
     : "$" + a.toLocaleString("en-JM", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   return v < 0 && s !== "$0" ? "−" + s : s;
