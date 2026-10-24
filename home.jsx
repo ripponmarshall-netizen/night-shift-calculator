@@ -1,15 +1,63 @@
-/* home.jsx — simple Home page: plain-language setup (pay → commute → shifts)
-   and a one-glance result. It never computes pay itself: answers become
+/* home.jsx — the Home page, the one place your own pay lives: the result
+   (each part folds open to its lines and maths), the calendar you log shifts
+   on, and the pay settings behind it, plus the plain-language setup (pay →
+   commute → shifts). Setup never computes pay itself: answers become
    ordinary calendar entries (see rotationEntries / totalsEntries in helpers)
-   and the preview runs the same aggregate() the calculator uses. */
-const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH } = React;
+   and its preview runs the same aggregate() as everything else. */
+const { useState: useStateH, useMemo: useMemoH, useEffect: useEffectH, useRef: useRefH } = React;
 
 function periodShiftDays(entries, period) {
   return periodDays(period).filter((d) => hasShifts(entries[ymd(d)])).length;
 }
 
+/* A per-device display choice (the calendar folded shut, say). Kept apart
+   from the saved data, so it never lands in a backup, and it's only a
+   convenience: storage that's blocked or full just means the default. */
+const UI_KEY = "nsc:ui";
+function useUiPref(name, initial) {
+  const [value, setValue] = useStateH(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(UI_KEY) || "{}")[name];
+      return typeof v === typeof initial ? v : initial;
+    } catch { return initial; }
+  });
+  const set = (v) => {
+    setValue(v);
+    try {
+      const all = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+      localStorage.setItem(UI_KEY, JSON.stringify({ ...all, [name]: v }));
+    } catch {}
+  };
+  return [value, set];
+}
+
+/* Bring a section into view, below the sticky header (its scroll-margin-top),
+   once the screen has re-rendered: it may have just unfolded, or only now be
+   on screen at all, so `get` finds it then. Measured from the layout, not
+   the screen: a card still rising into place (closing setup replays the
+   entrance) would otherwise throw the target off by however far it has
+   left to travel. block "center" centres it when it fits. */
+function scrollToSection(get, block = "start") {
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    const el = get();
+    if (!el) return;
+    let top = 0;
+    for (let n = el; n; n = n.offsetParent) top += n.offsetTop;
+    const margin = parseFloat(getComputedStyle(el).scrollMarginTop) || 0;
+    const room = window.innerHeight - margin;
+    const y = block === "center" && el.offsetHeight < room
+      ? top - margin - (room - el.offsetHeight) / 2
+      : top - margin;
+    window.scrollTo({ top: Math.max(0, y), behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }));
+}
+
 function HomeView(props) {
-  const { period, entries, mode, basePay, basicDistance, defaultDist, totals, tax, onboarded, onShiftPeriod, onOpenCalc, rotationAnchor, onApply, onWizardChange } = props;
+  const {
+    period, entries, mode, basePay, setBasePay, basicDistance, defaultDist, counts, setCounts, totals, tax, onboarded,
+    rotationAnchor, saveStatus, clipboard, onShiftPeriod, onApply, onWizardChange, onHeroVisible, onDistance,
+    onOpenDay, onAutofill, onTemplates, onClearRotation, onSaveSnapshot, onCopyShare, copyDay, pasteDay, cancelCopy,
+  } = props;
   const [wizard, setWizard] = useStateH(false);
   // The app hides the tab bar while setup is open, so the wizard's own
   // Back / See my pay bar can sit at the bottom of the screen.
@@ -63,12 +111,50 @@ function HomeView(props) {
   };
   const canQuickFill = !wizard && shiftDays === 0 && !!rotationAnchor;
   const welcome = shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor;
-  // Setup and the welcome stay one phone-width column; the result goes side
-  // by side with the calendar on an iPad.
-  const split = !wizard && !welcome;
+
+  // The calendar folds shut to one line; the choice sticks on this device.
+  const [calOpen, setCalOpen] = useUiPref("calendarOpen", true);
+  // One pay setting open at a time, so the card stays short. A roster that
+  // disagrees with the calendar opens on its check.
+  const [fold, setFold] = useStateH(() => (totals.hasMismatch ? "roster" : null));
+  const settingsRef = useRefH(null);
+  const openSetting = (k) => {
+    setFold(k);
+    scrollToSection(() => settingsRef.current, "center");
+  };
+  const showCalendar = () => {
+    setCalOpen(true);
+    scrollToSection(() => document.getElementById("calendar-section"));
+  };
+  // "Show me the calendar" from the roster check: open it, then outline
+  // every day for a moment so the counts can be checked against it.
+  const [highlightDays, setHighlightDays] = useStateH(null);
+  const highlightTimer = useRefH(0);
+  useEffectH(() => () => clearTimeout(highlightTimer.current), []);
+  const highlightCalendar = () => {
+    clearTimeout(highlightTimer.current);
+    setHighlightDays(new Set(periodDays(period).map(ymd)));
+    highlightTimer.current = setTimeout(() => setHighlightDays(null), 3000);
+    showCalendar();
+  };
+
+  const calendar = (
+    <div className="is-side is-pinned">
+      <Calendar
+        period={period} entries={entries} mode={mode} totals={totals}
+        highlight={highlightDays} rotationAnchor={rotationAnchor}
+        open={calOpen} onToggle={() => setCalOpen(!calOpen)}
+        onOpenDay={onOpenDay} onClearRotation={onClearRotation}
+        onAutofill={onAutofill} onTemplates={onTemplates} onSetup={() => setWizard(true)}
+        clipboard={clipboard} copyDay={copyDay} pasteDay={pasteDay} cancelCopy={cancelCopy}
+      />
+    </div>
+  );
 
   return (
-    <main className={"nsc-view nsc-page " + (split ? "is-split" : "is-narrow")} style={{ padding: "16px 20px 0" }}>
+    // Setup stays one phone-width column; otherwise the calendar goes beside
+    // the result on an iPad.
+    <main className={"nsc-view nsc-page " + (wizard ? "is-narrow" : "is-split")} style={{ padding: "16px 20px 0" }}>
       {canQuickFill && (
         <Card style={{ padding: 18, border: "1px solid color-mix(in oklab, var(--accent) 40%, var(--line-soft))" }}>
           <div style={{ fontSize: 16, fontWeight: 600 }}>New pay period</div>
@@ -81,18 +167,39 @@ function HomeView(props) {
         </Card>
       )}
       {wizard ? (
-        <SetupWizard {...props} shiftDays={shiftDays} onDone={closeWizard} />
+        <SetupWizard {...props} shiftDays={shiftDays} onDone={closeWizard} onLogByDay={() => closeWizard(showCalendar)} />
       ) : welcome ? (
-        <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onOpenCalc={onOpenCalc} firstRun={!onboarded} />
+        <div className="nsc-split has-side">
+          <HomeWelcome period={period} onShiftPeriod={onShiftPeriod} onStart={() => setWizard(true)} onLogByDay={showCalendar} firstRun={!onboarded} />
+          {calendar}
+        </div>
       ) : (
-        <HomeSummary {...props} basicDistance={basicDistance} totals={totals} tax={tax} shiftDays={shiftDays} onUpdate={() => setWizard(true)} />
+        <div className="nsc-split has-side">
+          <PaySummary
+            period={period} totals={totals} mode={mode} basicDistance={basicDistance} tax={tax}
+            shiftDays={shiftDays} saveStatus={saveStatus} onShiftPeriod={onShiftPeriod}
+            onSaveSnapshot={onSaveSnapshot} onCopyShare={onCopyShare} onHeroVisible={onHeroVisible}
+            onAddPay={() => openSetting("pay")} onReviewRoster={() => openSetting("roster")}
+          />
+          {calendar}
+          <div ref={settingsRef} style={{ scrollMarginTop: "calc(var(--safe-top) + 80px)" }}>
+            <Card style={{ padding: "4px 18px" }}>
+              <TaxiFold mode={mode} basicDistance={basicDistance} onChange={onDistance} totals={totals}
+                open={fold === "taxi"} onToggle={() => setFold(fold === "taxi" ? null : "taxi")} />
+              <BasePayFold basePay={basePay} setBasePay={setBasePay}
+                open={fold === "pay"} onToggle={() => setFold(fold === "pay" ? null : "pay")} />
+              <CrossCheckFold counts={counts} setCounts={setCounts} totals={totals} onShowCalendar={highlightCalendar} last
+                open={fold === "roster"} onToggle={() => setFold(fold === "roster" ? null : "roster")} />
+            </Card>
+          </div>
+        </div>
       )}
     </main>
   );
 }
 
 /* ----- empty period: invite to start ----- */
-function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
+function HomeWelcome({ period, onShiftPeriod, onStart, onLogByDay, firstRun }) {
   return (
     <Card style={{ padding: 20 }}>
       <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
@@ -105,120 +212,135 @@ function HomeWelcome({ period, onShiftPeriod, onStart, onOpenCalc, firstRun }) {
       <button onClick={onStart} style={{ ...accentBtn(), width: "100%", padding: "14px 16px", fontSize: 15, marginTop: 18 }}>
         Start
       </button>
-      <button onClick={() => onOpenCalc()} style={homeLinkBtn}>
-        Prefer to log day by day? Open the calendar →
+      <button onClick={onLogByDay} style={homeLinkBtn}>
+        Prefer to log day by day? Tap a day on the calendar
       </button>
     </Card>
   );
 }
 
-/* ----- result at a glance ----- */
-function HomeSummary({ period, entries, mode, totals, tax, shiftDays, rotationAnchor, saveStatus, onShiftPeriod, onOpenDay, onUpdate, onSaveSnapshot, onCopyShare, onOpenCalc }) {
-  const net = estimateNet(totals, tax).net;
-  const extra = totals.extraShifts || 0;
-  const counts = [
-    [totals.cal.pm3, "3PM"],
-    [totals.cal.pm10, "10PM"],
-    [totals.cal.am7, "7AM"],
-  ].filter(([n]) => n > 0).map(([n, l]) => `${n} × ${l}`);
-  const [part, setPart] = useStateH(null);
-
+/* ============ Pay settings (taxi, monthly pay, roster check) ============ */
+/* A row that folds open: a title, one line saying what it's set to, and the
+   controls underneath. */
+function FoldRow({ title, detail, open, onToggle, warn, last, children }) {
   return (
-    <div className="nsc-split">
-      <Card style={{ padding: 20 }}>
-        <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
-
-        <div className="nsc-hero">
-          <span key={Math.round(totals.grand * 100)} className="nsc-sheen" aria-hidden />
-          <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
-          {/* Scales down on narrow phones, so a six-figure total stays inside the card. */}
-          <div style={{ fontSize: "clamp(26px, 8.6vw, 34px)", fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
-            <AnimatedNumber value={totals.grand} format={fmt} from={0} durationMs={900} />
-          </div>
-          {netApplies(totals, tax) && Math.round(net) !== Math.round(totals.grand) && (
-            <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 2 }}>
-              About <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmt(net)}</span> after tax
-            </div>
-          )}
-          {!(Number(totals.monthlyBasic) > 0) && (
-            <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
-              Base pay and overtime aren't included.{" "}
-              <button onClick={onUpdate} style={{ ...linkBtn(), color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
-            </div>
-          )}
-          {totals.grand > 0 && (
-            <div style={{ marginTop: 14 }}>
-              <SplitBar totals={totals} focus={part} onFocusPart={setPart} />
-            </div>
-          )}
-        </div>
-
-        <div style={{ marginTop: 12 }} onPointerLeave={() => setPart(null)}>
-          {[
-            ["allow", "Allowances", "SP1, SP2, meal, taxi"],
-            ["base", "Base pay", "basic + compulsory"],
-            ["extra", "Extra hours", "overtime + holiday"],
-          ].map(([k, label, hint]) => {
-            const p = PAY_PARTS.find((x) => x.key === k);
-            return (
-              <HomeLine key={k} color={p.color} label={label} hint={hint} value={totals[p.field]}
-                dim={part && part !== k} onEnter={() => setPart(k)} />
-            );
-          })}
-        </div>
-
-        <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
-          {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtDur(totals.totalHours, totals.rates)}` : "No shifts logged yet"}
-          {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra ({fmtHM(totals.extraHours)})</span></>}
-          {totals.holidayHours > 0 && ` · ${fmtDur(totals.holidayHours, totals.rates)} holiday`}
-          {totals.otHours > 0 && ` · ${fmtDur(totals.otHours, totals.rates)} overtime`}
-          {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
-          {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
-          {totals.duties?.exchangeFor > 0 && ` · ${totals.duties.exchangeFor} exchange for`}
-          {totals.exchangedShifts > 0 && ` · ${totals.exchangedShifts} exchange leave`}
-        </div>
-
-        {totals.hasMismatch && (
-          <button onClick={() => onOpenCalc()} style={{
-            marginTop: 10, width: "100%", padding: "10px 12px", borderRadius: 10, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
-            background: "color-mix(in oklab, var(--warn) 12%, transparent)",
-            border: "1px solid color-mix(in oklab, var(--warn) 40%, transparent)",
-            color: "var(--warn)", fontSize: 12.5,
-          }}>⚠ Your shift counts don't match the calendar. Review →</button>
-        )}
-
-        {/* Nothing to save or share until a shift is logged. */}
-        {(shiftDays > 0 || saveStatus?.state !== "none") && <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />}
-      </Card>
-
-      <Card style={{ padding: 18 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "2px 8px", marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 600, whiteSpace: "nowrap" }}>Your shifts</div>
-          <div style={{ fontSize: 12.5, color: "var(--ink-faint)" }}>Tap a day to change it</div>
-        </div>
-        <Calendar compact period={period} entries={entries} mode={mode} totals={totals} rotationAnchor={rotationAnchor} onOpenDay={onOpenDay} />
-        {/* Side by side, or stacked when a label would wrap (320px phones). */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 8, marginTop: 14 }}>
-          <button onClick={onUpdate} style={{ ...ghostBtn(), whiteSpace: "nowrap" }}>Redo my setup</button>
-          <button onClick={() => onOpenCalc()} style={{ ...ghostBtn(), whiteSpace: "nowrap" }}>Full breakdown</button>
-        </div>
-      </Card>
+    <div style={{ borderBottom: last ? "none" : "1px solid var(--line-soft)" }}>
+      <button onClick={onToggle} aria-expanded={open} className="nsc-fold-btn" style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "14px 0",
+        background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer",
+        textAlign: "left", fontFamily: "inherit",
+      }}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 14.5, fontWeight: 500 }}>{title}</span>
+          <span style={{ display: "block", fontSize: 12.5, color: warn ? "var(--warn)" : "var(--ink-faint)", marginTop: 2 }}>{detail}</span>
+        </span>
+        <FoldChevron open={open} />
+      </button>
+      <Collapse open={open}><div style={{ paddingBottom: 14 }}>{children}</div></Collapse>
     </div>
   );
 }
 
-function HomeLine({ color, label, hint, value, dim, onEnter }) {
+/* Taxi distance: "S"/"L" pay one distance on every shift; "mixed" (Varies)
+   sets it per shift in the day editor. */
+function TaxiFold({ mode, basicDistance, onChange, totals, open, onToggle }) {
+  const value = mode === "advanced" ? "mixed" : basicDistance;
+  const c = totals.cal;
+  const rate = value === "L" ? totals.rates.taxiLong : totals.rates.taxiShort;
+  const detail = value === "mixed"
+    ? `Varies · Short ${c.shortPm3 + c.shortPm10} · Long ${c.longPm3 + c.longPm10}`
+    : `${value === "L" ? "Long" : "Short"} · ${fmt(rate)} per 3PM or 10PM shift`;
   return (
-    <div onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter(); }} style={{
-      display: "flex", alignItems: "center", gap: 10, padding: "9px 2px", borderBottom: "1px dashed var(--line-soft)",
-      opacity: dim ? 0.45 : 1, transition: "opacity 0.15s ease",
-    }}>
-      <span style={{ width: 6, height: 18, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 500 }}>{label}</div>
-        <div style={{ fontSize: 12, color: "var(--ink-faint)" }}>{hint}</div>
+    <FoldRow title="Taxi distance" detail={detail} open={open} onToggle={onToggle}>
+      <SegToggle
+        full
+        options={[
+          { v: "S", l: "Short" },
+          { v: "L", l: "Long" },
+          { v: "mixed", l: "Varies" },
+        ]}
+        value={value} onChange={onChange}
+      />
+      <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 10, lineHeight: 1.5 }}>
+        {value === "mixed"
+          ? "Set Short or Long on each shift when you tap a day. Long shifts show a striped bar."
+          : <>Each 3PM and 10PM shift pays <span className="mono" style={{ color: "var(--ink)" }}>{fmt(rate)}</span> taxi this period.</>}
+        {c.sameDayPair > 0 && " A day with both a 3PM and a 10PM pays none."}
       </div>
-      <span style={{ fontSize: 14.5, fontWeight: 600 }}><AnimatedNumber value={value} format={fmt} from={0} durationMs={900} /></span>
+    </FoldRow>
+  );
+}
+
+function BasePayFold({ basePay, setBasePay, open, onToggle }) {
+  const setP = (k, v) => setBasePay((p) => ({ ...p, [k]: sanitizeDecimal(v) }));
+  const monthly = Number(basePay.monthly) || 0;
+  const detail = monthly > 0
+    ? `${fmt(monthly)} basic · ${fmt(Number(basePay.compulsory) || 0)} compulsory`
+    : "Not set · needed for base pay, overtime and tax";
+  return (
+    <FoldRow title="Your monthly pay" detail={detail} warn={!(monthly > 0)} open={open} onToggle={onToggle}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, alignItems: "end" }}>
+        <RateInput label="Monthly basic" unit="$" value={basePay.monthly} onChange={(v) => setP("monthly", v)} />
+        <RateInput label="Compulsory assignment" unit="$" value={basePay.compulsory} onChange={(v) => setP("compulsory", v)} />
+      </div>
+    </FoldRow>
+  );
+}
+
+/* Optional: type the counts from your roster and the calendar is checked
+   against them. Counts never change the pay math. */
+function CrossCheckFold({ counts, setCounts, totals, onShowCalendar, open, onToggle, last }) {
+  const setC = (k, v) => setCounts((p) => ({ ...p, [k]: v.replace(/[^0-9]/g, "") }));
+  const entered = counts.pm3 !== "" || counts.pm10 !== "" || counts.am7 !== "";
+  const detail = totals.hasMismatch
+    ? "Your roster counts don't match the calendar"
+    : entered ? "Matches the calendar" : "Optional: compare with your roster";
+  return (
+    <FoldRow title="Check against roster" detail={detail} warn={totals.hasMismatch} open={open} onToggle={onToggle} last={last}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
+        <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.cal.pm3} flag={totals.mismatch.pm3} />
+        <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.cal.pm10} flag={totals.mismatch.pm10} />
+        <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.cal.am7} flag={totals.mismatch.am7} />
+      </div>
+      {totals.hasMismatch && (
+        <button onClick={onShowCalendar} style={{
+          marginTop: 12, padding: "10px 12px", borderRadius: 10,
+          background: "color-mix(in oklab, var(--warn) 12%, transparent)",
+          border: "1px solid color-mix(in oklab, var(--warn) 40%, transparent)",
+          color: "var(--warn)", fontSize: 13, display: "flex", alignItems: "center", gap: 8,
+          width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+        }}>
+          <span style={{ flex: 1 }}>Show me the calendar</span>
+          <span aria-hidden>→</span>
+        </button>
+      )}
+    </FoldRow>
+  );
+}
+
+function CountInput({ label, color, value, onChange, expected, flag }) {
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: color }} />
+        <span style={{ fontSize: 12.5, color: "var(--ink-dim)" }}>{label}</span>
+        <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 11.5, color: flag ? "var(--warn)" : "var(--ink-faint)" }}>cal <span className="mono">{expected}</span></span>
+      </div>
+      <input
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        aria-label={`${label} shift count`}
+        style={{
+          width: "100%",
+          background: "var(--bg-2)",
+          border: `1px solid ${flag ? "color-mix(in oklab, var(--warn) 50%, var(--line))" : "var(--line)"}`,
+          borderRadius: 10, padding: "10px 12px", color: "var(--ink)",
+          fontSize: 16, fontFamily: "inherit",
+        }}
+      />
     </div>
   );
 }
@@ -226,7 +348,7 @@ function HomeLine({ color, label, hint, value, dim, onEnter }) {
 /* ============ Setup wizard ============ */
 const blankTotals = { pm3: "", pm10: "", am7: "", pairs: "" };
 
-function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, ratesEffective, shiftDays, rotationAnchor, onApply, onOpenCalc, onOpenSettings, onDone }) {
+function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, totals, rates, ratesEffective, shiftDays, rotationAnchor, onApply, onLogByDay, onOpenSettings, onDone }) {
   const [step, setStep] = useStateH(0);
   // Each step starts at its question, not part-way down the last step (or
   // tucked under the sticky header, which is taller under a notch).
@@ -350,7 +472,7 @@ function SetupWizard({ period, entries, mode, basePay, basicDistance, counts, to
             </div>
           )}
 
-          <button onClick={() => onDone(() => onOpenCalc())} style={homeLinkBtn}>
+          <button onClick={onLogByDay} style={homeLinkBtn}>
             Different schedule? Log day by day on the calendar →
           </button>
         </>

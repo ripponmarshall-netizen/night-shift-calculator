@@ -1,14 +1,18 @@
-/* summary.jsx — collapsible Live Summary with math popovers */
+/* summary.jsx — Home's pay card: the total, what it comes to after tax, and
+   its three parts. Each part folds open to its lines, and a line marked ƒ
+   shows how it was worked out. */
 const { useState: useStateS, useRef: useRefS, useEffect: useEffectS } = React;
 
-function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnapshot, onCopyShare, onHeroVisible }) {
-  const [openSec, setOpenSec] = useStateS({ allow: false, base: false, extra: false });
+function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveStatus, onShiftPeriod, onSaveSnapshot, onCopyShare, onHeroVisible, onAddPay, onReviewRoster }) {
+  const [openSec, setOpenSec] = useStateS({ allow: false, base: false, extra: false, duty: false });
   const [math, setMath] = useStateS(null);
   const [showNet, setShowNet] = useStateS(false);
   const [part, setPart] = useStateS(null);
   const est = totals.grand;
   const taxBreak = estimateNet(totals, tax);
   const net = taxBreak.net;
+  const hasNet = netApplies(totals, tax);
+  const noBasic = !(Number(totals.monthlyBasic) > 0);
 
   // unit "h" shows the result as hours (in the unit overtime is counted
   // in); money otherwise.
@@ -21,9 +25,12 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
   const extraKinds = SHIFTS.filter((s) => totals.extraBy?.[s.k]?.n > 0);
   const n = (k, word) => `${k} ${word}${k === 1 ? "" : "s"}`;
   const toggle = (k) => setOpenSec((p) => ({ ...p, [k]: !p[k] }));
+  const anyOpen = openSec.allow || openSec.base || openSec.extra;
+  // Leave, orderly and exchange shifts: a fourth row, only when there are any.
+  const dutyCount = DUTY_KEYS.reduce((a, k) => a + (Number(totals.duties?.[k]) || 0), 0);
 
   // Tell the app when this total is on screen, so the floating total pill
-  // above the tabs doesn't show the same number twice.
+  // above the tabs only shows once it has scrolled away.
   const heroRef = useRefS(null);
   useEffectS(() => {
     const el = heroRef.current;
@@ -33,28 +40,39 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
     io.observe(el);
     return () => { io.disconnect(); onHeroVisible(null); };
   }, []);
-  const noBasic = !(Number(totals.monthlyBasic) > 0);
+
+  const extra = totals.extraShifts || 0;
+  const counts = [
+    [totals.cal.pm3, "3PM"],
+    [totals.cal.pm10, "10PM"],
+    [totals.cal.am7, "7AM"],
+  ].filter(([c]) => c > 0).map(([c, l]) => `${c} × ${l}`);
 
   return (
-    <Card>
-      {/* Hero total */}
-      <div ref={heroRef} className="nsc-hero" style={{ marginBottom: 14 }}>
+    <Card style={{ padding: 20 }}>
+      <PeriodNav period={period} onShift={onShiftPeriod} style={{ marginBottom: 12 }} />
+
+      <div ref={heroRef} className="nsc-hero">
         {/* A light sweeps across whenever the total changes. */}
         <span key={Math.round(est * 100)} className="nsc-sheen" aria-hidden />
         <div style={{ fontSize: 13, fontWeight: 500, color: "var(--accent)" }}>{totalLabel(totals)}</div>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginTop: 4, gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: "clamp(24px, 7.6vw, 30px)", fontWeight: 700, letterSpacing: "-0.02em", color: "var(--ink)" }}>
-            <AnimatedNumber value={est} format={fmt} from={0} durationMs={900} />
-          </div>
-          {netApplies(totals, tax) && (
-            <button onClick={() => setShowNet((v) => !v)} aria-expanded={showNet} style={linkBtn(12.5)}>
-              {showNet ? "Hide net" : `Show est. net (${fmt(net)})`}
-            </button>
-          )}
+        {/* Scales down on narrow phones, so a six-figure total stays inside the card. */}
+        <div style={{ fontSize: "clamp(26px, 8.6vw, 34px)", fontWeight: 700, letterSpacing: "-0.02em", marginTop: 4 }}>
+          <AnimatedNumber value={est} format={fmt} from={0} durationMs={900} />
         </div>
+        {hasNet && (
+          <button onClick={() => setShowNet((v) => !v)} aria-expanded={showNet} className="nsc-fold-btn" style={{
+            display: "inline-flex", alignItems: "center", gap: 6, marginTop: 2, padding: "2px 0",
+            background: "transparent", border: "none", color: "var(--ink-dim)", fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+          }}>
+            <span>About <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{fmt(net)}</span> after tax</span>
+            <FoldChevron open={showNet} size={10} />
+          </button>
+        )}
         {noBasic && (
-          <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
-            Base pay, overtime and tax aren't included until you add your monthly basic below.
+          <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 6, lineHeight: 1.45 }}>
+            Base pay, overtime and tax aren't included.{" "}
+            <button onClick={onAddPay} style={{ ...linkBtn(), color: "var(--ink)", fontWeight: 600 }}>Add your monthly pay</button>
           </div>
         )}
         {est > 0 && (
@@ -62,7 +80,7 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
             <SplitBar totals={totals} focus={part} onFocusPart={setPart} />
           </div>
         )}
-        <Collapse open={showNet && netApplies(totals, tax)}>
+        <Collapse open={showNet && hasNet}>
           <div style={{
             marginTop: 12, padding: "10px 12px",
             background: "color-mix(in oklab, var(--bg-2) 60%, transparent)",
@@ -87,9 +105,9 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
         </Collapse>
       </div>
 
-      <SecHeader dim={part && part !== "allow"} onEnter={() => setPart("allow")} onLeave={() => setPart(null)} title="Allowance" subtotal={totals.allowanceSubtotal} open={openSec.allow} onToggle={() => toggle("allow")} accent="var(--sp1)" />
-      <Collapse open={openSec.allow}>
-        <div style={{ paddingLeft: 8, marginBottom: 10 }}>
+      <div style={{ marginTop: 10 }} onPointerLeave={() => setPart(null)}>
+        <PartRow k="allow" label="Allowances" hint="SP1, SP2, meal, taxi" value={totals.allowanceSubtotal}
+          open={openSec.allow} onToggle={() => toggle("allow")} dim={part && part !== "allow"} onEnter={() => setPart("allow")}>
           <Row label="SP1 — 3PM" value={fmt(totals.sp1)} formula onClick={() => showMath("SP1 — 3PM allowance", `${n(totals.cal.pm3, "shift")} × ${fmt(totals.rates.sp1)} per shift`, totals.sp1)} />
           <Row label="SP2 — 10PM" value={fmt(totals.sp2)} formula onClick={() => showMath("SP2 — 10PM allowance", `${n(totals.cal.pm10, "shift")} × ${fmt(totals.rates.sp2)} per shift`, totals.sp2)} />
           <Row label="Meal" value={fmt(totals.meal)} formula onClick={() => showMath("Meal allowance", `(${totals.cal.pm3} × 3PM + ${totals.cal.pm10} × 10PM) × ${fmt(totals.rates.meal)} = ${totals.cal.pm3 + totals.cal.pm10} × ${fmt(totals.rates.meal)}`, totals.meal)} />
@@ -101,21 +119,17 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
           {totals.taxiDeduct > 0 && <Row label={`Same-day pair deduction (×${totals.cal.sameDayPair})`} value={"− " + fmt(totals.taxiDeduct)} faint />}
           {totals.leaveShifts > 0 && <Row label={`Shifts on leave (×${totals.leaveShifts})`} value="no allowance" faint />}
           {totals.exchangedShifts > 0 && <Row label={`Exchange leave (×${totals.exchangedShifts})`} value="no allowance" faint />}
-        </div>
-      </Collapse>
+        </PartRow>
 
-      <SecHeader dim={part && part !== "base"} onEnter={() => setPart("base")} onLeave={() => setPart(null)} title="Base Pay" subtotal={totals.baseSubtotal} open={openSec.base} onToggle={() => toggle("base")} accent="var(--am)" />
-      <Collapse open={openSec.base}>
-        <div style={{ paddingLeft: 8, marginBottom: 10 }}>
+        <PartRow k="base" label="Base pay" hint="basic + compulsory" value={totals.baseSubtotal}
+          open={openSec.base} onToggle={() => toggle("base")} dim={part && part !== "base"} onEnter={() => setPart("base")}>
           <Row label="Monthly Basic" value={fmt(totals.monthlyBasic)} />
           <Row label="Compulsory assignment" value={fmt(totals.compulsory)} />
           <Row label="Hourly rate" value={fmt(totals.hourlyRate)} formula onClick={() => showMath("Hourly rate", `Monthly Basic ÷ ${totals.rates.threshold}\n${fmt(totals.monthlyBasic)} ÷ ${totals.rates.threshold}`, totals.hourlyRate)} />
-        </div>
-      </Collapse>
+        </PartRow>
 
-      <SecHeader dim={part && part !== "extra"} onEnter={() => setPart("extra")} onLeave={() => setPart(null)} title="Extra Hours" subtotal={totals.extraSubtotal} open={openSec.extra} onToggle={() => toggle("extra")} accent="var(--sp2)" />
-      <Collapse open={openSec.extra}>
-        <div style={{ paddingLeft: 8, marginBottom: 10 }}>
+        <PartRow k="extra" label="Extra hours" hint="overtime + holiday" value={totals.extraSubtotal}
+          open={openSec.extra} onToggle={() => toggle("extra")} dim={part && part !== "extra"} onEnter={() => setPart("extra")}>
           <Row label="Total hours" value={hrs(totals.totalHours)} />
           {totals.exchangedShifts > 0 && <Row label="Exchange leave (not counted)" value={hrs(totals.exchangedHours)} faint />}
           <Row label="Holiday hours" value={hrs(totals.holidayHours)} />
@@ -134,58 +148,94 @@ function LiveSummary({ totals, mode, basicDistance, tax, saveStatus, onSaveSnaps
           {/* Extra shifts are time, not a pay line: their hours are already
               in the total above, and overtime is only the time over the
               threshold, so the two are shown apart. */}
-          {totals.extraShifts > 0 && (
+          {extra > 0 && (
             <>
               <Row muted top label="Extra shifts · outside your rotation" />
               {extraKinds.map((s) => (
                 <Row key={s.k} label={`${s.label} × ${totals.extraBy[s.k].n}`} value={fmtHM(totals.extraBy[s.k].h)} />
               ))}
-              <Row label={`All extra shifts × ${totals.extraShifts}`} value={fmtHM(totals.extraHours)} formula onClick={() => showMath("Extra shift time",
+              <Row label={`All extra shifts × ${extra}`} value={fmtHM(totals.extraHours)} formula onClick={() => showMath("Extra shift time",
                 `${extraKinds.map((s) => `${s.label} × ${totals.extraBy[s.k].n} = ${fmtHM(totals.extraBy[s.k].h)}`).join("\n")}\n\nAlready part of total hours. Overtime pay is only the time over ${thrLabel}, so extra shifts aren't paid again on top.`,
                 totals.extraHours, "hm")} />
             </>
           )}
-        </div>
+        </PartRow>
+
+        {dutyCount > 0 && (
+          <PartRow label="Leave & duties" hint="what each did to your pay" value={`${dutyCount} shift${dutyCount === 1 ? "" : "s"}`}
+            open={openSec.duty} onToggle={() => toggle("duty")} dim={!!part} onEnter={() => setPart(null)}>
+            <DutySummary totals={totals} bare />
+          </PartRow>
+        )}
+      </div>
+
+      <Collapse open={anyOpen}>
+        <div style={{ fontSize: 12, color: "var(--ink-faint)", padding: "8px 2px 0" }}>Tap a line marked ƒ to see how it's worked out.</div>
       </Collapse>
 
-      <DutySummary totals={totals} style={{ marginTop: 8 }} />
+      <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
+        {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtDur(totals.totalHours, totals.rates)}` : "No shifts logged yet"}
+        {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra ({fmtHM(totals.extraHours)})</span></>}
+        {totals.holidayHours > 0 && ` · ${fmtDur(totals.holidayHours, totals.rates)} holiday`}
+        {totals.otHours > 0 && ` · ${fmtDur(totals.otHours, totals.rates)} overtime`}
+        {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
+        {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
+        {totals.duties?.exchangeFor > 0 && ` · ${totals.duties.exchangeFor} exchange for`}
+        {totals.exchangedShifts > 0 && ` · ${totals.exchangedShifts} exchange leave`}
+      </div>
 
-      <div style={{ fontSize: 12, color: "var(--ink-faint)", margin: "8px 2px 0" }}>Tap a row to see the lines. Tap ƒ to see the math.</div>
+      {totals.hasMismatch && (
+        <button onClick={onReviewRoster} style={{
+          marginTop: 10, width: "100%", padding: "10px 12px", borderRadius: 10, textAlign: "left", cursor: "pointer", fontFamily: "inherit",
+          background: "color-mix(in oklab, var(--warn) 12%, transparent)",
+          border: "1px solid color-mix(in oklab, var(--warn) 40%, transparent)",
+          color: "var(--warn)", fontSize: 12.5,
+        }}>⚠ Your roster counts don't match the calendar. Review →</button>
+      )}
 
-      <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />
+      {/* Nothing to save or share until a shift is logged. */}
+      {(shiftDays > 0 || saveStatus?.state !== "none") && <SaveRow status={saveStatus} onSave={onSaveSnapshot} onCopy={onCopyShare} />}
 
       {math && <MathPopover {...math} onClose={() => setMath(null)} />}
     </Card>
   );
 }
 
-function SecHeader({ title, subtotal, open, onToggle, accent, dim, onEnter, onLeave }) {
+/* One part of the total (allowances, base pay, extra hours): tap it to fold
+   its lines open under it. Without a part (k), it's a row about the period
+   rather than a share of the money: a dashed mark, and a value in words. */
+function PartRow({ k, label, hint, value, open, onToggle, dim, onEnter, children }) {
+  const color = k ? PAY_PARTS.find((p) => p.key === k).color : "var(--ink-faint)";
   return (
-    <button onClick={onToggle} aria-expanded={open} onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter?.(); }} onPointerLeave={onLeave} style={{
-      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
-      width: "100%", padding: "10px 12px",
-      background: open ? "var(--bg-2)" : "transparent",
-      border: "1px solid var(--line-soft)",
-      borderRadius: 12,
-      color: "var(--ink)",
-      cursor: "pointer",
-      marginBottom: 4,
-      textAlign: "left",
-      fontFamily: "inherit",
-      opacity: dim ? 0.45 : 1,
-      transition: "background 0.18s, opacity 0.15s ease, var(--press)",
-    }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={{ width: 6, height: 16, borderRadius: 2, background: accent }} />
-        <span style={{ fontSize: 13.5, fontWeight: 500 }}>{title}</span>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 13.5, fontWeight: 600 }}><AnimatedNumber value={subtotal} format={fmt} from={0} durationMs={900} /></span>
-        <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{
-          fontSize: 12, color: "var(--ink-faint)", width: 12, textAlign: "center",
-        }}>▾</span>
-      </div>
-    </button>
+    <div style={{ borderBottom: "1px dashed var(--line-soft)" }}>
+      <button onClick={onToggle} aria-expanded={open} className="nsc-fold-btn"
+        onPointerEnter={(e) => { if (e.pointerType === "mouse") onEnter(); }}
+        style={{
+          display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 2px",
+          background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer",
+          textAlign: "left", fontFamily: "inherit",
+          opacity: dim ? 0.45 : 1, transition: "opacity 0.15s ease, var(--press)",
+        }}>
+        <span style={k
+          ? { width: 6, height: 18, borderRadius: 2, background: color, flexShrink: 0 }
+          : { width: 6, height: 18, borderRadius: 2, border: "1px dashed var(--ink-dim)", boxSizing: "border-box", flexShrink: 0 }} />
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 14, fontWeight: 500 }}>{label}</span>
+          <span style={{ display: "block", fontSize: 12, color: "var(--ink-faint)" }}>{hint}</span>
+        </span>
+        <span style={{ fontSize: 14.5, fontWeight: 600 }}>
+          {typeof value === "number" ? <AnimatedNumber value={value} format={fmt} from={0} durationMs={900} /> : <span className="mono">{value}</span>}
+        </span>
+        <FoldChevron open={open} />
+      </button>
+      <Collapse open={open}>
+        {/* The lines hang off a rule in the part's colour, so it's clear
+            which total they add up to. */}
+        <div style={{ margin: "0 0 12px 2px", paddingLeft: 14, borderLeft: `2px solid color-mix(in oklab, ${color} 45%, transparent)` }}>
+          {children}
+        </div>
+      </Collapse>
+    </div>
   );
 }
 
@@ -214,4 +264,4 @@ function MathPopover({ label, formula, value, unit, rates, onClose }) {
   );
 }
 
-Object.assign(window, { LiveSummary, MathPopover });
+Object.assign(window, { PaySummary, MathPopover });

@@ -1,8 +1,10 @@
 /* calendar.jsx — period calendar with labelled shift chips, rotation off days / extras, warning highlights */
 
-/* compact: Home's version — no tools, period nav or copy/paste; tap a day to
-   edit it. The full version adds Auto-fill, Templates and long-press copy. */
-function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight, onAutofill, onTemplates, clipboard, copyDay, pasteDay, cancelCopy, rotationAnchor, onClearRotation, compact }) {
+/* compact: the Watch screens' version — just the grid and legend; tap a day
+   to edit it. The full version is Home's "Your shifts" card: it folds shut
+   to one line (open / onToggle) and adds Auto-fill, Templates, Setup,
+   long-press copy and the period's rotation and holidays. */
+function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutofill, onTemplates, onSetup, clipboard, copyDay, pasteDay, cancelCopy, rotationAnchor, onClearRotation, compact, open = true, onToggle }) {
   const days = periodDays(period);
   const leadBlanks = period.start.getDay();
   const headWeek = ["S","M","T","W","T","F","S"];
@@ -124,15 +126,8 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         {orderlyCount > 0 && <Legend code="ORD" label="Orderly" />}
         {exchForCount > 0 && <Legend code="EXF" label="Exchange for" />}
         {exchLeaveCount > 0 && <Legend dotted label="Exchange leave" />}
-        <div style={{ flex: 1 }} />
-        {/* Home prints the same counts above its calendar. */}
-        {!compact && <div style={{ fontSize: 12, color: "var(--ink-dim)" }}>
-          <span className="mono" style={{ color: "var(--ink)" }}>{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"}
-          {stats.extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{stats.extra}</span> extra{totals.extraHours > 0 && <> (<span className="mono" style={{ color: "var(--extra)" }}>{fmtHM(totals.extraHours)}</span>)</>}</>}
-          {leaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{leaveCount}</span> leave</>}
-          {exchLeaveCount > 0 && <> · <span className="mono" style={{ color: "var(--ink)" }}>{exchLeaveCount}</span> swapped out</>}
-          {" · "}<span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(totals.totalHours, totals.rates)}</span>
-        </div>}
+        {/* The counts are in the card's header (and Home's pay card). */}
+        {!compact && shiftCount > 0 && <div style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Hold a day to copy it</div>}
       </div>
 
       {(totals.holidayHours > 0 || leaveCount > 0 || exchForCount > 0 || exchLeaveCount > 0) && (
@@ -148,24 +143,52 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
 
   if (compact) return grid;
 
+  const tool = { ...ghostBtn(), padding: "8px 6px", fontSize: 12.5, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, whiteSpace: "nowrap", minWidth: 0 };
+  const extra = stats.extra;
   return (
-    <Card style={{ padding: 0, overflow: "hidden" }}>
-      <PeriodNav period={period} onShift={onShift} style={{ padding: "14px 16px 8px" }} />
+    // Scrolled to from "Show me the calendar": lands below the sticky header.
+    <Card id="calendar-section" style={{ padding: 0, overflow: "hidden", scrollMarginTop: "calc(var(--safe-top) + 80px)" }}>
+      <button onClick={onToggle} aria-expanded={open} className="nsc-fold-btn" style={{
+        display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "16px 16px 12px",
+        background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer",
+        textAlign: "left", fontFamily: "inherit",
+      }}>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "block", fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em" }}>Your shifts</span>
+          {/* What the grid holds, so a folded calendar still says it. */}
+          <span style={{ display: "block", fontSize: 12.5, color: "var(--ink-faint)", marginTop: 2 }}>
+            {shiftCount > 0 ? <>
+              <span className="mono">{shiftCount}</span> shift{shiftCount === 1 ? "" : "s"} · <span className="mono">{fmtDur(totals.totalHours, totals.rates)}</span>
+              {extra > 0 && <> · <span className="mono" style={{ color: "var(--extra)" }}>{extra} extra</span></>}
+              {leaveCount > 0 && <> · <span className="mono">{leaveCount}</span> leave</>}
+            </> : open ? "Tap a day to add a shift" : "No shifts logged yet"}
+          </span>
+        </span>
+        <FoldChevron open={open} size={13} />
+      </button>
 
-      <div style={{ padding: "0 16px 10px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <button onClick={onAutofill} style={{ ...ghostBtn(), padding: "7px 11px", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <Collapse open={open}>
+      <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: onSetup ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+        <button onClick={onAutofill} style={tool}>
+          <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/>
           </svg>
           Auto-fill
         </button>
-        <button onClick={onTemplates} style={{ ...ghostBtn(), padding: "7px 11px", fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <button onClick={onTemplates} style={tool}>
+          <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/>
           </svg>
           Templates
         </button>
-        <span style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Hold a day to copy it</span>
+        {onSetup && (
+          <button onClick={onSetup} style={tool}>
+            <svg aria-hidden width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>
+            </svg>
+            Setup
+          </button>
+        )}
       </div>
 
       {clipboard && (
@@ -184,7 +207,9 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
         </div>
       )}
 
-      {grid}
+      {/* Keyed by the fold, so the days cascade in again each time the
+          calendar opens instead of appearing all at once. */}
+      <div key={open ? "open" : "shut"}>{grid}</div>
 
       {rotationAnchor && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>
@@ -212,6 +237,7 @@ function Calendar({ period, entries, mode, onShift, onOpenDay, totals, highlight
           </div>
         </div>
       )}
+      </Collapse>
     </Card>
   );
 }

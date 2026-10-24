@@ -260,7 +260,7 @@ function useChartCursor(count, valid = () => true) {
 }
 
 /* PAY_PARTS — the three parts every total splits into, in the same order
-   and colours on Home, Details and History. */
+   and colours on Home and History. */
 const PAY_PARTS = [
   { key: "allow", label: "Allowance", field: "allowanceSubtotal", color: "var(--sp1)" },
   { key: "base", label: "Base", field: "baseSubtotal", color: "var(--am)" },
@@ -638,12 +638,22 @@ function XIcon({ size = 13 }) {
 function ChevronIcon({ dir = "right", size = 14 }) {
   return (
     <svg aria-hidden width={size} height={size} viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d={dir === "left" ? "M9 2L4 7l5 5" : "M5 2l5 5-5 5"} />
+      <path d={dir === "left" ? "M9 2L4 7l5 5" : dir === "down" ? "M2 5l5 5 5-5" : "M5 2l5 5-5 5"} />
     </svg>
   );
 }
 
-/* PeriodNav — the pay period with previous / next buttons (Home and Details). */
+/* The arrow on a row that folds open: points down, flips up on a spring
+   when the row is open. */
+function FoldChevron({ open, size = 12 }) {
+  return (
+    <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{ display: "inline-flex", color: "var(--ink-faint)", flexShrink: 0 }}>
+      <ChevronIcon dir="down" size={size} />
+    </span>
+  );
+}
+
+/* PeriodNav — the pay period with previous / next buttons (Home and Watch). */
 function PeriodNav({ period, onShift, style }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 6, ...style }}>
@@ -679,8 +689,9 @@ function ChoiceCard({ active, onClick, title, detail, color }) {
 
 /* DutySummary — leave, orderly and exchange shifts for a period's totals, as
    one row of chips plus a line on what each kind did to pay. Nothing when
-   there are none (or for a legacy snapshot). */
-function DutySummary({ totals, style }) {
+   there are none (or for a legacy snapshot). bare: no box or heading, for
+   inside a fold-out row that already names it (Home). */
+function DutySummary({ totals, style, bare }) {
   const d = totals?.duties || {};
   const kinds = DUTY_KEYS.filter((k) => Number(d[k]) > 0);
   if (!kinds.length) return null;
@@ -697,15 +708,17 @@ function DutySummary({ totals, style }) {
     Number(d.exchangeFor) > 0 && "Exchange for shifts (covering someone else) are paid in full.",
   ].filter(Boolean);
   return (
-    <div style={{ padding: "10px 12px", borderRadius: 12, background: "var(--bg-2)", border: "1px solid var(--line-soft)", ...style }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-        <span className="label">Leave & duties</span>
-        {hoursNote.length > 0 && (
-          <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-            {hoursNote.map((n, i) => <React.Fragment key={i}>{i > 0 && " · "}{n}</React.Fragment>)}
-          </span>
-        )}
-      </div>
+    <div style={bare ? { padding: "4px 0 2px", ...style } : { padding: "10px 12px", borderRadius: 12, background: "var(--bg-2)", border: "1px solid var(--line-soft)", ...style }}>
+      {(!bare || hoursNote.length > 0) && (
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+          {!bare && <span className="label">Leave & duties</span>}
+          {hoursNote.length > 0 && (
+            <span style={{ fontSize: 12, color: bare ? "var(--ink-dim)" : "var(--ink-faint)" }}>
+              {hoursNote.map((n, i) => <React.Fragment key={i}>{i > 0 && " · "}{n}</React.Fragment>)}
+            </span>
+          )}
+        </div>
+      )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
         {kinds.map((k) => {
           const pay = DUTY_TYPES[k].pay;
@@ -714,7 +727,7 @@ function DutySummary({ totals, style }) {
               fontSize: 12, padding: "3px 9px", borderRadius: 999,
               color: pay === "none" ? "var(--ink-dim)" : "var(--ink)",
               border: `1px ${pay === "hours" ? "dashed" : pay === "none" ? "dotted" : "solid"} ${pay === "none" ? "var(--ink-faint)" : "var(--line)"}`,
-              background: "var(--bg-1)",
+              background: bare ? "var(--bg-2)" : "var(--bg-1)",
             }}>
               {DUTY_TYPES[k].label} <span className="mono" style={{ fontWeight: 700 }}>× {d[k]}</span>
             </span>
@@ -985,7 +998,7 @@ function useModalDismiss(onClose) {
 Object.assign(window, {
   Card, SectionHead, Row, Sub, SegToggle,
   iconBtn, primaryBtn, ghostBtn, accentBtn, linkBtn,
-  ModalFrame, ModalHead, PeriodNav, ChoiceCard, XIcon, ChevronIcon,
+  ModalFrame, ModalHead, PeriodNav, ChoiceCard, XIcon, ChevronIcon, FoldChevron,
   AnimatedNumber, springTo, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
   openBackLayer, closeBackLayer,
   prefersReducedMotion, Collapse, showToast, ToastHost,
