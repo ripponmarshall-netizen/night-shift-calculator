@@ -30,7 +30,7 @@ The app is a single-page PWA. UI is built with React 18 (production build) + Bab
 
 Motion across the app runs on damped springs: `styles.css` defines `--ease-bouncy`, `--ease-snappy`, `--ease-soft` and `--ease-wobbly`, CSS `linear()` easings sampled from a spring simulation (with a cubic-bezier fallback for older browsers), so pills, chevrons, ticks, dialogs and cards overshoot and settle like real objects. Bottom sheets can be pulled down to close; a flick flies them off at the finger's speed and a short pull springs back (`useSheetDrag` / `springTo` in `components.jsx`).
 
-On an iPad (from 744px wide, an iPad mini held upright) the screens go two columns, each as wide as a phone: Details puts the calendar beside the summary, Home the result beside the calendar, Watch the watch calendar beside the people and totals (a person's page: their calendar beside their details and pay), and History the year to date beside the saved periods. On a screen tall enough, the calendar (or year to date) stays pinned while the other column scrolls. Phones keep the single column. The layout lives in `styles.css` (`.nsc-page`, `.nsc-split`, `.calc-grid`).
+On an iPad (from 744px wide, an iPad mini held upright) the screens go two columns, each as wide as a phone: Home puts the result and pay settings beside the calendar, Watch the watch calendar beside the people and totals (a person's page: their calendar beside their details and pay), and History the year to date beside the saved periods. On a screen tall enough, the calendar (or year to date) stays pinned while the other column scrolls. Phones keep the single column. The layout lives in `styles.css` (`.nsc-page`, `.nsc-split`, `.has-side`).
 
 | File             | Purpose                                                                                                                                                                        |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -40,16 +40,16 @@ On an iPad (from 744px wide, an iPad mini held upright) the screens go two colum
 | `components.jsx` | Shared primitives (Card, SegToggle, buttons, ModalFrame, PeriodNav, ChoiceCard, AnimatedNumber, SplitBar, chart cursor, animated list rows), toasts with Undo, confirm, footer |
 | `modals.jsx`     | Day editor, Settings (rates/tax/past rates/theme/backup, saved as you type), Auto-fill                                                                                         |
 | `templates.jsx`  | Saved-week templates (save / apply / delete)                                                                                                                                   |
-| `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips                                                         |
-| `summary.jsx`    | Hero estimated-gross card, collapsible accordions, math popovers                                                                                                               |
+| `calendar.jsx`   | Period calendar with labelled shift chips, rotation off days, extra-shift colour, long-press copy/paste, holiday chips; Home's version folds shut                              |
+| `summary.jsx`    | Home's pay card: estimated total, after-tax fold, fold-out Allowances / Base pay / Extra hours / Leave & duties rows, math popovers                                            |
 | `share.jsx`      | Snapshot detail rendered to a shareable canvas (PNG download + clipboard copy)                                                                                                 |
 | `reconcile.jsx`  | Pay-slip variance modal against any snapshot                                                                                                                                   |
 | `ytd.jsx`        | Year-to-date dashboard (count-up totals, hours, OT, monthly columns with readout, composition bar)                                                                             |
 | `snapshots.jsx`  | Snapshot history list, scrubbable trend line, deltas, detail view                                                                                                              |
-| `home.jsx`       | Home page: 3-step setup, at-a-glance result, tap-to-edit calendar, one-tap rotation fill for a new period                                                                      |
+| `home.jsx`       | Home page: pay card, foldable calendar, pay settings (taxi, monthly pay, roster check), 3-step setup, one-tap rotation fill for a new period                                   |
 | `crew.jsx`       | Watch tab: several people on the same shift — shared watch calendar, per-person days/pay/taxi, watch totals, copy summary and CSV export                                       |
 | `crewdoc.jsx`    | Watch as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                |
-| `app.jsx`        | Root component — state, persistence, 4-tab taskbar, header, taxi-distance card, About guide, two-column iPad and desktop layout                                                |
+| `app.jsx`        | Root component — state, persistence, 3-tab taskbar with floating total, header, About guide, two-column iPad and desktop layout                                                |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
 | `manifest.json`  | PWA manifest                                                                                                                                                                   |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |
@@ -73,30 +73,31 @@ The app opens on **Home**. Tap **Start** and answer three questions:
    - If this period already has days logged, **My rotation** keeps them and only fills the empty days (Auto-fill does the same). Kept shifts that fall outside the new rotation show as extra, and the setup tells you how many before you finish. Switch keep off to replace the period instead. **My totals** always replaces the period.
    - Choosing **My rotation** saves it. The 4-day cycle (7AM → 3PM → 10PM → **Off**) runs on across pay periods, so the calendar marks your off days and shows any shift outside the rotation as an **extra** shift in pink with a `+` (e.g. `+3PM`). **My totals** doesn't follow a rotation, so it clears the saved one.
 
-The live estimate updates as you answer and stays pinned to the bottom of the screen with the **Next** / **See my pay** buttons (the tab bar hides during setup). **See my pay** saves the answers into the same calendar and inputs the **Details** screen uses, so both screens always show the same numbers. Use **Redo my setup** to change them, or **Full breakdown** to fine-tune individual days.
+The live estimate updates as you answer and stays pinned to the bottom of the screen with the **Next** / **See my pay** buttons (the tab bar hides during setup). **See my pay** fills the calendar on Home with your answers, and everything on Home works from that calendar. Tap **Setup** above the calendar to answer the questions again, or tap days to fine-tune them.
 
 If you leave your monthly pay blank, the big number is labelled **Estimated allowances** (not gross pay), with a link to add your pay. No after-tax figure is shown until a monthly basic is set: deductions depend on your whole month's pay, so taxing allowances alone would overstate your take-home.
 
-After setup, Home shows **Your shifts**: tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
+After setup, Home shows your pay at the top, then **Your shifts** (the calendar): tap any day to fix it (leave, a swap, an extra shift). Today is marked on every calendar. When a new pay period starts and a rotation is saved, Home offers **Fill my rotation**, one tap to carry the cycle into the new period.
 
 The phone's **Back** button closes an open dialog or the Home setup first, then returns to Home from any other screen. Bottom sheets (the day editor, a saved result) can also be pulled down to close. The app always opens on today's pay period, and if it was left open in the background into a new pay period it moves on to the new one when you come back (unless you'd browsed to another period on purpose).
 
-### The detailed way (Details tab)
+### Day by day (Home)
 
-The bottom bar has four tabs: **Home**, **Details**, **Watch** and **History**. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**. **About** (footer, or Settings) has a step-by-step guide to every screen, the pay rules with the current rates, and a key to every shift label.
+The bottom bar has three tabs: **Home**, **Watch** and **History**. Home is one page, top to bottom: your pay, **Your shifts** (the calendar) and your pay settings. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**. **About** (footer, or Settings) has a step-by-step guide to every screen, the pay rules with the current rates, and a key to every shift label.
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
-2. **Log your shifts on the calendar** (Details tab). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type.
-   - **Duty** (under each ticked shift → Change), grouped by what it does to pay: _Worked_ (Regular, Orderly, Exchange for), _Leave_ (Vacation, Departmental, Sick, Time off) and _Swapped out_ (Exchange leave). Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); exchange leave as a faint dotted **EXL** chip with `0h`; orderly and exchange for as solid **ORD** / **EXF** chips. The summary lists them under **Leave & duties**, and **About** has a key to every label.
-3. **Pick a taxi distance** under the calendar:
+2. **Log your shifts on the calendar** (**Your shifts** on Home). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type. Tap **Your shifts** to fold the calendar down to one line (it shows the shift count and hours); it stays folded or open on that device.
+   - **Duty** (under each ticked shift → Change), grouped by what it does to pay: _Worked_ (Regular, Orderly, Exchange for), _Leave_ (Vacation, Departmental, Sick, Time off) and _Swapped out_ (Exchange leave). Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); exchange leave as a faint dotted **EXL** chip with `0h`; orderly and exchange for as solid **ORD** / **EXF** chips. The pay card gets a **Leave & duties** row that opens to list them, and **About** has a key to every label.
+3. **Pick a taxi distance** in the settings card under the calendar:
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.
-4. **Use shortcuts when you can.**
+4. **Use shortcuts when you can** (the buttons above the calendar).
    - **Auto-fill**: rotation fill (tap any day you work a 7AM, as in the Home setup), single-shift patterns, partial periods, keep existing days. A rotation fill saves the rotation.
+   - **Setup**: the three setup questions again.
    - **Templates**: save the current week pattern and apply it to any period with one tap.
    - **Long-press a day** with shifts to copy it, then tap empty days to paste.
-5. **Read the result.** The live total floats above the bar while you tap. The summary card breaks down Allowance / Base Pay / Extra Hours; tap a row to expand it and `ƒ` to see the math.
-6. **Your monthly pay** and **Check against roster** fold away below the summary. Open them to edit base pay, or to type your roster counts and have the calendar checked against them (counts never change the math).
+5. **Read the result** at the top of Home. Tap **Allowances**, **Base pay** or **Extra hours** to open its lines, and `ƒ` on a line to see the math. Tap **after tax** under the total for the deductions. Once the total scrolls away (while you work on the calendar) it floats above the tab bar; tap it to jump back up.
+6. **Taxi distance**, **Your monthly pay** and **Check against roster** fold away in the card under the calendar, one open at a time. Open them to change the taxi, edit base pay, or type your roster counts and have the calendar checked against them (counts never change the math). **Add your monthly pay** under the total opens the pay row for you.
 7. **Save to History** when you're done. The button shows whether this period is already saved, or has **changed** since you saved it (**Save changes**). Saving again replaces that period's saved result. History shows ▲/▼ vs the previous period, exports a shareable PNG, and lets you **Check against pay slip** for any saved period. Deleting a saved result can be undone from the toast.
 8. **Backup** (Settings): save/restore a JSON backup (restoring asks first), download the period's shifts as `.ics`, or reset the period (asks first, and can be undone).
 

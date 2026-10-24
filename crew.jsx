@@ -384,7 +384,7 @@ function CrewHistory({ list, onDelete }) {
         return (
           <AnimatedRow key={s.at} index={i} leaving={isLeaving(s.at)}>
             <div style={{ background: "var(--bg-2)", border: "1px solid var(--line-soft)", borderRadius: 12 }}>
-              <button onClick={() => setOpenAt(open ? null : s.at)} aria-expanded={open} style={{
+              <button onClick={() => setOpenAt(open ? null : s.at)} aria-expanded={open} className="nsc-fold-btn" style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 14px",
                 background: "transparent", border: "none", color: "var(--ink)", cursor: "pointer", textAlign: "left", fontFamily: "inherit",
               }}>
@@ -395,7 +395,7 @@ function CrewHistory({ list, onDelete }) {
                   </div>
                 </div>
                 <span className="mono" style={{ fontSize: 14, fontWeight: 600 }}>{fmt(crewSum(s.rows, "grand"))}</span>
-                <span aria-hidden className={"nsc-chev" + (open ? " is-open" : "")} style={{ fontSize: 12, color: "var(--ink-faint)" }}>▾</span>
+                <FoldChevron open={open} />
               </button>
               <Collapse open={open}>
                 <div style={{ padding: "0 14px 14px" }}>
