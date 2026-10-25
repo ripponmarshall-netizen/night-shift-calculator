@@ -5,6 +5,14 @@
    to one line (open / onToggle) and adds Auto-fill, Templates, Setup,
    long-press copy and the period's rotation and holidays. */
 function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutofill, onTemplates, onSetup, clipboard, copyDay, pasteDay, cancelCopy, rotationAnchor, onClearRotation, compact, open = true, onToggle }) {
+  // Counts each time the calendar opens (not when it shuts), so the days
+  // cascade in again as it opens but stay in place while it folds away.
+  const [opens, setOpens] = React.useState(0);
+  const [wasOpen, setWasOpen] = React.useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setOpens(opens + 1);
+  }
   const days = periodDays(period);
   const leadBlanks = period.start.getDay();
   const headWeek = ["S","M","T","W","T","F","S"];
@@ -207,9 +215,9 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
         </div>
       )}
 
-      {/* Keyed by the fold, so the days cascade in again each time the
+      {/* Keyed by the openings, so the days cascade in again each time the
           calendar opens instead of appearing all at once. */}
-      <div key={open ? "open" : "shut"}>{grid}</div>
+      <div key={opens}>{grid}</div>
 
       {rotationAnchor && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>

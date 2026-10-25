@@ -170,8 +170,9 @@ const netAboveUpperBandStart = computeEstimatedNetPay(
 );
 assert.ok(netAboveUpperBandStart > netAtUpperBandStart);
 
-// Holiday-hours rule: only the 2nd+ shift on a holiday day earns holiday pay.
-// The first shift in time order (carryover 10PM → 7AM → 3PM → 10PM) is regular.
+// Holiday-hours rule: every hour worked on a public holiday earns holiday pay
+// (×2), the rotation's own shift included. A 10PM is split at midnight and
+// each part goes by the day it lands on (2h before midnight, 7h after).
 const HOL_PERIOD = { start: new Date(2026, 4, 16), end: new Date(2026, 5, 15) };
 const HOL_COUNTS = { am7: "", pm3: "", pm10: "" };
 const HOL_BASEPAY = { monthly: 173330, compulsory: 0 }; // hourlyRate = 1000 exactly
@@ -214,42 +215,62 @@ let r = agg({ [PLAIN]: D({ am7: 1, pm3: 1, pm10: 1 }) });
 assert.strictEqual(r.holidayHours, 0);
 holNear(r.holidayPay, 0);
 
-// 2. Lone 10PM on a holiday → first/only shift, no holiday hours.
+// 2. Lone 10PM on a holiday → its 2h before midnight; the 7h after land on
+//    the 26th, an ordinary day.
 r = agg({ [HOL]: D({ pm10: 1, holiday: true }) });
-assert.strictEqual(r.holidayHours, 0);
-
-// 3. Lone 7AM on a holiday → first/only shift, no holiday hours.
-r = agg({ [HOL]: D({ am7: 1, holiday: true }) });
-assert.strictEqual(r.holidayHours, 0);
-
-// 4. 7AM + 3PM on a holiday → 3PM is the 2nd shift (7h).
-r = agg({ [HOL]: D({ am7: 1, pm3: 1, holiday: true }) });
-assert.strictEqual(r.holidayHours, 7);
-holNear(r.holidayPay, 14000);
-
-// 5. 7AM + 3PM + 10PM on a holiday → 3PM (7h) + 10PM start (2h) = 9h.
-r = agg({ [HOL]: D({ am7: 1, pm3: 1, pm10: 1, holiday: true }) });
-assert.strictEqual(r.holidayHours, 9);
-holNear(r.holidayPay, 18000);
-assert.strictEqual(r.dayHolidayHours[HOL], 9);
-assert.strictEqual(r.totalHours, 24); // am7 8 + pm3 7 + pm10 9
-assert.strictEqual(r.nonHolidayHours, 15); // 24h total − 9h holiday
-
-// 6. 3PM + 10PM on a holiday → 3PM is first, only 10PM start (2h) counts.
-r = agg({ [HOL]: D({ pm3: 1, pm10: 1, holiday: true }) });
 assert.strictEqual(r.holidayHours, 2);
 holNear(r.holidayPay, 4000);
 
-// 7. 10PM the day before a holiday, then 7AM on the holiday: the carryover is
-//    the holiday's first segment, so 7AM (8h) is the 2nd shift and earns holiday.
-//    The carryover never adds holiday hours to the previous day.
-r = agg({
-  [PREV]: D({ pm10: 1, holiday: false }),
-  [HOL]: D({ am7: 1, holiday: true }),
-});
+// 3. Lone 7AM on a holiday (the rotation's regular shift) → all 8h.
+r = agg({ [HOL]: D({ am7: 1, holiday: true }) });
 assert.strictEqual(r.holidayHours, 8);
 holNear(r.holidayPay, 16000);
-assert.strictEqual(r.dayHolidayHours[PREV], 0);
+assert.strictEqual(r.nonHolidayHours, 0);
+
+// 4. Lone 3PM on a holiday → all 7h.
+r = agg({ [HOL]: D({ pm3: 1, holiday: true }) });
+assert.strictEqual(r.holidayHours, 7);
+
+// 5. 7AM + 3PM on a holiday → 8h + 7h.
+r = agg({ [HOL]: D({ am7: 1, pm3: 1, holiday: true }) });
+assert.strictEqual(r.holidayHours, 15);
+holNear(r.holidayPay, 30000);
+
+// 6. 7AM + 3PM + 10PM on a holiday → 8h + 7h + 10PM start (2h) = 17h.
+r = agg({ [HOL]: D({ am7: 1, pm3: 1, pm10: 1, holiday: true }) });
+assert.strictEqual(r.holidayHours, 17);
+holNear(r.holidayPay, 34000);
+assert.strictEqual(r.dayHolidayHours[HOL], 17);
+assert.strictEqual(r.totalHours, 24); // am7 8 + pm3 7 + pm10 9
+assert.strictEqual(r.nonHolidayHours, 7); // the 10PM's 7h on the 26th
+
+// 7. 10PM the night before a holiday: its 7h after midnight are worked on
+//    the holiday. They stay on the start day's total (and its marker).
+r = agg({ [PREV]: D({ pm10: 1 }) });
+assert.strictEqual(r.holidayHours, 7);
+holNear(r.holidayPay, 14000);
+assert.strictEqual(r.dayHolidayHours[PREV], 7);
+assert.strictEqual(r.totalHours, 9);
+// ...unless the next day is set as not a holiday.
+r = agg({ [PREV]: D({ pm10: 1 }), [HOL]: D({ holiday: false }) });
+assert.strictEqual(r.holidayHours, 0);
+// ...then a 7AM on the holiday is 8h more.
+r = agg({ [PREV]: D({ pm10: 1 }), [HOL]: D({ am7: 1, holiday: true }) });
+assert.strictEqual(r.holidayHours, 15);
+assert.strictEqual(r.dayHolidayHours[HOL], 8);
+
+// 8. Two holidays in a row (a 10PM on Christmas runs into Boxing Day): all
+//    9h are holiday hours.
+r = aggregate(
+  { "2026-12-25": D({ pm10: 1 }) },
+  { start: new Date(2026, 11, 16), end: new Date(2027, 0, 15) },
+  "basic",
+  "S",
+  HOL_COUNTS,
+  HOL_BASEPAY,
+  HOL_RATES,
+);
+assert.strictEqual(r.holidayHours, 9);
 
 // Weekend public holidays are kept on the weekday the Holidays (Public
 // General) Act moves them to: Labour Day from a Saturday or Sunday to the
@@ -335,10 +356,11 @@ assert.strictEqual(r.totalHours, 24);
 r = agg({ [PLAIN]: D({ pm10: 1, hours: { pm10: 24 } }) });
 assert.strictEqual(r.totalHours, 24);
 
-// pm10 partial on a holiday (am7 + pm10, am7 is first/regular): pm10 total 6h,
-// ratio 6/9, pre-midnight leg = 2*6/9 = 1.333h earns holiday pay.
+// pm10 partial on a holiday (am7 + pm10): pm10 total 6h, ratio 6/9, so its
+// pre-midnight leg is 2*6/9 = 1.333h of holiday pay, on top of the 7AM's 8h.
+// The other 4.667h land on the 26th, an ordinary day.
 r = agg({ [HOL]: D({ am7: 1, pm10: 1, holiday: true, hours: { pm10: 6 } }) });
-holNear(r.holidayHours, (2 * 6) / 9);
+holNear(r.holidayHours, 8 + (2 * 6) / 9);
 assert.strictEqual(r.totalHours, 8 + 6);
 assert.strictEqual(r.cal.pm10, 1); // 6 > 4.5 => full allowance credit
 
@@ -616,15 +638,44 @@ assert.deepStrictEqual(
 );
 // A full period of single shifts fits exactly: 31 days minus Labour Day = 30
 // working days. One more shift day is rejected. Even fully packed, no holiday
-// hours appear (the day after a 10PM is never a holiday with a shift).
+// hours appear: a 10PM never lands the night before the holiday either, as
+// its hours after midnight would be holiday hours.
 {
   const full = { pm3: 10, pm10: 10, am7: 10, pairs: 0 };
   assert.strictEqual(totalsError(HOL_PERIOD, full), null);
   const te = totalsEntries(HOL_PERIOD, full, "S");
   assert.strictEqual(Object.keys(te).length, 30);
   assert.strictEqual(te[HOL], undefined);
+  assert.ok(!te[PREV].pm10);
   assert.strictEqual(agg(te).holidayHours, 0);
   assert.ok(totalsError(HOL_PERIOD, { ...full, am7: 11 }));
+}
+// Every mix of totals keeps its counts and never implies holiday pay.
+for (let pm10 = 0; pm10 <= 30; pm10 += 3) {
+  for (let pairs = 0; pairs <= Math.min(pm10, 6); pairs += 2) {
+    for (const am7 of [0, 4, 9]) {
+      const t = { am7, pm3: pairs + 2, pm10, pairs };
+      if (totalsError(HOL_PERIOD, t)) continue;
+      const r = agg(totalsEntries(HOL_PERIOD, t, "S"));
+      const tag = JSON.stringify(t);
+      assert.strictEqual(r.holidayHours, 0, tag);
+      assert.strictEqual(r.cal.pm10, pm10, tag);
+      assert.strictEqual(r.cal.pm3, pairs + 2, tag);
+      assert.strictEqual(r.cal.am7, am7, tag);
+      assert.strictEqual(r.cal.sameDayPair, pairs, tag);
+    }
+  }
+}
+// All 10PMs: 29 nights don't run into Labour Day (30 working days less the
+// 24th). Those fit, with no holiday hours; one more is rejected.
+{
+  const t = { am7: 0, pm3: 0, pm10: 29, pairs: 0 };
+  assert.strictEqual(totalsError(HOL_PERIOD, t), null);
+  const te = totalsEntries(HOL_PERIOD, t, "S");
+  assert.strictEqual(te[PREV], undefined);
+  assert.strictEqual(agg(te).holidayHours, 0);
+  assert.strictEqual(agg(te).cal.pm10, 29);
+  assert.ok(/10PM/.test(totalsError(HOL_PERIOD, { ...t, pm10: 30 })));
 }
 
 // mergePeriodFill: replace clears only this period; keep fills empty days only.
@@ -879,9 +930,13 @@ assert.deepStrictEqual(
   // A short shift typed as 6h 40m is stored as 6.666667h and counts 400 min.
   const s = aggM(one("6.666667"));
   assert.strictEqual(Math.round(s.totalHours * 60 * 1e6) / 1e6, 400);
-  // Holiday hours also go to the minute (the 10PM's pre-midnight leg).
+  // Holiday hours also go to the minute: the 7AM's 480 + the 10PM's
+  // pre-midnight leg, 107 (2 × 8/9 h)...
   const hol = aggM({ [HOL]: D({ am7: 1, pm10: 1, hours: { pm10: "8" } }) });
-  assert.strictEqual(Math.round(hol.holidayHours * 60 * 1e6) / 1e6, 107); // 2 × 8/9 h
+  assert.strictEqual(Math.round(hol.holidayHours * 60 * 1e6) / 1e6, 587);
+  // ...and the night before, the rest of the 10PM's 480: 373 after midnight.
+  const eve = aggM({ [PREV]: D({ pm10: 1, hours: { pm10: "8" } }) });
+  assert.strictEqual(Math.round(eve.holidayHours * 60 * 1e6) / 1e6, 373);
   // Formatting.
   assert.strictEqual(fmtHM(0), "0m");
   assert.strictEqual(fmtHM(0.75), "45m");
@@ -1014,18 +1069,20 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   // On a holiday, leave hours are ordinary hours, never holiday ×2. The
   // worked shift keeps the holiday rule as before.
   r = agg({ [HOL]: D({ am7: 1, pm3: 1, holiday: true }) });
-  assert.strictEqual(r.holidayHours, 7); // 3PM is the 2nd shift
+  assert.strictEqual(r.holidayHours, 15);
   r = agg({
     [HOL]: withDuty({ am7: 1, pm3: 1, holiday: true }, { pm3: "sick" }),
   });
-  assert.strictEqual(r.holidayHours, 0);
-  assert.strictEqual(r.nonHolidayHours, 15);
-  holNear(r.holidayPay, 0);
+  assert.strictEqual(r.holidayHours, 8); // the 7AM only
+  assert.strictEqual(r.nonHolidayHours, 7);
+  holNear(r.holidayPay, 16000);
+  // Leave on either side of midnight: no holiday hours from either 10PM.
   r = agg({
-    [PREV]: D({ pm10: 1 }),
+    [PREV]: withDuty({ pm10: 1 }, { pm10: "vacation" }),
     [HOL]: withDuty({ pm10: 1, holiday: true }, { pm10: "vacation" }),
   });
   assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.totalHours, 18);
 
   // Orderly duty is a worked shift: allowances paid as normal.
   r = agg({
@@ -1124,29 +1181,28 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.strictEqual(r.duties.exchangeFor, 2);
   assert.strictEqual(r.exchangedShifts, 0);
 
-  // Holiday order: a given-away first shift doesn't make the next one the
-  // "second" shift of the day, so the 3PM is regular, not ×2.
+  // On a holiday, a shift given away earns nothing; the one worked is ×2.
   r = agg({
     [HOL]: withDuty(
       { am7: 1, pm3: 1, holiday: true },
       { am7: "exchangeLeave" },
     ),
   });
-  assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.holidayHours, 7);
   assert.strictEqual(r.totalHours, 7);
-  // A given-away 10PM the night before isn't a carryover either.
+  // A given-away 10PM the night before brings no holiday hours either.
   r = agg({
     [PREV]: withDuty({ pm10: 1 }, { pm10: "exchangeLeave" }),
     [HOL]: D({ am7: 1, holiday: true }),
   });
-  assert.strictEqual(r.holidayHours, 0);
+  assert.strictEqual(r.holidayHours, 8);
   assert.strictEqual(r.totalHours, 8);
-  // ...while a worked one still is (the 7AM becomes the 2nd shift).
+  // ...while a worked one does (its 7h after midnight).
   r = agg({
     [PREV]: withDuty({ pm10: 1 }, { pm10: "exchangeFor" }),
     [HOL]: D({ am7: 1, holiday: true }),
   });
-  assert.strictEqual(r.holidayHours, 8);
+  assert.strictEqual(r.holidayHours, 15);
 
   // Rotation: a shift given away is never an extra; one worked for someone
   // else on an off day is.
@@ -1233,7 +1289,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
       { monthly: 173330 },
       DEFAULT_RATES,
     );
-    assert.strictEqual(r.holidayHours, 7); // 3PM is the 2nd shift
+    assert.strictEqual(r.holidayHours, 15); // 7AM 8h + 3PM 7h
   }
   assert.deepStrictEqual(kept.z, { am7: true });
   assert.deepStrictEqual(fillDays(logged, fill, false).a, { am7: true });

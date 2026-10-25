@@ -199,7 +199,6 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
           dayKey={dayEdit.key}
           entry={editEntry || blankDay()}
           mode="basic"
-          otUnit={rates.otUnit}
           slot={rotationSlot(dayEdit.key, crew.rotationAnchor)}
           defaultDist={editing === "crew" ? "S" : editing.dist}
           onClose={() => setDayEdit(null)}

@@ -470,7 +470,10 @@ function ModalFrame({ dismiss, sheet, top, zIndex = 70, maxWidth = 520, role = "
   // Only a press that starts on the backdrop closes the modal. A text
   // selection dragged out of a field ends with a click on the backdrop too.
   const downOnBackdrop = useRefC(false);
-  return (
+  // Rendered on <body>, not inside the screen that opened it: a card still
+  // rising in (opacity and transform mid-animation) would otherwise show
+  // through the dialog and become the box its fixed backdrop sits in.
+  return ReactDOM.createPortal(
     <div ref={backdropRef}
       onPointerDown={(e) => { downOnBackdrop.current = e.target === e.currentTarget; }}
       onClick={(e) => { if (e.target === e.currentTarget && downOnBackdrop.current) close(); }}
@@ -480,7 +483,8 @@ function ModalFrame({ dismiss, sheet, top, zIndex = 70, maxWidth = 520, role = "
         {sheet && <span className="nsc-grabber" aria-hidden />}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

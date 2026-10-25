@@ -574,7 +574,6 @@ function App() {
           dayKey={openDay}
           entry={entries[openDay] || blankDay()}
           mode={mode}
-          otUnit={otUnit}
           slot={rotationSlot(openDay, rotationAnchor)}
           defaultDist={mode === "advanced" ? defaultDist : basicDistance}
           onClose={() => setOpenDay(null)}
@@ -751,7 +750,7 @@ function AboutView({ onBack, rates }) {
 
         <GuideSection id="settings" open={openGuide} onToggle={toggle} title="Settings and backup" detail="The gear at the top">
           <GuideSteps steps={[
-            <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type. {b("Count overtime in")} switches between decimal hours (6.5h) and minutes (6h 30m): in minutes every shift counts to the minute and you type short shifts as hours and minutes.</>,
+            <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type. {b("Count overtime in")} switches between decimal hours (6.5h) and minutes (6h 30m): in minutes every shift counts to the whole minute.</>,
             <>{b("Past rates")}: when rates change, save the old ones with the date they started, so earlier periods stay right.</>,
             <>{b("Backup")}: save everything to a file before you change phones, restore it on the new one, add the period's shifts to your phone's calendar (.ics), or reset this period.</>,
             <>{b("Theme")}: dark, light, or follow your phone.</>,
@@ -770,7 +769,7 @@ function AboutView({ onBack, rates }) {
               ? `Minutes over ${fmtHM(r.threshold)} in the period (not counting holiday time) × hourly rate ÷ 60 × 1.5`
               : `Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
             <GuideRule label="Extra shifts" value="Shifts outside your saved rotation. Their time is shown on its own, but it's already in your total hours, so it isn't paid twice." />
-            <GuideRule label="Holiday" value="On a public holiday, each shift after the day's first is paid × 2 the hourly rate." />
+            <GuideRule label="Holiday" value="Every hour you work on a public holiday is paid × 2 the hourly rate, your regular shift included. A 10PM counts by the day each part falls on: 2h before midnight, 7h after." />
             <GuideRule label="Leave" value="Hours count as ordinary hours (never × 2); no SP1, SP2, meal or taxi." last />
           </div>
           <GuideNote>The numbers above are the rates for the period on screen. Check them against your pay slip in Settings.</GuideNote>

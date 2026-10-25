@@ -2,7 +2,7 @@
 const { useState: useStateM } = React;
 
 /* ============ Day modal ============ */
-function DayModal({ dayKey, entry: liveEntry, mode, otUnit, slot, defaultDist, onClose, onChange, onClear }) {
+function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, onChange, onClear }) {
   const dismiss = useModalDismiss(onClose);
   const { close } = dismiss;
   // While the sheet slides away (after Clear day, say), keep showing the day
@@ -67,7 +67,7 @@ function DayModal({ dayKey, entry: liveEntry, mode, otUnit, slot, defaultDist, o
         </ModalHead>
 
         {DAY_SHIFTS.map((sh) => (
-          <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} otUnit={otUnit} slot={slot}
+          <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} slot={slot}
             onToggle={() => toggle(sh.k)} onHours={setHours}
             onDist={(v) => setDist(sh.k, v)} onDuty={(v) => setDuty(sh.k, v)} />
         ))}
@@ -116,7 +116,7 @@ const DAY_SHIFTS = SHIFTS.map((s) => ({
 
 /* One shift in the day editor: the tick box, then (while it's on) its
    hours, taxi distance and duty, sliding open under it. */
-function ShiftBlock({ sh, entry, mode, otUnit, slot, onToggle, onHours, onDist, onDuty }) {
+function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }) {
   const on = !!entry[sh.k];
   const duty = shiftDuty(entry, sh.k);
   const pay = duty ? DUTY_TYPES[duty].pay : "full";
@@ -130,9 +130,7 @@ function ShiftBlock({ sh, entry, mode, otUnit, slot, onToggle, onHours, onDist, 
               taxi distance, so those rows fold away instead of showing
               settings that can't change anything. */}
           <Collapse open={pay !== "none"}>
-            {otUnit === "minutes"
-              ? <MinutesRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
-              : <HoursRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />}
+            <TimeRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
           </Collapse>
           {mode === "advanced" && (
             <Collapse open={pay === "full"}>
@@ -268,41 +266,23 @@ function DistRow({ value, onChange }) {
   );
 }
 
-// Editable actual hours for a shift. Blank = standard hours (shown as placeholder).
-// A partial shift's hours count toward total/overtime; only > half a shift earns
-// the per-shift allowance.
-function HoursRow({ keyName, entry, onChange, hint }) {
-  const std = stdHours(keyName);
-  const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
-  return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, margin: "0 0 8px 38px" }}>
-      <span style={{ fontSize: 12, color: "var(--ink-faint)" }}>
-        Hours worked{hint ? ` · ${hint}` : ""}
-      </span>
-      <input
-        inputMode="decimal" value={raw} placeholder={String(std)}
-        onChange={(e) => onChange(keyName, e.target.value)}
-        aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`}
-        style={{ width: 64, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 9px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit", textAlign: "right" }}
-      />
-      <span className="mono" style={{ fontSize: 11, color: "var(--ink-faint)" }}>h</span>
-    </div>
-  );
-}
-
-/* The same, as hours and minutes, when overtime is counted in minutes.
-   Stored as decimal hours (6h 40m is 6.666667), which the math rounds back
-   to the whole minute. Both boxes blank = standard hours. */
+/* Editable actual time for a shift, as hours and minutes (easier to type
+   than 6.67). Stored as decimal hours (6h 40m is 6.666667), which the math
+   uses as is, or rounds back to the whole minute when overtime is counted in
+   minutes. Both boxes blank = the standard hours, shown as placeholders. A
+   partial shift's time counts toward total/overtime; only more than half a
+   shift earns the per-shift allowance. */
 const hmFromRaw = (r) => {
   if (r === "" || !(Number(r) >= 0)) return { h: "", m: "" };
   const t = Math.round(Number(r) * 60);
   return { h: String(Math.floor(t / 60)), m: t % 60 ? String(t % 60) : "" };
 };
-function MinutesRow({ keyName, entry, onChange, hint }) {
+function TimeRow({ keyName, entry, onChange, hint }) {
   const std = stdHours(keyName);
   const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
   // The boxes keep what's typed (a blank minutes box mid-edit); they only
-  // reload when the stored hours change from elsewhere (shift ticked off).
+  // reload when the stored hours change from elsewhere (shift ticked off,
+  // or a time over a day capped at 24h).
   const [draft, setDraft] = useStateM(() => hmFromRaw(raw));
   const sent = React.useRef(raw);
   React.useEffect(() => {
@@ -318,24 +298,33 @@ function MinutesRow({ keyName, entry, onChange, hint }) {
   };
   const box = { width: 46, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 8px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit", textAlign: "right" };
   const unit = { fontSize: 11, color: "var(--ink-faint)" };
+  const stdMin = Math.round((std % 1) * 60);
+  // Tapping a box selects what's in it, so typing replaces it (6 → 7)
+  // instead of running on to 67. After the tap, or iOS drops the selection.
+  const selectAll = (e) => {
+    const el = e.target;
+    setTimeout(() => { try { el.setSelectionRange(0, el.value.length); } catch {} }, 0);
+  };
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, margin: "0 0 8px 38px", flexWrap: "wrap" }}>
       <span style={{ fontSize: 12, color: "var(--ink-faint)", marginRight: 2 }}>
         Time worked{hint ? ` · ${hint}` : ""}
       </span>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        {/* Once minutes are typed, a blank hours box means 0 hours, so its
+            placeholder says so instead of still showing the standard hours. */}
         <input
-          inputMode="numeric" value={draft.h} placeholder={String(Math.floor(std))} maxLength={2}
-          onChange={(e) => update({ h: e.target.value.replace(/\D/g, "").slice(0, 2) })}
+          inputMode="numeric" value={draft.h} placeholder={draft.m === "" ? String(Math.floor(std)) : "0"} maxLength={2}
+          onChange={(e) => update({ h: e.target.value.replace(/\D/g, "").slice(0, 2) })} onFocus={selectAll}
           aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
         />
         <span className="mono" style={unit}>h</span>
         <input
-          inputMode="numeric" value={draft.m} placeholder="00" maxLength={2}
+          inputMode="numeric" value={draft.m} placeholder={draft.h === "" ? String(stdMin).padStart(2, "0") : "00"} maxLength={2}
           onChange={(e) => {
             const v = e.target.value.replace(/\D/g, "").slice(0, 2);
             update({ m: v !== "" && Number(v) > 59 ? "59" : v });
-          }}
+          }} onFocus={selectAll}
           aria-label={`Minutes worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
         />
         <span className="mono" style={unit}>m</span>
@@ -474,8 +463,8 @@ function RatesTab({ rates, setRates, ratesEffective, otUnit, setOtUnit }) {
           </div>
           <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 6, lineHeight: 1.5 }}>
             {otUnit === "minutes"
-              ? `Every shift counts to the minute and you enter short shifts as hours and minutes. Overtime is the minutes over ${fmtHM(Number(rates.threshold) || DEFAULT_RATES.threshold)}, paid at the hourly rate ÷ 60 × 1.5.`
-              : "Hours are decimal (6.5h). Switch to Minutes to enter and see time as hours and minutes (6h 30m)."}
+              ? `Every shift counts to the whole minute and time shows as hours and minutes. Overtime is the minutes over ${fmtHM(Number(rates.threshold) || DEFAULT_RATES.threshold)}, paid at the hourly rate ÷ 60 × 1.5.`
+              : "Time counts and shows as decimal hours (6h 30m is 6.5h). Switch to Minutes to count every shift to the whole minute and show time as hours and minutes."}
           </div>
         </div>
       )}

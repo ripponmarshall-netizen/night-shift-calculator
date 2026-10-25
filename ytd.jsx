@@ -127,10 +127,15 @@ function MonthlyBars({ monthly }) {
             // The whole column is the hit target, not just the painted bar.
             <div key={i} onPointerEnter={() => setCur(i)} onPointerDown={() => setCur(i)}
               style={{ position: "relative", height: "100%", display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
-              {i === peak && cur == null && (
-                <span className="mono" style={{
+              {/* The value fades in once its bar has sprung up and settled
+                  (the spring's overshoot would run through it), and steps
+                  aside while the readout is up. */}
+              {i === peak && (
+                <span className="mono" aria-hidden={cur != null || undefined} style={{
                   position: "absolute", bottom: `calc(${h}% + 3px)`, left: "50%", transform: "translateX(-50%)",
-                  fontSize: 10, color: "var(--ink-dim)", whiteSpace: "nowrap",
+                  zIndex: 1, fontSize: 10, color: "var(--ink-dim)", whiteSpace: "nowrap",
+                  opacity: cur == null ? 1 : 0, transition: "opacity 0.15s ease",
+                  animation: `nscFadeIn 0.3s ease-out ${120 + i * 35 + 650}ms backwards`,
                 }}>{fmtShort(v)}</span>
               )}
               {v > 0 && (
