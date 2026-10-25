@@ -1,7 +1,7 @@
 "use strict";
 
 // Bump this on each deploy to bust the cache
-const CACHE = "ns-calculator-v43";
+const CACHE = "ns-calculator-v44";
 const FONT_CACHE = "ns-fonts-v2";
 
 const ASSETS = [
@@ -26,6 +26,9 @@ const ASSETS = [
   "./logo.svg",
   "./icon-192.svg",
   "./icon-512.svg",
+  "./icon-192.png",
+  "./icon-512.png",
+  "./apple-touch-icon.png",
 ];
 
 // React + Babel load from a CDN at pinned versions (see index.html). Without

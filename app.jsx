@@ -668,6 +668,7 @@ function AboutView({ onBack, rates }) {
   const toggle = (k) => setOpenGuide((o) => (o === k ? null : k));
   const b = (t) => <strong style={strong}>{t}</strong>;
   const r = rates || DEFAULT_RATES;
+  const hasJfbLogo = useJfbLogo();
   return (
     <main className="nsc-view" style={{ maxWidth: 720, margin: "0 auto", padding: "20px 20px 0" }}>
       <Card>
@@ -682,6 +683,16 @@ function AboutView({ onBack, rates }) {
           <p style={{ margin: 0 }}>Works out your night shift allowances (SP1, SP2, meal and taxi), base pay and extra-hours pay in one place, from the shifts on your calendar. Save each period to History, compare periods and check them against your pay slip. It can do the same for everyone on your watch.</p>
           <p style={p}>Created by {b("L/Cpl. R. Marshall")}, Portland Division · Workflow Coaching and Optimisation.</p>
         </div>
+        {/* Who it's for, with the JFB logo when the app has it, and in the
+            same breath that it isn't theirs. */}
+        {hasJfbLogo && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, padding: "10px 12px", borderRadius: 12, background: "var(--bg-2)" }}>
+            <JfbLogo size={40} />
+            <div style={{ fontSize: 12.5, lineHeight: 1.45, color: "var(--ink-dim)" }}>
+              {b("For Jamaica Fire Brigade personnel.")} Unofficial: not made, checked or endorsed by the JFB.
+            </div>
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -803,7 +814,7 @@ function AboutView({ onBack, rates }) {
         <div style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ink-dim)" }}>
           <p style={{ margin: 0 }}><strong style={strong}>Accuracy.</strong> Estimates only. Check every result against your official pay records. This is not official payroll advice.</p>
           <p style={p}><strong style={strong}>Your data.</strong> Nothing leaves this device. Backup, restore and reset are in Settings → Backup.</p>
-          <p style={p}><strong style={strong}>Unofficial.</strong> Made independently. Not an official product of the JFB or any affiliated organisation.</p>
+          <p style={p}><strong style={strong}>Unofficial.</strong> This is not an official app of the Jamaica Fire Brigade (JFB) or any affiliated organisation. It was made independently by a member, for members, and hasn't been made, checked or endorsed by the JFB. The JFB name and logo belong to the Jamaica Fire Brigade and appear only to show who the app is for. Its results are not JFB pay records.</p>
           <p style={p}><strong style={strong}>AI assistance.</strong> Built with help from Claude, an AI assistant made by Anthropic. The concept, design, calculations and content were directed and checked by L/Cpl. R. Marshall.</p>
         </div>
         <div style={{ marginTop: 16 }}>

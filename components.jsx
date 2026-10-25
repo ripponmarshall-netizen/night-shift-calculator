@@ -786,6 +786,38 @@ function SaveRow({ status, onSave, onCopy }) {
   );
 }
 
+/* The Jamaica Fire Brigade logo (JFB_LOGO). It shows only once the image
+   has loaded, so until the file is added to the app (or if it can't load)
+   the screens simply go without it. Checked once per launch. It always sits
+   beside words saying the app is unofficial, so it never reads as an
+   endorsement on its own. */
+let jfbLogoOk = null;
+const jfbLogoCheck = new Promise((resolve) => {
+  const img = new Image();
+  img.onload = () => resolve((jfbLogoOk = true));
+  img.onerror = () => resolve((jfbLogoOk = false));
+  img.src = JFB_LOGO;
+});
+function useJfbLogo() {
+  const [ok, setOk] = useStateC(jfbLogoOk === true);
+  useEffectC(() => {
+    let live = true;
+    jfbLogoCheck.then((v) => { if (live) setOk(v); });
+    return () => { live = false; };
+  }, []);
+  return ok;
+}
+/* Decorative (alt ""): the words beside it name the JFB. */
+function JfbLogo({ size = 16, style }) {
+  const ok = useJfbLogo();
+  if (!ok) return null;
+  return (
+    <img src={JFB_LOGO} alt="" aria-hidden style={{
+      height: size, width: "auto", maxWidth: size * 2, objectFit: "contain", flexShrink: 0, ...style,
+    }} />
+  );
+}
+
 /* AppFooter — the one footnote every screen ends with, so the disclaimer,
    credit and contact read the same everywhere. The rates line shows when
    Settings can be opened from it; About is left out on the About screen. */
@@ -798,6 +830,10 @@ function AppFooter({ ratesEffective, onOpenSettings, onAbout }) {
         <div>{ratesEffective} · <button onClick={onOpenSettings} style={link}>Edit rates</button></div>
       )}
       <div>Estimate only. Check against your pay slip.</div>
+      <div>
+        <JfbLogo size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
+        Unofficial app, not endorsed by the Jamaica Fire Brigade.
+      </div>
       <div>Questions or issues? <a href={mailto} style={link}>{CONTACT_EMAIL}</a></div>
       <div>{APP_CREDIT}</div>
       <div>
@@ -1002,6 +1038,6 @@ Object.assign(window, {
   AnimatedNumber, springTo, ChartTip, useChartCursor, PAY_PARTS, SplitBar, useFoldAway, AnimatedRow, sanitizeDecimal, useModalDismiss,
   openBackLayer, closeBackLayer,
   prefersReducedMotion, Collapse, showToast, ToastHost,
-  askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter,
+  askConfirm, ConfirmHost, DutySummary, totalLabel, netApplies, SaveRow, AppFooter, useJfbLogo, JfbLogo,
   copyText, downloadBlob,
 });
