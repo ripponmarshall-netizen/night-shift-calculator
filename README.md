@@ -51,7 +51,7 @@ On an iPad (from 744px wide, an iPad mini held upright) the screens go two colum
 | `crewdoc.jsx`    | Watch as Word record sheets (.docx): one JFB Regular and Overtime Record Sheet per person, built in the browser with no library                                                |
 | `app.jsx`        | Root component — state, persistence, 3-tab taskbar with floating total, header, About guide, two-column iPad and desktop layout                                                |
 | `sw.js`          | Cache-first service worker; precaches app files and the pinned React/Babel CDN scripts so the app starts offline                                                               |
-| `manifest.json`  | PWA manifest                                                                                                                                                                   |
+| `manifest.json`  | PWA manifest (PNG icons first, SVG after); `apple-touch-icon.png` is the iPhone Home Screen icon (iOS only takes a PNG)                                                        |
 | `calc.test.js`   | Standalone math sanity tests (run via `node calc.test.js`)                                                                                                                     |
 
 State persists in `localStorage` under `nsc:v3`. No data leaves the device.
@@ -159,7 +159,11 @@ This app was developed with assistance from Claude, an AI assistant made by Anth
 
 ### Affiliation
 
-This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official product of the JFB or any affiliated organisation.
+This is an unofficial tool created independently by L/Cpl. R. Marshall of Portland Division. It is not an official app of the Jamaica Fire Brigade (JFB) or any affiliated organisation, and it has not been made, checked or endorsed by the JFB. The JFB name and logo are the property of the Jamaica Fire Brigade and appear only to show who the app is for. Its results are not JFB pay records.
+
+### JFB logo
+
+The app shows the JFB logo from `jfb-logo.png` (next to `index.html`) in the footer of every screen and at the top of **About**, always beside the words saying the app is unofficial. Without that file nothing shows, so the logo can be added or removed without touching the code. A PNG with a transparent background, about 256px tall, reads well on both themes. Get the JFB's permission before adding it. After replacing the file with a new version, bump `CACHE` in `sw.js` so installed copies pick it up.
 
 ---
 

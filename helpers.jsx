@@ -72,10 +72,13 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.22";
+const APP_VERSION = "3.23";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
+// The Jamaica Fire Brigade logo, beside index.html. It shows in the footer
+// and on About only once the file is there (see JfbLogo in components.jsx).
+const JFB_LOGO = "jfb-logo.png";
 const MIGRATION = "nsc-rates-2026-05b";
 
 /* JM tax defaults — TAJ 2025/26 (threshold effective 1 April 2026). */
@@ -1283,7 +1286,7 @@ const _exports = {
   SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, stdHours, effHours,
   LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
   SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
-  APP_CREDIT, CONTACT_EMAIL,
+  APP_CREDIT, CONTACT_EMAIL, JFB_LOGO,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,
   easterSunday, jamaicaHolidays, holidayName, isJamaicaHoliday, holidaysInPeriod,

@@ -57,8 +57,12 @@
      transitions list var(--press) so they keep it. */
   --press: scale 0.34s var(--ease-bouncy);
 }
+/* Also on [data-theme]: the app sets the theme on <body> too, and the dark
+   theme's block above re-declares the fallbacks there, which would hide
+   these springs from everything on the page in dark mode. */
 @supports (transition-timing-function: linear(0, 1)) {
-  :root {
+  :root,
+  [data-theme] {
     --ease-bouncy: linear(
       0,
       0.055,
