@@ -72,7 +72,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.23";
+const APP_VERSION = "3.24";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -473,15 +473,21 @@ function am7InPeriod(period, anchor) {
 function regularDays(period) {
   return periodDays(period).filter((d) => !isJamaicaHoliday(d));
 }
+/* The night before a public holiday: a 10PM there runs into the holiday
+   and earns holiday hours, so the totals path keeps 10PMs off these days. */
+const holidayEve = (d) => isJamaicaHoliday(addDays(d, 1));
 
 /* Validate shift totals against the period. Returns an error string or null.
    `pairs` = days with both a 3PM and a 10PM (these get the taxi deduction). */
 function totalsError(period, t) {
   const n = (v) => Math.max(0, Math.trunc(Number(v) || 0));
   const pm3 = n(t.pm3), pm10 = n(t.pm10), am7 = n(t.am7), pairs = n(t.pairs);
-  const len = regularDays(period).length;
+  const days = regularDays(period);
+  const len = days.length;
+  const nights = days.filter((d) => !holidayEve(d)).length;
   if (pairs > Math.min(pm3, pm10)) return "Back-to-back days can't exceed your 3PM or 10PM count.";
   if (am7 + pm3 + pm10 - pairs > len) return `That's more shift days than the ${len} working days in this period.`;
+  if (pm10 > nights) return `That's more 10PM shifts than the ${nights} nights in this period that don't run into a public holiday.`;
   return null;
 }
 
@@ -499,10 +505,25 @@ function totalsEntries(period, t, dist) {
     for (const k of order) if (left[k] > 0) { seq.push(k); left[k]--; }
   }
   const days = regularDays(period);
+  const slots = seq.map((kind, i) => ({ kind, d: days[Math.floor((i * days.length) / seq.length)] }));
+  // A 10PM that lands the night before a holiday swaps with the nearest
+  // 7AM or 3PM on an ordinary night, or else moves to the nearest free
+  // ordinary night (totalsError makes sure there is one).
+  const nightly = (k) => k === "pm10" || k === "pair";
+  const near = (i) => (a, b) => Math.abs(a.i - i) - Math.abs(b.i - i);
+  slots.forEach((s, i) => {
+    if (!nightly(s.kind) || !holidayEve(s.d)) return;
+    const swap = slots.map((o, j) => ({ o, i: j }))
+      .filter(({ o }) => !nightly(o.kind) && !holidayEve(o.d)).sort(near(i))[0];
+    if (swap) { [s.kind, swap.o.kind] = [swap.o.kind, s.kind]; return; }
+    const used = new Set(slots.map((o) => ymd(o.d)));
+    const free = days.map((d, j) => ({ d, i: j }))
+      .filter(({ d }) => !used.has(ymd(d)) && !holidayEve(d)).sort(near(days.indexOf(s.d)))[0];
+    if (free) s.d = free.d;
+  });
   const out = {};
   const d0 = dist || "S";
-  seq.forEach((kind, i) => {
-    const d = days[Math.floor((i * days.length) / seq.length)];
+  slots.forEach(({ kind, d }) => {
     const e = blankDay();
     e.dist = { am7: d0, pm3: d0, pm10: d0 };
     if (kind === "pair") { e.pm3 = true; e.pm10 = true; } else e[kind] = true;
@@ -585,17 +606,13 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     // leave is as if it weren't on the calendar (no hours, no allowance).
     const work = { am7: worksShift(e, "am7"), pm3: worksShift(e, "pm3"), pm10: worksShift(e, "pm10") };
 
-    // Holiday pay (×2) applies only to the 2nd+ shift on a holiday day; the
-    // first shift in time order is regular. Time order on this calendar day:
-    // a 10PM carried over from the previous day (starts 00:00) → 7AM → 3PM → 10PM.
-    const prevEntry = entries[ymd(addDays(d, -1))];
-    const carryoverFromPrev = worksShift(prevEntry, "pm10");
-    let firstSeg;
-    if (carryoverFromPrev) firstSeg = "carryover";
-    else if (work.am7) firstSeg = "am7";
-    else if (work.pm3) firstSeg = "pm3";
-    else if (work.pm10) firstSeg = "pm10_start";
-    else firstSeg = null;
+    // Holiday pay (×2) covers every hour worked on a public holiday, the
+    // rotation's own shift included. A 10PM crosses midnight, so each part
+    // goes by the day it lands on: the hours before midnight by this day,
+    // the rest by the next day (a holiday too, or not).
+    const nextDate = addDays(d, 1);
+    const nextEntry = entries[ymd(nextDate)];
+    const nextHol = nextEntry?.holiday == null ? isJamaicaHoliday(nextDate) : nextEntry.holiday;
 
     // Allowance credit (SP1/SP2/meal/taxi): a shift counts as a FULL shift only
     // when more than half its standard hours were worked. Half or less earns no
@@ -616,14 +633,14 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       if (credit.am7) cal7am++;
       const ha = hrsOf(e, "am7");
       h += ha;
-      if (isHol && firstSeg !== "am7" && !onLeave.am7) hHol += ha;
+      if (isHol && !onLeave.am7) hHol += ha;
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (work.pm3) {
       if (credit.pm3) calPm3++;
       const hp3 = hrsOf(e, "pm3");
       h += hp3;
-      if (isHol && firstSeg !== "pm3" && !onLeave.pm3) hHol += hp3;
+      if (isHol && !onLeave.pm3) hHol += hp3;
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
     if (work.pm10) {
@@ -634,9 +651,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       const ratio = PM10_TOTAL > 0 ? tot / PM10_TOTAL : 0;
       const startSeg = byMin ? toMin(SHIFT_HOURS.pm10_start * ratio) / 60 : SHIFT_HOURS.pm10_start * ratio;
       h += tot;
-      // The carryover leg starts at 00:00 next day, so it is always that day's
-      // first segment and never earns holiday pay; only the pre-midnight leg can.
-      if (isHol && firstSeg !== "pm10_start" && !onLeave.pm10) hHol += startSeg;
+      // Both legs stay on this (start) day's total, holiday hours included.
+      if (!onLeave.pm10) {
+        if (isHol) hHol += startSeg;
+        if (nextHol) hHol += tot - startSeg;
+      }
       if (credit.pm10) { if (e.dist?.pm10 === "L") longPm10++; else shortPm10++; }
       if (credit.pm10 && credit.pm3) {
         sameDayPair++;

@@ -14,11 +14,13 @@ The **WCO JFB Night Shift Calculator** is a tool built by L/Cpl. R. Marshall for
 - **Taxi** — transport allowance based on distance and shift count (with same-day 3PM+10PM auto-deduction)
 - **Base pay** — Monthly Basic + Compulsory Assignment
 - **Extra hours** — overtime over the 173.33h threshold (×1.5) and holiday pay (×2)
-  - **Count overtime in hours or minutes** (Settings → Rates). _Hours_ (the default) uses decimal hours (6.5h). _Minutes_ counts every shift to the whole minute, takes the threshold as whole minutes (173.33h is 173h 20m), pays overtime per minute (hourly rate ÷ 60 × 1.5), shows time as hours and minutes everywhere, and lets you type a short shift as hours and minutes in the day editor. A saved result keeps the unit it was worked out in.
+  - **Holiday pay** covers every hour worked on a public holiday, the rotation's regular shift included (not just a second shift that day). A 10PM crosses midnight, so each part goes by the day it falls on: its 2h before midnight by its own day, its 7h after by the next day. A 10PM the night before a holiday earns 7h of holiday pay; a 10PM on a holiday followed by an ordinary day earns 2h. Holiday hours are left out of the overtime count.
+  - **Count overtime in hours or minutes** (Settings → Rates). _Hours_ (the default) uses decimal hours (6.5h). _Minutes_ counts every shift to the whole minute, takes the threshold as whole minutes (173.33h is 173h 20m), pays overtime per minute (hourly rate ÷ 60 × 1.5) and shows time as hours and minutes everywhere. A saved result keeps the unit it was worked out in.
+  - **Time worked** on a shift is typed as hours and minutes in the day editor (two boxes, e.g. 6h 40m), whichever unit overtime is counted in. Leave both blank for the standard hours, shown greyed in the boxes.
   - **Extra shifts** (shifts outside a saved rotation) are listed on their own with their time in hours and minutes, per shift type and in all, apart from the overtime figure. Their time is already part of total hours, so it's never paid on top.
 - **Leave & duties** — mark any shift as vacation, departmental or sick leave, time off, orderly duty, or one side of a shift swap:
   - **Leave** (VL, DL, SL, TO) keeps the shift's hours as ordinary hours (total and overtime; never holiday ×2, even on a public holiday) but drops its SP1, SP2, meal and taxi.
-  - **Exchange leave** (EXL): someone else covers your shift. It loses all its hours and allowances, as if it weren't worked (it also never counts as an extra shift or as a day's first shift for the holiday rule).
+  - **Exchange leave** (EXL): someone else covers your shift. It loses all its hours and allowances, as if it weren't worked (it also never counts as an extra shift or earns holiday pay).
   - **Orderly duty** (ORD) and **Exchange for** (EXF, covering someone else's shift) are paid as normal shifts and only recorded.
 - **Estimated net** — JM tax model (NIS, NHT, Education Tax, PAYE bands, optional pension). Meal and taxi allowances are tax-free, so deductions are worked out on the rest of the gross
 
@@ -68,7 +70,7 @@ The app opens on **Home**. Tap **Start** and answer three questions:
 2. **Your commute:** Short or Long taxi distance.
 3. **Your shifts**, either:
    - **My rotation:** tap any day you work a 7AM on the period calendar. The standard 7AM → 3PM → 10PM → off cycle fills the whole period from that day, including the days before it, and public holidays apply automatically (a holiday that falls on a weekend is kept on the weekday the Holidays Act moves it to, e.g. Labour Day 2026 on Monday 25 May).
-   - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the period's regular (non-holiday) days for the math; holiday pay isn't included from totals.
+   - **My totals:** just the number of 3PM, 10PM and 7AM shifts (plus any same-day 3PM + 10PM days). Shifts are spread across the period's regular (non-holiday) days for the math, with no 10PM on the night before a holiday (it would run into it); holiday pay isn't included from totals.
 
    - If this period already has days logged, **My rotation** keeps them and only fills the empty days (Auto-fill does the same). Kept shifts that fall outside the new rotation show as extra, and the setup tells you how many before you finish. Switch keep off to replace the period instead. **My totals** always replaces the period.
    - Choosing **My rotation** saves it. The 4-day cycle (7AM → 3PM → 10PM → **Off**) runs on across pay periods, so the calendar marks your off days and shows any shift outside the rotation as an **extra** shift in pink with a `+` (e.g. `+3PM`). **My totals** doesn't follow a rotation, so it clears the saved one.
@@ -86,7 +88,7 @@ The phone's **Back** button closes an open dialog or the Home setup first, then 
 The bottom bar has three tabs: **Home**, **Watch** and **History**. Home is one page, top to bottom: your pay, **Your shifts** (the calendar) and your pay settings. Settings (gear icon) holds rates, tax, past rates, theme and **Backup**. **About** (footer, or Settings) has a step-by-step guide to every screen, the pay rules with the current rates, and a key to every shift label.
 
 1. **Check your rates** in Settings. The defaults are the current JFB rates; the setup wizard shows which rates it's using. Settings save as you type.
-2. **Log your shifts on the calendar** (**Your shifts** on Home). Tap a day to toggle 7AM / 3PM / 10PM, adjust hours, and override holiday status. Coloured chips show shift type. Tap **Your shifts** to fold the calendar down to one line (it shows the shift count and hours); it stays folded or open on that device.
+2. **Log your shifts on the calendar** (**Your shifts** on Home). Tap a day to toggle 7AM / 3PM / 10PM, change a shift's time worked (hours and minutes), and override holiday status. Coloured chips show shift type. Tap **Your shifts** to fold the calendar down to one line (it shows the shift count and hours); it stays folded or open on that device.
    - **Duty** (under each ticked shift → Change), grouped by what it does to pay: _Worked_ (Regular, Orderly, Exchange for), _Leave_ (Vacation, Departmental, Sick, Time off) and _Swapped out_ (Exchange leave). Leave shows on the calendar as a dashed chip with its code (VL, DL, SL, TO); exchange leave as a faint dotted **EXL** chip with `0h`; orderly and exchange for as solid **ORD** / **EXF** chips. The pay card gets a **Leave & duties** row that opens to list them, and **About** has a key to every label.
 3. **Pick a taxi distance** in the settings card under the calendar:
    - **Short** or **Long**: one distance for every shift this period.
