@@ -42,10 +42,13 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
   }, []);
 
   const extra = totals.extraShifts || 0;
+  // Time worked on after a Straight Day ended (older saves have none).
+  const sdOt = Number(totals.sdOtHours) || 0;
   const counts = [
     [totals.cal.pm3, "3PM"],
     [totals.cal.pm10, "10PM"],
     [totals.cal.am7, "7AM"],
+    [totals.cal.sd, "Straight Day"],
   ].filter(([c]) => c > 0).map(([c, l]) => `${c} × ${l}`);
 
   return (
@@ -150,14 +153,20 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
               threshold, so the two are shown apart. */}
           {extra > 0 && (
             <>
-              <Row muted top label="Extra shifts · outside your rotation" />
+              <Row muted top label="Extra shifts · overtime shifts" />
               {extraKinds.map((s) => (
-                <Row key={s.k} label={`${s.label} × ${totals.extraBy[s.k].n}`} value={fmtHM(totals.extraBy[s.k].h)} />
+                <Row key={s.k} label={`${SHIFT_LABEL[s.k]} × ${totals.extraBy[s.k].n}`} value={fmtHM(totals.extraBy[s.k].h)} />
               ))}
               <Row label={`All extra shifts × ${extra}`} value={fmtHM(totals.extraHours)} formula onClick={() => showMath("Extra shift time",
-                `${extraKinds.map((s) => `${s.label} × ${totals.extraBy[s.k].n} = ${fmtHM(totals.extraBy[s.k].h)}`).join("\n")}\n\nAlready part of total hours. Overtime pay is only the time over ${thrLabel}, so extra shifts aren't paid again on top.`,
+                `${extraKinds.map((s) => `${SHIFT_LABEL[s.k]} × ${totals.extraBy[s.k].n} = ${fmtHM(totals.extraBy[s.k].h)}`).join("\n")}\n\nShifts outside your rotation, or marked overtime in the day. Already part of total hours. Overtime pay is only the time over ${thrLabel}, so extra shifts aren't paid again on top.`,
                 totals.extraHours, "hm")} />
             </>
+          )}
+          {/* Overtime after a Straight Day: time, like extra shifts. */}
+          {sdOt > 0 && (
+            <Row label={`Overtime after Straight Day × ${totals.sdOtDays}`} value={fmtHM(sdOt)} formula onClick={() => showMath("Overtime after a Straight Day",
+              `Time you stayed on after a Straight Day ended at 4:30PM, on ${n(totals.sdOtDays, "day")}: ${fmtHM(sdOt)}.\n\nAlready part of total hours, so it counts toward the time over ${thrLabel} (×1.5). On a public holiday it's holiday time (×2) instead: the part before midnight by that day, the rest by the next.`,
+              sdOt, "hm")} />
           )}
         </PartRow>
 
@@ -176,6 +185,7 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
       <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
         {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtDur(totals.totalHours, totals.rates)}` : "No shifts logged yet"}
         {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra ({fmtHM(totals.extraHours)})</span></>}
+        {sdOt > 0 && ` · ${fmtHM(sdOt)} after Straight Day`}
         {totals.holidayHours > 0 && ` · ${fmtDur(totals.holidayHours, totals.rates)} holiday`}
         {totals.otHours > 0 && ` · ${fmtDur(totals.otHours, totals.rates)} overtime`}
         {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}

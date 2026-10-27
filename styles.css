@@ -21,6 +21,8 @@
   --sp1: #0a84ff;
   --sp2: #bf5af2;
   --am: #30d158;
+  /* Straight Day: iOS teal (dark chip text on it reads 9:1). */
+  --sd: #40c8e0;
   --holiday: #ff453a;
   --warn: #ffd60a;
   --ok: #30d158;
@@ -226,6 +228,8 @@
   --sp1: #0071e3;
   --sp2: #8944ab;
   --am: #248a3d;
+  /* Darkened so white chip text on it reads 4.5:1. */
+  --sd: #00809a;
   --holiday: #d70015;
   --warn: #a35f00;
   --ok: #248a3d;

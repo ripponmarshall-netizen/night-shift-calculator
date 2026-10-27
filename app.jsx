@@ -120,7 +120,7 @@ function App() {
       const next = { ...prev };
       const cur = prev[key] ? { ...prev[key], dist: { ...prev[key].dist } } : blankDay();
       const updated = updater(cur);
-      const empty = !updated.am7 && !updated.pm3 && !updated.pm10 && updated.holiday == null;
+      const empty = !hasShifts(updated) && updated.holiday == null;
       if (empty) delete next[key]; else next[key] = updated;
       return next;
     });
@@ -157,7 +157,9 @@ function App() {
   const saveStatus = useMemo(() => {
     const saved = snapshots.find((s) => s.periodKey === periodKey(period));
     if (!saved) return { state: "none" };
-    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "otHours", "leaveShifts", "exchangedShifts"];
+    // Extra shifts and overtime after a Straight Day are in the saved
+    // record too, so marking a shift overtime (no change to pay) counts.
+    const keys = ["grand", "allowanceSubtotal", "baseSubtotal", "extraSubtotal", "totalHours", "holidayHours", "otHours", "leaveShifts", "exchangedShifts", "extraShifts", "sdOtHours"];
     const near = (a, b) => Math.abs((Number(a) || 0) - (Number(b) || 0)) < 0.005;
     // Duty marks that don't move the pay (orderly, exchange for) still
     // belong in the saved record, so a change to them counts too.
@@ -238,7 +240,7 @@ function App() {
   const copyDay = (key) => {
     const e = entries[key];
     if (!hasShifts(e)) return false;
-    setClipboard({ srcKey: key, entry: { ...e, dist: { ...e.dist }, ...(e.hours ? { hours: { ...e.hours } } : {}), ...(e.duty ? { duty: { ...e.duty } } : {}) } });
+    setClipboard({ srcKey: key, entry: { ...e, dist: { ...e.dist }, ...(e.hours ? { hours: { ...e.hours } } : {}), ...(e.duty ? { duty: { ...e.duty } } : {}), ...(e.ot ? { ot: { ...e.ot } } : {}) } });
     return true;
   };
   const pasteDay = (key) => {
@@ -710,8 +712,9 @@ function AboutView({ onBack, rates }) {
 
         <GuideSection id="shifts" open={openGuide} onToggle={toggle} title="Logging shifts day by day" detail="The calendar on Home">
           <GuideSteps steps={[
-            <>{b("Tap a day")} to open it, then tick 7AM, 3PM or 10PM. Ticking again takes the shift off.</>,
-            <>Worked fewer hours? Type them under the shift. Blank means the standard hours (7AM 8h, 3PM 7h, 10PM 9h across midnight).</>,
+            <>{b("Tap a day")} to open it, then tick 7AM, 3PM, 10PM or {b("Straight Day")} (8:30AM to 4:30PM). Ticking again takes the shift off.</>,
+            <>Worked fewer hours? Type them under the shift. Blank means the standard hours (7AM 8h, 3PM 7h, 10PM 9h across midnight, Straight Day 8h). Stayed on after a Straight Day? Type it under {b("Overtime after 4:30PM")}.</>,
+            <>{b("Overtime shift")} under each shift says whether it's overtime (extra). It starts from your rotation: a shift outside it is overtime. Switch it off for a shift that isn't (or on, for one that is).</>,
             <>{b("Duty → Change")} marks a shift as orderly, exchange for, leave (VL, DL, SL, TO) or exchange leave. See {b("Shift labels")} below for what each does to your pay.</>,
             <>Public holidays fill in on their own, on the day they're kept: one that falls on a weekend moves to the weekday it's observed (Labour Day 2026 was Monday 25 May). To change one, open the day and use {b("Public holiday → Change")}.</>,
             <>{b("Taxi distance")}, in the card under the calendar: Short or Long for the whole period, or {b("Varies")} to set it on each shift.</>,
@@ -768,7 +771,8 @@ function AboutView({ onBack, rates }) {
             <GuideRule label="Overtime" value={inMinutes(r)
               ? `Minutes over ${fmtHM(r.threshold)} in the period (not counting holiday time) × hourly rate ÷ 60 × 1.5`
               : `Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
-            <GuideRule label="Extra shifts" value="Shifts outside your saved rotation. Their time is shown on its own, but it's already in your total hours, so it isn't paid twice." />
+            <GuideRule label="Extra shifts" value="Overtime shifts: outside your saved rotation, or marked overtime in the day. Their time is shown on its own, but it's already in your total hours, so it isn't paid twice." />
+            <GuideRule label="Straight Day" value="8:30AM to 4:30PM, 8h. Hours only: no SP1, SP2, meal or taxi. Overtime after it counts in your total hours (or holiday hours on a public holiday)." />
             <GuideRule label="Holiday" value="Every hour you work on a public holiday is paid × 2 the hourly rate, your regular shift included. A 10PM counts by the day each part falls on: 2h before midnight, 7h after." />
             <GuideRule label="Leave" value="Hours count as ordinary hours (never × 2); no SP1, SP2, meal or taxi." last />
           </div>
@@ -794,7 +798,8 @@ function AboutView({ onBack, rates }) {
           <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="exchangeFor" />} title="Exchange for" detail="You cover someone else's shift. Paid as a normal shift." />
           <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="vacation" />} title="Leave: VL · DL · SL · TO" detail="Vacation, departmental, sick or time off. Hours count as ordinary hours (never holiday ×2); no SP1, SP2, meal or taxi." />
           <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" duty="exchangeLeave" />} title="Exchange leave" detail="Someone else covers your shift. No hours and no allowances." />
-          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" extra />} title="Extra shift" detail="A worked shift outside your saved rotation, shown in pink with a +." last />
+          <LabelRow chip={<ShiftChip label="SD" color="var(--sd)" />} title="Straight Day" detail="8:30AM to 4:30PM. Hours only, no allowances. Any overtime after it shows in the day's hours." />
+          <LabelRow chip={<ShiftChip label="3PM" color="var(--sp1)" extra />} title="Extra shift (overtime)" detail="A worked shift outside your saved rotation, or one you marked as overtime, shown in pink with a +." last />
         </div>
       </Card>
 

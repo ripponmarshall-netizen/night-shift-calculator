@@ -1,12 +1,16 @@
 /* helpers.jsx — date utils, JM holidays (with Easter calc), aggregate, storage */
 /* Pure JS, no JSX — kept Node-loadable so calc.test.js can require() it. */
 
-const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7 };
+const SHIFT_HOURS = { am7: 8, pm3: 7, pm10_start: 2, pm10_next: 7, sd: 8 };
 const PM10_TOTAL = SHIFT_HOURS.pm10_start + SHIFT_HOURS.pm10_next; // 9h, crosses midnight
 /* Standard hours for a shift key (pm10 is the total across midnight). */
 function stdHours(key) { return key === "pm10" ? PM10_TOTAL : SHIFT_HOURS[key]; }
+/* Every shift a day can hold, in the order the screens list them. sd is a
+   Straight Day: 8:30AM to 4:30PM (8h), a day shift outside the 7AM → 3PM →
+   10PM rotation that earns no SP1, SP2, meal or taxi (like a 7AM). */
+const SHIFT_KEYS = ["am7", "pm3", "pm10", "sd"];
 /* Effective hours actually worked for a shift. An entry may carry an optional
-   sparse override: hours: { am7?, pm3?, pm10? } (string or number). Absent,
+   sparse override: hours: { am7?, pm3?, pm10?, sd? } (string or number). Absent,
    blank, or invalid => the standard hours, so old entries stay backward
    compatible. pm10 override is the TOTAL across midnight (default 9). One
    shift can't run past a day, so anything over 24h (a typo like "77" for
@@ -17,7 +21,7 @@ function effHours(e, key) {
   return (v == null || v === "" || !(Number(v) >= 0)) ? stdHours(key) : Math.min(MAX_SHIFT_HOURS, Number(v));
 }
 /* Per-shift duty marks. An entry may carry a sparse map
-   duty: { am7?, pm3?, pm10? } naming one of these keys; absent => a regular
+   duty: { am7?, pm3?, pm10?, sd? } naming one of these keys; absent => a regular
    shift. Each mark has a `pay` rule:
    - "full": worked and paid as normal, only recorded (orderly duty, and
      exchange for: covering someone else's shift in a swap).
@@ -51,16 +55,49 @@ const isGivenAway = (v) => !!v && DUTY_TYPES[v]?.pay === "none";
 /* A shift that is ticked and actually worked (not given away). */
 const worksShift = (e, key) => !!(e && e[key]) && !isGivenAway(shiftDuty(e, key));
 /* Any shift ticked on a day (a day can carry only a holiday override). */
-const hasShifts = (e) => !!e && !!(e.am7 || e.pm3 || e.pm10);
+const hasShifts = (e) => !!e && SHIFT_KEYS.some((k) => !!e[k]);
 
-/* The three shifts in time order, with the label and colour every screen
-   uses for them. */
+/* Overtime straight after a Straight Day: entry.sdOt, in hours (string or
+   number, like the hours map). It starts at 4:30PM, so up to 7h 30m of it
+   falls on the day and the rest after midnight. At most 16h, so the shift
+   and its overtime stay within a day. Only a Straight Day that's worked
+   (not leave, not given away) can have any. */
+const SD_OT_SAME_DAY = 7.5;
+const MAX_SD_OT = MAX_SHIFT_HOURS - SHIFT_HOURS.sd;
+function sdOtHours(e) {
+  if (!worksShift(e, "sd") || isLeave(shiftDuty(e, "sd"))) return 0;
+  const v = e.sdOt;
+  return v == null || v === "" || !(Number(v) > 0) ? 0 : Math.min(MAX_SD_OT, Number(v));
+}
+
+/* Overtime shifts (extra shifts). By default a worked shift the rotation
+   doesn't call for is overtime: an off day's shift, or a second shift on a
+   working day. The day editor can set it per shift by hand, as a sparse map
+   ot: { am7?, pm3?, pm10?, sd? } of true / false, for a shift the rotation
+   gets wrong (say a shift on an off day that isn't overtime, or overtime
+   with no rotation saved). Only a value that differs from the automatic one
+   is stored. It sorts shifts, never pay: overtime pay is still the time
+   over the threshold. A shift given away on exchange leave is never extra. */
+function otSet(e, k) {
+  const v = e && e.ot && e.ot[k];
+  return typeof v === "boolean" ? v : null;
+}
+const autoOvertime = (k, slot) => !!slot && k !== slot;
+function isOvertimeShift(e, k, slot) {
+  if (!worksShift(e, k)) return false;
+  const set = otSet(e, k);
+  return set == null ? autoOvertime(k, slot) : set;
+}
+
+/* Every shift, with the label and colour every screen uses for it. label is
+   the short one for calendar chips; SHIFT_LABEL is the name in words. */
 const SHIFTS = [
   { k: "am7", label: "7AM", color: "var(--am)" },
   { k: "pm3", label: "3PM", color: "var(--sp1)" },
   { k: "pm10", label: "10PM", color: "var(--sp2)" },
+  { k: "sd", label: "SD", color: "var(--sd)" },
 ];
-const SHIFT_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM" };
+const SHIFT_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM", sd: "Straight Day" };
 
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
@@ -72,7 +109,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.24";
+const APP_VERSION = "3.25";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -297,12 +334,16 @@ function summaryText(totals, periodStr, net) {
       [`Overtime ×1.5 · ${hrs(totals.otHours)}`, fmt(totals.overtimePay)],
     ], fmt(totals.extraSubtotal)),
   ];
-  // Extra shifts (outside the rotation) are a record of time, not a pay
-  // line: their hours are already in the total that overtime comes from.
+  // Extra shifts (outside the rotation) and overtime after a Straight Day
+  // are a record of time, not a pay line: their hours are already in the
+  // total that overtime comes from.
   const nExtra = Number(totals.extraShifts) || 0;
-  if (nExtra > 0) {
-    lines.push(row(`Extra shifts ×${nExtra}`, fmtHM(totals.extraHours), 2), "    (already in total hours)");
-  }
+  const sdOt = Number(totals.sdOtHours) || 0;
+  const timeRows = [
+    nExtra > 0 && row(`Extra shifts ×${nExtra}`, fmtHM(totals.extraHours), 2),
+    sdOt > 0 && row("OT after Straight Day", fmtHM(sdOt), 2),
+  ].filter(Boolean);
+  if (timeRows.length) lines.push(...timeRows, "    (already in total hours)");
   lines.push("");
   // Leave, orderly duty and exchanges: a record of the shifts, no money of
   // their own (their effect is already in the lines above).
@@ -329,9 +370,13 @@ function summaryText(totals, periodStr, net) {
 }
 
 /* ----- entries ----- */
-// optional hours: { am7?, pm3?, pm10? } — actual hours worked (string/number).
+// optional hours: { am7?, pm3?, pm10?, sd? } — actual hours worked (string/number).
 // Absent/blank/invalid => SHIFT_HOURS default. pm10 = TOTAL across midnight (9).
-function blankDay() { return { am7: false, pm3: false, pm10: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
+// optional ot: { am7?, pm3?, pm10?, sd? } — overtime set by hand (see otSet).
+// optional sdOt — overtime after a Straight Day, in hours (see sdOtHours).
+// dist holds the taxi distance of the shifts that can earn taxi; a Straight
+// Day has none.
+function blankDay() { return { am7: false, pm3: false, pm10: false, sd: false, holiday: null, dist: { am7: "S", pm3: "S", pm10: "S" } }; }
 
 /* Day entries from a backup file, in the shape every screen reads: date
    keys only, a day object with true/false shifts, a holiday of null / true /
@@ -345,20 +390,22 @@ function sanitizeEntries(m) {
   for (const [k, e] of Object.entries(m)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !isObj(e)) continue;
     const d = blankDay();
-    for (const s of ["am7", "pm3", "pm10"]) {
-      d[s] = !!e[s];
-      if (e.dist?.[s] === "L") d.dist[s] = "L";
-    }
+    for (const s of SHIFT_KEYS) d[s] = !!e[s];
+    for (const s of Object.keys(d.dist)) if (e.dist?.[s] === "L") d.dist[s] = "L";
     if (typeof e.holiday === "boolean") d.holiday = e.holiday;
     const sub = (o, ok) => {
       const r = {};
-      if (isObj(o)) for (const s of ["am7", "pm3", "pm10"]) if (ok(o[s])) r[s] = o[s];
+      if (isObj(o)) for (const s of SHIFT_KEYS) if (ok(o[s])) r[s] = o[s];
       return Object.keys(r).length ? r : undefined;
     };
-    const hours = sub(e.hours, (v) => (typeof v === "string" || typeof v === "number") && String(v) !== "" && Number(v) >= 0);
+    const num = (v) => (typeof v === "string" || typeof v === "number") && String(v) !== "" && Number(v) >= 0;
+    const hours = sub(e.hours, num);
     const duty = sub(e.duty, (v) => typeof v === "string" && Object.prototype.hasOwnProperty.call(DUTY_TYPES, v));
+    const ot = sub(e.ot, (v) => typeof v === "boolean");
     if (hours) d.hours = hours;
     if (duty) d.duty = duty;
+    if (ot) d.ot = ot;
+    if (d.sd && num(e.sdOt) && Number(e.sdOt) > 0) d.sdOt = e.sdOt;
     if (hasShifts(d) || d.holiday != null) out[k] = d;
   }
   return out;
@@ -440,18 +487,18 @@ function rotationSlot(key, anchor) {
   return ROTATION_SLOTS[((i % 4) + 4) % 4];
 }
 
-/* Shifts on a day that the rotation doesn't call for (an off day's shift,
-   or a second shift on a working day). A shift given away on exchange leave
-   isn't worked, so it's never extra. Empty when no rotation is saved. */
+/* A day's overtime (extra) shifts: those the rotation doesn't call for (an
+   off day's shift, or a second shift on a working day), as changed by hand
+   in the day editor (see isOvertimeShift). Without a rotation, only shifts
+   marked by hand. */
 function extraShiftKeys(entry, slot) {
-  if (!slot || !entry) return [];
-  return ["am7", "pm3", "pm10"].filter((k) => k !== slot && worksShift(entry, k));
+  if (!entry) return [];
+  return SHIFT_KEYS.filter((k) => isOvertimeShift(entry, k, slot));
 }
 
 /* Per-period rotation facts for the UI: extra shift count and off days. */
 function rotationStats(entries, period, anchor) {
   let extra = 0, off = 0;
-  if (!anchor) return { extra, off };
   for (const d of periodDays(period)) {
     const k = ymd(d);
     const slot = rotationSlot(k, anchor);
@@ -561,7 +608,7 @@ function mergePeriodFill(entries, period, fill, replace) {
    as extra shifts. rates.otUnit "minutes" counts every shift to the whole
    minute and overtime on whole minutes over the threshold. */
 function aggregate(entries, period, mode, basicDistance, counts, basePay, rates, anchor) {
-  let calPm3 = 0, calPm10 = 0, cal7am = 0, sameDayPair = 0;
+  let calPm3 = 0, calPm10 = 0, cal7am = 0, calSd = 0, sameDayPair = 0;
   let shortPm3 = 0, longPm3 = 0, shortPm10 = 0, longPm10 = 0, shortAm7 = 0, longAm7 = 0;
   let totalHours = 0, holidayHours = 0;
   let sameDayPairLegSum = 0; // sum of actual leg rates for same-day 3PM+10PM pairs (advanced mode)
@@ -571,8 +618,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
   for (const k of DUTY_KEYS) duties[k] = 0;
   let leaveShifts = 0, leaveHours = 0, exchangedShifts = 0, exchangedHours = 0;
   // Shifts outside the rotation, and their hours, per shift and in all.
-  const extraBy = { am7: { n: 0, h: 0 }, pm3: { n: 0, h: 0 }, pm10: { n: 0, h: 0 } };
+  const extraBy = {};
+  for (const k of SHIFT_KEYS) extraBy[k] = { n: 0, h: 0 };
   let extraShifts = 0, extraHours = 0;
+  // Overtime worked straight after a Straight Day, and on how many days.
+  let sdOtTotal = 0, sdOtDays = 0;
 
   // Normalize rates so corrupted storage or imported data can never produce
   // negative pay or a divide-by-zero. threshold must stay > 0 (it divides).
@@ -604,7 +654,8 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
 
     // Only shifts actually worked count below; one given away on exchange
     // leave is as if it weren't on the calendar (no hours, no allowance).
-    const work = { am7: worksShift(e, "am7"), pm3: worksShift(e, "pm3"), pm10: worksShift(e, "pm10") };
+    const work = {};
+    for (const k of SHIFT_KEYS) work[k] = worksShift(e, k);
 
     // Holiday pay (×2) covers every hour worked on a public holiday, the
     // rotation's own shift included. A 10PM crosses midnight, so each part
@@ -620,7 +671,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     // A shift on leave earns no allowance either. Its hours count as ordinary
     // hours (total and overtime), never holiday hours, even on a holiday.
     const credit = {}, onLeave = {};
-    for (const k of ["am7", "pm3", "pm10"]) {
+    for (const k of SHIFT_KEYS) {
       const duty = shiftDuty(e, k);
       onLeave[k] = isLeave(duty);
       if (duty) duties[duty]++;
@@ -663,6 +714,26 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
         const r10 = (e.dist?.pm10 === "L") ? R.taxiLong : R.taxiShort;
         sameDayPairLegSum += r3 + r10;
       }
+    }
+    // A Straight Day (8:30AM–4:30PM) is all on its own day and, like a 7AM,
+    // earns no SP1, SP2, meal or taxi; only its hours count.
+    if (work.sd) {
+      if (credit.sd) calSd++;
+      const hs = hrsOf(e, "sd");
+      h += hs;
+      if (isHol && !onLeave.sd) hHol += hs;
+    }
+    // Overtime straight after it runs from 4:30PM, so like a 10PM each part
+    // goes by the day it falls on: up to 7h 30m on this day, the rest after
+    // midnight. All of it stays on this day's total.
+    const after = byMin ? toMin(sdOtHours(e)) / 60 : sdOtHours(e);
+    if (after > 0) {
+      const sameDay = Math.min(after, SD_OT_SAME_DAY);
+      h += after;
+      if (isHol) hHol += sameDay;
+      if (nextHol) hHol += after - sameDay;
+      sdOtTotal += after;
+      sdOtDays++;
     }
 
     for (const k of extraShiftKeys(e, rotationSlot(key, anchor))) {
@@ -731,7 +802,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
   const hasMismatch = mismatch.pm3 || mismatch.pm10 || mismatch.am7;
 
   return {
-    cal: { pm3: calPm3, pm10: calPm10, am7: cal7am, sameDayPair, shortPm3, longPm3, shortPm10, longPm10, shortAm7, longAm7 },
+    cal: { pm3: calPm3, pm10: calPm10, am7: cal7am, sd: calSd, sameDayPair, shortPm3, longPm3, shortPm10, longPm10, shortAm7, longAm7 },
     dayHours, dayHolidayHours,
     sp1, sp2, meal, taxi, taxiGross, taxiDeduct,
     allowanceSubtotal,
@@ -740,6 +811,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     holidayPay, overtimePay, extraSubtotal,
     duties, leaveShifts, leaveHours, exchangedShifts, exchangedHours,
     extraShifts, extraHours, extraBy,
+    sdOtHours: sdOtTotal, sdOtDays,
     grand,
     mismatch, hasMismatch,
     rates, mode, basicDistance,
@@ -773,14 +845,15 @@ function memberTotals(crewEntries, member, period, rates, anchor) {
   return aggregate(memberEntries(crewEntries, member), period, "basic", member?.dist === "L" ? "L" : "S", null, member?.basePay || {}, rates, anchor);
 }
 
-/* Two day entries that pay the same: the same shifts, duty marks, hours and
-   holiday setting. Per-shift distance is ignored (crew pay is Short/Long). */
+/* Two day entries that pay and read the same: the same shifts, duty marks,
+   hours, overtime marks, overtime after a Straight Day and holiday setting.
+   Per-shift distance is ignored (crew pay is Short/Long). */
 function sameEntry(a, b) {
   const hol = (e) => (e && e.holiday != null ? !!e.holiday : null);
-  if (hol(a) !== hol(b)) return false;
-  return ["am7", "pm3", "pm10"].every((k) => {
+  if (hol(a) !== hol(b) || sdOtHours(a) !== sdOtHours(b)) return false;
+  return SHIFT_KEYS.every((k) => {
     if (!!a?.[k] !== !!b?.[k]) return false;
-    return !a?.[k] || (shiftDuty(a, k) === shiftDuty(b, k) && effHours(a, k) === effHours(b, k));
+    return !a?.[k] || (shiftDuty(a, k) === shiftDuty(b, k) && effHours(a, k) === effHours(b, k) && otSet(a, k) === otSet(b, k));
   });
 }
 
@@ -819,14 +892,12 @@ function sanitizeCrew(c) {
   const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
   if (!isObj(c)) return null;
   const isKey = (k) => /^\d{4}-\d{2}-\d{2}$/.test(k);
+  // Days get the same cleaning as a restored backup's own days, so a
+  // hand-edited file can't leave a malformed day on a watch calendar.
   const dayMap = (m, allowNull) => {
-    const out = {};
-    if (!isObj(m)) return out;
-    for (const [k, v] of Object.entries(m)) {
-      if (!isKey(k)) continue;
-      if (isObj(v)) out[k] = v;
-      else if (allowNull && v === null) out[k] = null;
-    }
+    if (!isObj(m)) return {};
+    const out = sanitizeEntries(m);
+    if (allowNull) for (const [k, v] of Object.entries(m)) if (isKey(k) && v === null) out[k] = null;
     return out;
   };
   const str = (v, n) => (typeof v === "string" || typeof v === "number" ? String(v).slice(0, n) : "");
@@ -852,12 +923,18 @@ function sanitizeCrew(c) {
   };
 }
 
-/* A crew day copied from someone's own calendar: the shifts and the
-   holiday setting only. Their leave, swaps and short hours are personal. */
+/* A crew day copied from someone's own calendar: the shifts, which of them
+   are overtime, and the holiday setting. Their leave, swaps, short hours and
+   overtime after a Straight Day are personal. */
 function crewDayFrom(e) {
   if (!hasShifts(e) && e?.holiday == null) return null;
   const d = blankDay();
-  for (const k of ["am7", "pm3", "pm10"]) d[k] = !!e[k];
+  const ot = {};
+  for (const k of SHIFT_KEYS) {
+    d[k] = !!e[k];
+    if (d[k] && otSet(e, k) != null) ot[k] = otSet(e, k);
+  }
+  if (Object.keys(ot).length) d.ot = ot;
   d.holiday = e.holiday == null ? null : !!e.holiday;
   return d;
 }
@@ -874,11 +951,13 @@ function periodLong(period) {
 
 /* A person's shifts laid out for the record sheet: each shift's dates, split
    into regular time (the rotation's shift for that day) and overtime (shifts
-   outside it). With a rotation, col is the 4-day cycle the date falls in, so
-   each column reads 7AM → 3PM → 10PM like the paper sheet; without one,
-   every shift is regular time. Each item: { d: "19/6/26", code: "D/L" | "" }. */
+   outside it, or marked overtime by hand). With a rotation, col is the 4-day
+   cycle the date falls in, so each column reads 7AM → 3PM → 10PM like the
+   paper sheet; without one, only shifts marked overtime by hand go under
+   overtime. Shifts given away (Exc) stay where they'd have been worked.
+   Each item: { d: "19/6/26", code: "D/L" | "" }. */
 function shiftSheet(entries, period, anchor) {
-  const blank = () => ({ am7: [], pm3: [], pm10: [] });
+  const blank = () => ({ am7: [], pm3: [], pm10: [], sd: [] });
   const regular = blank(), overtime = blank();
   let cycleStart = null;
   if (anchor) {
@@ -889,12 +968,13 @@ function shiftSheet(entries, period, anchor) {
     const key = ymd(d), e = entries[key];
     if (!hasShifts(e)) continue;
     const slot = rotationSlot(key, anchor);
-    for (const k of ["am7", "pm3", "pm10"]) {
+    for (const k of SHIFT_KEYS) {
       if (!e[k]) continue;
       const duty = shiftDuty(e, k);
       const item = { d: dmy(d), code: duty ? SHEET_CODES[duty] : "" };
       if (cycleStart) item.col = Math.floor(dayOffset(cycleStart, d) / 4);
-      (slot && slot !== k ? overtime : regular)[k].push(item);
+      const set = otSet(e, k);
+      ((set == null ? autoOvertime(k, slot) : set) ? overtime : regular)[k].push(item);
     }
   }
   return { regular, overtime };
@@ -930,9 +1010,10 @@ function crewSnapshot(crew, period, rates, tax, rows) {
   };
 }
 /* What a crew save is compared on to tell whether it's still current: who,
-   their shifts, and every line of pay that reaches a report (a tax change
-   moves only Est. net; a rate change can move money between lines). */
-const SIG_FIELDS = ["sp1", "sp2", "meal", "taxi", "baseSubtotal", "holidayPay", "overtimePay", "grand", "otHours", "holidayHours"];
+   their shifts, every line of pay and the hours that reach a report (a tax
+   change moves only Est. net; a rate change can move money between lines;
+   a short shift under the threshold moves only the hours). */
+const SIG_FIELDS = ["sp1", "sp2", "meal", "taxi", "baseSubtotal", "holidayPay", "overtimePay", "grand", "otHours", "holidayHours", "totalHours", "sdOtHours"];
 function crewSnapSig(snap) {
   const c = (v) => Math.round((Number(v) || 0) * 100);
   return JSON.stringify([
@@ -964,7 +1045,7 @@ function sanitizeCrewHistory(list) {
   const items = (a) => (Array.isArray(a) ? a.filter(isObj).map((it) => ({
     d: str(it.d, 12), code: str(it.code, 6), ...(Number.isInteger(it.col) && it.col >= 0 ? { col: it.col } : {}),
   })) : []);
-  const part = (p) => ({ am7: items(p?.am7), pm3: items(p?.pm3), pm10: items(p?.pm10) });
+  const part = (p) => ({ am7: items(p?.am7), pm3: items(p?.pm3), pm10: items(p?.pm10), sd: items(p?.sd) });
   const seenAt = new Set();
   const all = list.filter((s) => isObj(s) && typeof s.periodKey === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.periodKey)).map((s, i) => {
     let at = str(s.at, 40);
@@ -1001,13 +1082,13 @@ function crewCsv(rows, periodStr) {
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const n2 = (v) => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
-  const head = ["Period", "Name", "Employee no.", "Rank", "Taxi", "7AM", "3PM", "10PM", "Leave shifts", "Exchanged out", "Hours",
+  const head = ["Period", "Name", "Employee no.", "Rank", "Taxi", "7AM", "3PM", "10PM", "Straight Day", "Leave shifts", "Exchanged out", "Hours", "OT after Straight Day",
     "SP1", "SP2", "Meal", "Taxi allowance", "Allowances", "Monthly basic", "Compulsory", "Holiday pay", "Overtime pay", "Gross", "Est. net"];
   const lines = [head.map(cell).join(",")];
   for (const { member: m, totals: t, net } of rows) {
     lines.push([
       periodStr, m.name, m.empNo, m.rank || "", m.dist === "L" ? "Long" : "Short",
-      t.cal.am7, t.cal.pm3, t.cal.pm10, t.leaveShifts, t.exchangedShifts, n2(t.totalHours),
+      t.cal.am7, t.cal.pm3, t.cal.pm10, t.cal.sd || 0, t.leaveShifts, t.exchangedShifts, n2(t.totalHours), n2(t.sdOtHours),
       n2(t.sp1), n2(t.sp2), n2(t.meal), n2(t.taxi), n2(t.allowanceSubtotal),
       n2(t.monthlyBasic), n2(t.compulsory), n2(t.holidayPay), n2(t.overtimePay), n2(t.grand),
       net == null ? "" : n2(net),
@@ -1031,7 +1112,8 @@ function crewText(rows, periodStr) {
   for (const { member: m, totals: t, net } of rows) {
     allow += Number(t.allowanceSubtotal) || 0; gross += Number(t.grand) || 0;
     lines.push("", (m.rank ? `${m.rank} ` : "") + (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
-    lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10} · ${fmtDur(t.totalHours, t.rates)}`);
+    lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10}${t.cal.sd > 0 ? ` · SD ${t.cal.sd}` : ""} · ${fmtDur(t.totalHours, t.rates)}`);
+    if (t.sdOtHours > 0) lines.push(`  ${fmtHM(t.sdOtHours)} overtime after Straight Day`);
     const off = [t.leaveShifts > 0 && `${t.leaveShifts} on leave`, t.exchangedShifts > 0 && `${t.exchangedShifts} exchanged out`].filter(Boolean);
     if (off.length) lines.push("  " + off.join(" · "));
     lines.push(row("Allowances", fmt(t.allowanceSubtotal)));
@@ -1162,7 +1244,7 @@ function sanitizeTemplates(list) {
       if (!isPlainObj(d) || !hasShifts(d)) continue;
       const dist = {};
       for (const k of ["am7", "pm3", "pm10"]) dist[k] = d.dist?.[k] === "L" ? "L" : "S";
-      days[dow] = { am7: !!d.am7, pm3: !!d.pm3, pm10: !!d.pm10, dist };
+      days[dow] = { am7: !!d.am7, pm3: !!d.pm3, pm10: !!d.pm10, sd: !!d.sd, dist };
     }
     return { ...t, id, name: typeof t.name === "string" && t.name.trim() ? t.name.slice(0, 60) : "Template", days };
   });
@@ -1181,7 +1263,16 @@ function sanitizeSnapshots(list) {
     const out = { ...s, at };
     if (typeof out.periodKey !== "string" || !DATE_KEY.test(out.periodKey)) delete out.periodKey;
     if (typeof out.period !== "string") out.period = out.periodKey ? periodLabel(periodFor(fromYmd(out.periodKey))) : "Saved result";
+    // A pay slip check keeps only text and numbers: History shows its
+    // notes as text, and anything else there (an object, say) would crash it.
     if (!isPlainObj(out.reconcile)) delete out.reconcile;
+    else {
+      const rc = {};
+      for (const [k, v] of Object.entries(out.reconcile)) {
+        if (typeof v === "string" || (typeof v === "number" && Number.isFinite(v))) rc[k] = v;
+      }
+      out.reconcile = rc;
+    }
     return out;
   });
 }
@@ -1203,16 +1294,14 @@ function ratesAt(period, ratesHistory, currentRates) {
 }
 
 /* ----- Templates ----- */
-// Template shape: { id, name, days: { 0..6: { am7, pm3, pm10, dist: {am7,pm3,pm10} } } }
+// Template shape: { id, name, days: { 0..6: { am7, pm3, pm10, sd, dist: {am7,pm3,pm10} } } }
 function applyTemplate(template, period) {
   const out = {};
   for (const d of periodDays(period)) {
     const t = template.days[d.getDay()];
     if (!hasShifts(t)) continue;
     const e = blankDay();
-    e.am7 = !!t.am7;
-    e.pm3 = !!t.pm3;
-    e.pm10 = !!t.pm10;
+    for (const k of SHIFT_KEYS) e[k] = !!t[k];
     e.dist = { am7: t.dist?.am7 || "S", pm3: t.dist?.pm3 || "S", pm10: t.dist?.pm10 || "S" };
     out[ymd(d)] = e;
   }
@@ -1227,7 +1316,7 @@ function extractTemplateFromWeek(entries, period) {
     const dow = d.getDay();
     const e = entries[ymd(d)];
     if (!hasShifts(e) || tdays[dow]) continue;
-    tdays[dow] = { am7: !!e.am7, pm3: !!e.pm3, pm10: !!e.pm10, dist: { ...(e.dist || {}) } };
+    tdays[dow] = { am7: !!e.am7, pm3: !!e.pm3, pm10: !!e.pm10, sd: !!e.sd, dist: { ...(e.dist || {}) } };
   }
   return tdays;
 }
@@ -1296,13 +1385,35 @@ function toICS(entries) {
         `SUMMARY:10PM shift${dutyNote(e, "pm10")}`,
         "END:VEVENT");
     }
+    if (e.sd) {
+      lines.push("BEGIN:VEVENT",
+        `UID:nsc-${key}-sd@nightshift`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;TZID=${tz}:${fmtDt(d, 8, 30)}`,
+        `DTEND;TZID=${tz}:${fmtDt(d, 16, 30)}`,
+        `SUMMARY:Straight Day${dutyNote(e, "sd")}`,
+        "END:VEVENT");
+    }
+    // Overtime after a Straight Day: from 4:30PM for as long as it ran
+    // (setHours carries minutes past midnight into the next day).
+    const after = Math.round(sdOtHours(e) * 60);
+    if (after > 0) {
+      lines.push("BEGIN:VEVENT",
+        `UID:nsc-${key}-sdot@nightshift`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART;TZID=${tz}:${fmtDt(d, 16, 30)}`,
+        `DTEND;TZID=${tz}:${fmtDt(d, 16, 30 + after)}`,
+        "SUMMARY:Overtime after Straight Day",
+        "END:VEVENT");
+    }
   }
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
 
 const _exports = {
-  SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, stdHours, effHours,
+  SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, SHIFT_KEYS, stdHours, effHours,
+  SD_OT_SAME_DAY, MAX_SD_OT, sdOtHours, otSet, autoOvertime, isOvertimeShift,
   LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
   SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL, JFB_LOGO,

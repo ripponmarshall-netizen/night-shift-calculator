@@ -117,11 +117,13 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   // totals above). One line each, while there's room above the footer.
   const plural = (n) => `${n} shift${n === 1 ? "" : "s"}`;
   const extraN = Number(snap.totals.extraShifts) || 0;
+  const sdOt = Number(snap.totals.sdOtHours) || 0;
   const leaveN = Number(snap.totals.leaveShifts) || 0;
   const exchN = Number(snap.totals.exchangedShifts) || 0;
   const coverN = Number(snap.totals.duties?.exchangeFor) || 0;
   const notes = [
     extraN > 0 && [`Extra shifts · ${plural(extraN)} · ${fmtHM(snap.totals.extraHours)}`, "in total hours"],
+    sdOt > 0 && [`OT after Straight Day · ${fmtHM(sdOt)}`, "in total hours"],
     leaveN > 0 && [`On leave · ${plural(leaveN)} · ${hrs(snap.totals.leaveHours)}`, "no allowance"],
     exchN > 0 && [`Exchange leave · ${plural(exchN)}`, "not paid"],
     coverN > 0 && [`Exchange for · ${plural(coverN)}`, "paid as normal"],

@@ -174,6 +174,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
                 <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.am7}</span> 7AM ·{" "}
                 <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm3}</span> 3PM ·{" "}
                 <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.pm10}</span> 10PM ·{" "}
+                {crewTotals.cal.sd > 0 && <><span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.sd}</span> SD ·{" "}</>}
                 <span className="mono" style={{ color: "var(--ink)" }}>{fmtDur(crewTotals.totalHours, rates)}</span>
               </div>
             </Card>
@@ -359,8 +360,8 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
           {crew.rotationAnchor
-            ? "Shifts on the watch rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it go under Overtime."
-            : "No watch rotation is saved, so every shift goes under Regular Time. Use Fill rotation to split out overtime."}
+            ? "Shifts on the watch rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it, or marked overtime in the day, go under Overtime."
+            : "No watch rotation is saved, so shifts go under Regular Time unless marked overtime in the day. Use Fill rotation to split out overtime."}
           {" "}The CSV has one row per person and opens in Excel, Numbers or Google Sheets.
         </div>
       </div>
@@ -532,6 +533,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
               )}
               <Row label="Total hours" value={fmtDur(t.totalHours, rates)} faint />
               {t.extraShifts > 0 && <Row label={`Extra shifts ×${t.extraShifts}`} value={fmtHM(t.extraHours)} faint />}
+              {t.sdOtHours > 0 && <Row label="Overtime after Straight Day" value={fmtHM(t.sdOtHours)} faint />}
               {net != null && <Sub label="Estimated net" value={fmt(net)} />}
             </div>
             <DutySummary totals={t} style={{ marginTop: 10 }} />
@@ -546,12 +548,18 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
   );
 }
 
-/* A day's shifts in a few characters: "3PM", "7AM VL", or "Off". */
+/* A day's shifts in a few characters: "3PM", "7AM VL", "SD (OT) +2h 30m",
+   or "Off". An overtime mark set by hand and the overtime after a Straight
+   Day show too, so a day that differs only by them says how. */
 function crewDayText(e) {
   if (!hasShifts(e)) return "Off";
   return SHIFTS.filter((s) => e[s.k]).map((s) => {
     const d = shiftDuty(e, s.k);
-    return s.label + (d ? ` ${DUTY_TYPES[d].code}` : "");
+    const ot = otSet(e, s.k);
+    const after = s.k === "sd" ? sdOtHours(e) : 0;
+    return s.label + (d ? ` ${DUTY_TYPES[d].code}` : "")
+      + (ot == null ? "" : ot ? " (OT)" : " (not OT)")
+      + (after > 0 ? ` +${fmtHM(after)}` : "");
   }).join(" + ");
 }
 
