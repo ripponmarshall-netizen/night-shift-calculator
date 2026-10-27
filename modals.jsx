@@ -18,8 +18,9 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
   const toggle = (k) => onChange((e) => {
     const next = { ...e, [k]: !e[k], dist: { ...e.dist } };
     // Turning on: use the distance in effect, in every mode, so a later switch
-    // to "Varies" keeps a Long commuter's shifts Long.
-    if (!e[k]) next.dist[k] = defaultDist || "S";
+    // to "Varies" keeps a Long commuter's shifts Long. A Straight Day earns
+    // no taxi, so it has none.
+    if (!e[k] && k !== "sd") next.dist[k] = defaultDist || "S";
     // turning off: drop any stale hours override or duty mark so neither can
     // silently re-apply when the shift is ticked again
     if (e[k] && e.hours && e.hours[k] != null) {
@@ -32,12 +33,32 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
       delete duty[k];
       next.duty = Object.keys(duty).length ? duty : undefined;
     }
+    // ...and the same for an overtime mark, and a Straight Day's overtime.
+    if (e[k] && e.ot && e.ot[k] != null) {
+      const ot = { ...e.ot };
+      delete ot[k];
+      next.ot = Object.keys(ot).length ? ot : undefined;
+    }
+    if (e[k] && k === "sd") delete next.sdOt;
     return next;
   });
   const setDuty = (k, v) => onChange((e) => {
     const duty = { ...(e.duty || {}) };
     if (v) duty[k] = v; else delete duty[k];
     return { ...e, duty: Object.keys(duty).length ? duty : undefined };
+  });
+  // Only a choice that differs from the rotation's is kept (null = automatic).
+  const setOvertime = (k, v) => onChange((e) => {
+    const ot = { ...(e.ot || {}) };
+    if (v == null) delete ot[k]; else ot[k] = v;
+    return { ...e, ot: Object.keys(ot).length ? ot : undefined };
+  });
+  const setSdOt = (raw) => onChange((e) => {
+    let v = sanitizeDecimal(raw);
+    if (Number(v) > MAX_SD_OT) v = String(MAX_SD_OT);
+    const next = { ...e };
+    if (v === "") delete next.sdOt; else next.sdOt = v;
+    return next;
   });
   const setHoliday = (v) => onChange((e) => ({ ...e, holiday: v }));
   const setDist = (k, v) => onChange((e) => ({ ...e, dist: { ...e.dist, [k]: v } }));
@@ -61,7 +82,7 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
           {slot && (
             <div style={{ fontSize: 12.5, color: "var(--ink-dim)", marginTop: 4 }}>
               Rotation: <span style={{ color: "var(--ink)", fontWeight: 600 }}>{slot === "off" ? "Off day" : `${SHIFT_LABEL[slot]} day`}</span>
-              {slot === "off" ? " · any shift here is extra" : ""}
+              {slot === "off" ? " · a shift here is overtime unless you switch it off" : ""}
             </div>
           )}
         </ModalHead>
@@ -69,8 +90,14 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
         {DAY_SHIFTS.map((sh) => (
           <ShiftBlock key={sh.k} sh={sh} entry={entry} mode={mode} slot={slot}
             onToggle={() => toggle(sh.k)} onHours={setHours}
-            onDist={(v) => setDist(sh.k, v)} onDuty={(v) => setDuty(sh.k, v)} />
+            onDist={(v) => setDist(sh.k, v)} onDuty={(v) => setDuty(sh.k, v)}
+            onOvertime={(v) => setOvertime(sh.k, v)} onSdOt={setSdOt} />
         ))}
+        <Collapse open={hasShifts(entry)}>
+          <div style={{ fontSize: 12, color: "var(--ink-faint)", lineHeight: 1.45, padding: "0 2px" }}>
+            Overtime shifts show as extra (+) and go under Overtime on the record sheet. Pay is the same either way: overtime pay is worked out from your total hours.
+          </div>
+        </Collapse>
 
         <div style={{ height: 1, background: "var(--line-soft)", margin: "12px 0" }} />
 
@@ -109,38 +136,81 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
 
 const DAY_SHIFTS = SHIFTS.map((s) => ({
   ...s,
-  label: `${s.label} shift`,
-  hours: s.k === "pm10" ? `${stdHours(s.k)}h · crosses midnight` : `${stdHours(s.k)}h`,
+  label: `${SHIFT_LABEL[s.k]} shift`,
+  hours: s.k === "pm10" ? `${stdHours(s.k)}h · crosses midnight`
+    : s.k === "sd" ? `${stdHours(s.k)}h · 8:30AM to 4:30PM`
+    : `${stdHours(s.k)}h`,
   hint: s.k === "pm10" ? "total" : undefined,
 }));
 
 /* One shift in the day editor: the tick box, then (while it's on) its
-   hours, taxi distance and duty, sliding open under it. */
-function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty }) {
+   hours, overtime after it (a Straight Day), taxi distance, whether it's an
+   overtime shift, and its duty, sliding open under it. */
+function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty, onOvertime, onSdOt }) {
   const on = !!entry[sh.k];
   const duty = shiftDuty(entry, sh.k);
   const pay = duty ? DUTY_TYPES[duty].pay : "full";
   return (
     <div>
       <DayToggle label={sh.label} hours={sh.hours} color={sh.color} active={on} duty={duty}
-        extra={!!slot && slot !== sh.k && pay !== "none"} onClick={onToggle} />
+        extra={isOvertimeShift(entry, sh.k, slot)} onClick={onToggle} />
       <Collapse open={on}>
         <div style={{ paddingBottom: 2 }}>
           {/* A given-away shift has no hours, and only a paid shift has a
               taxi distance, so those rows fold away instead of showing
-              settings that can't change anything. */}
+              settings that can't change anything. A Straight Day has no
+              taxi; overtime after it needs the day worked, not on leave. */}
           <Collapse open={pay !== "none"}>
             <TimeRow keyName={sh.k} entry={entry} onChange={onHours} hint={sh.hint} />
           </Collapse>
-          {mode === "advanced" && (
+          {sh.k === "sd" && (
+            <Collapse open={pay === "full"}>
+              <HoursMinutesRow
+                label="Overtime after 4:30PM" raw={entry.sdOt != null ? String(entry.sdOt) : ""} std={0}
+                ariaHours="Overtime hours after the Straight Day" ariaMinutes="Overtime minutes after the Straight Day"
+                onChange={onSdOt}
+              />
+            </Collapse>
+          )}
+          {mode === "advanced" && sh.k !== "sd" && (
             <Collapse open={pay === "full"}>
               <DistRow value={entry.dist?.[sh.k] || "S"} onChange={onDist} />
             </Collapse>
           )}
+          <Collapse open={pay !== "none"}>
+            <OvertimeRow k={sh.k} entry={entry} slot={slot} onChange={onOvertime} />
+          </Collapse>
           <DutyRow value={duty} onChange={onDuty} shift={SHIFT_LABEL[sh.k]} />
         </div>
       </Collapse>
     </div>
+  );
+}
+
+/* Whether this shift is an overtime (extra) shift. It starts at what the
+   rotation says (outside it = overtime) and the switch changes it; switching
+   back to the rotation's answer clears the choice. */
+function OvertimeRow({ k, entry, slot, onChange }) {
+  const auto = autoOvertime(k, slot);
+  const set = otSet(entry, k);
+  const on = set == null ? auto : set;
+  const why = set != null ? (on ? "Set by you" : "Set by you · not overtime")
+    : !slot ? "No rotation saved · switch on to mark it"
+    : auto ? "Automatic · outside your rotation"
+    : "Automatic · your rotation's shift";
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 10, margin: "0 0 10px", padding: "8px 10px", background: "var(--bg-2)", borderRadius: 10, cursor: "pointer" }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        <span style={{ display: "block", fontSize: 13 }}>
+          <span style={{ color: "var(--ink-dim)" }}>Overtime shift: </span>
+          <span style={{ fontWeight: 600 }}>{on ? "Yes" : "No"}</span>
+        </span>
+        <span style={{ display: "block", fontSize: 12, color: "var(--ink-faint)", marginTop: 1 }}>{why}</span>
+      </span>
+      <input type="checkbox" className="nsc-switch" checked={on}
+        onChange={(e) => onChange(e.target.checked === auto ? null : e.target.checked)}
+        aria-label={`${SHIFT_LABEL[k]} is an overtime shift`} />
+    </label>
   );
 }
 
@@ -278,11 +348,22 @@ const hmFromRaw = (r) => {
   return { h: String(Math.floor(t / 60)), m: t % 60 ? String(t % 60) : "" };
 };
 function TimeRow({ keyName, entry, onChange, hint }) {
-  const std = stdHours(keyName);
   const raw = entry.hours && entry.hours[keyName] != null ? String(entry.hours[keyName]) : "";
+  return (
+    <HoursMinutesRow
+      label={`Time worked${hint ? ` · ${hint}` : ""}`} raw={raw} std={stdHours(keyName)}
+      ariaHours={`Hours worked for ${SHIFT_LABEL[keyName]} shift`} ariaMinutes={`Minutes worked for ${SHIFT_LABEL[keyName]} shift`}
+      onChange={(v) => onChange(keyName, v)}
+    />
+  );
+}
+
+/* A time as two boxes, hours and minutes, sent on as decimal hours ("" when
+   both are blank). std is what blank means, shown greyed in the boxes. */
+function HoursMinutesRow({ label, raw, std, ariaHours, ariaMinutes, onChange }) {
   // The boxes keep what's typed (a blank minutes box mid-edit); they only
   // reload when the stored hours change from elsewhere (shift ticked off,
-  // or a time over a day capped at 24h).
+  // or a time over the most allowed, capped).
   const [draft, setDraft] = useStateM(() => hmFromRaw(raw));
   const sent = React.useRef(raw);
   React.useEffect(() => {
@@ -294,7 +375,7 @@ function TimeRow({ keyName, entry, onChange, hint }) {
     const out = d.h === "" && d.m === "" ? ""
       : String(Math.round(((Number(d.h) || 0) + (Number(d.m) || 0) / 60) * 1e6) / 1e6);
     sent.current = out;
-    onChange(keyName, out);
+    onChange(out);
   };
   const box = { width: 46, background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "6px 8px", color: "var(--ink)", fontSize: 16, fontFamily: "inherit", textAlign: "right" };
   const unit = { fontSize: 11, color: "var(--ink-faint)" };
@@ -307,16 +388,14 @@ function TimeRow({ keyName, entry, onChange, hint }) {
   };
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, margin: "0 0 8px 38px", flexWrap: "wrap" }}>
-      <span style={{ fontSize: 12, color: "var(--ink-faint)", marginRight: 2 }}>
-        Time worked{hint ? ` · ${hint}` : ""}
-      </span>
+      <span style={{ fontSize: 12, color: "var(--ink-faint)", marginRight: 2 }}>{label}</span>
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         {/* Once minutes are typed, a blank hours box means 0 hours, so its
             placeholder says so instead of still showing the standard hours. */}
         <input
           inputMode="numeric" value={draft.h} placeholder={draft.m === "" ? String(Math.floor(std)) : "0"} maxLength={2}
           onChange={(e) => update({ h: e.target.value.replace(/\D/g, "").slice(0, 2) })} onFocus={selectAll}
-          aria-label={`Hours worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
+          aria-label={ariaHours} style={box}
         />
         <span className="mono" style={unit}>h</span>
         <input
@@ -325,7 +404,7 @@ function TimeRow({ keyName, entry, onChange, hint }) {
             const v = e.target.value.replace(/\D/g, "").slice(0, 2);
             update({ m: v !== "" && Number(v) > 59 ? "59" : v });
           }} onFocus={selectAll}
-          aria-label={`Minutes worked for ${SHIFT_LABEL[keyName]} shift`} style={box}
+          aria-label={ariaMinutes} style={box}
         />
         <span className="mono" style={unit}>m</span>
       </span>

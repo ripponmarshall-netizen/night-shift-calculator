@@ -154,7 +154,7 @@ function TemplatePreview({ dows, small }) {
     <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
       {[0,1,2,3,4,5,6].map((dow) => {
         const t = dows[dow];
-        const has = t && (t.am7 || t.pm3 || t.pm10);
+        const has = hasShifts(t);
         return (
           <div key={dow} style={{
             padding: small ? 4 : 6,
@@ -169,6 +169,7 @@ function TemplatePreview({ dows, small }) {
               {t?.am7 && <div style={{ height: 4, background: "var(--am)", borderRadius: 2 }} />}
               {t?.pm3 && <div style={{ height: 4, background: "var(--sp1)", borderRadius: 2 }} />}
               {t?.pm10 && <div style={{ height: 4, background: "var(--sp2)", borderRadius: 2 }} />}
+              {t?.sd && <div style={{ height: 4, background: "var(--sd)", borderRadius: 2 }} />}
             </div>
           </div>
         );

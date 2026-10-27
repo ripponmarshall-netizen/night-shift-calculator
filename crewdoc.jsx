@@ -53,6 +53,9 @@
   // Hours in the unit the result was counted in (16.67 or 16h 40m).
   const hrs = (v, r) => (Number(v) > 0 ? (H.inMinutes(r) ? H.fmtHM(v) : H.fmtH0(v)) : "");
   const SHIFT_ROWS = [["am7", "7am-3pm"], ["pm3", "3pm-10pm"], ["pm10", "10pm-7am"]];
+  // The paper form has no Straight Day row; a sheet gets one only when its
+  // person worked a Straight Day.
+  const SD_ROW = ["sd", "8:30am-4:30pm"];
 
   /* 14 date boxes per shift (two blocks of 7). A rotation's col keeps each
      4-day cycle in its own column; otherwise dates fill in order. Any spill
@@ -72,22 +75,30 @@
   const GRID = [1400, 950, 950, 950, 950, 950, 950, 950, 350, 1100, 1300];
   const LEFT = GRID.slice(0, 8).reduce((a, b) => a + b, 0);
   /* One REGULAR TIME or OVERTIME block: two sets of 7AM / 3PM / 10PM rows
-     with a spacer between, and the side boxes down the right. side: one
-     entry per row (7, the spacer 4th): [label, value] | { span } | null. */
-  function shiftGrid(part, sideBoxes) {
-    const cells = Object.fromEntries(SHIFT_ROWS.map(([k]) => [k, boxes(part?.[k])]));
+     (and Straight Day, when shiftRows has it) with a spacer between, and
+     the side boxes down the right. side: one entry per row of the paper
+     form (7, the spacer 4th): [label, value] | { span } | null. They stay
+     beside the 7AM / 3PM / 10PM rows; a Straight Day row has none. */
+  function shiftGrid(part, sideBoxes, shiftRows) {
+    const n = shiftRows.length;
+    const cells = Object.fromEntries(shiftRows.map(([k]) => [k, boxes(part?.[k])]));
+    const sideAt = (r) => {
+      if (r === n) return sideBoxes[3];
+      const i = r < n ? r : r - n - 1;
+      return i < 3 ? sideBoxes[(r < n ? 0 : 4) + i] : null;
+    };
     const rows = [];
-    for (let r = 0; r < 7; r++) {
-      const s = sideBoxes[r];
+    for (let r = 0; r < 2 * n + 1; r++) {
+      const s = sideAt(r);
       const right = !s ? [cell(GRID[9]), cell(GRID[10])]
         : s.span ? [cell(GRID[9] + GRID[10], para(run(s.span, { sz: 9 })), { box: true, span: 2 })]
         : [cell(GRID[9], para(run(s[0], { sz: 9 })), { box: true }), cell(GRID[10], para(run(s[1], { sz: 9 })), { box: true })];
-      if (r === 3) {
+      if (r === n) {
         rows.push({ h: 420, cells: [cell(LEFT, null, { span: 8 }), cell(GRID[8]), ...right] });
         continue;
       }
-      const [k, label] = SHIFT_ROWS[r < 3 ? r : r - 4];
-      const block = r < 3 ? 0 : 7;
+      const [k, label] = shiftRows[r < n ? r : r - n - 1];
+      const block = r < n ? 0 : 7;
       rows.push({
         h: 540,
         cells: [
@@ -108,7 +119,9 @@
     const notes = [
       Number(d.timeoff) > 0 && `T/O taken: ${d.timeoff}`,
       Number(d.orderly) > 0 && `Orderly duty: ${d.orderly}`,
+      Number(t.sdOtHours) > 0 && `OT after Straight Day: ${H.fmtHM(t.sdOtHours)}`,
     ].filter(Boolean).join(" · ");
+    const shiftRows = sh.regular?.sd?.length || sh.overtime?.sd?.length ? [...SHIFT_ROWS, SD_ROW] : SHIFT_ROWS;
     const label = (text, after = 0) => para(run(text, { sz: 9 }), { after });
     const out = [];
     // Each sheet after the first starts a new page.
@@ -130,12 +143,12 @@
     out.push(para("", { after: 300 }), label("REGULAR TIME", 160));
     out.push(shiftGrid(sh.regular, [
       ["S/P 1", num(t.sp1)], ["S/P 2", num(t.sp2)], null, ["M/A", num(t.meal)], ["T/A", num(t.taxi)], null, ["S:", ""],
-    ]));
+    ], shiftRows));
     out.push(para("", { after: 300 }), label("OVERTIME", 160));
     out.push(shiftGrid(sh.overtime, [
       { span: "Hours of Overtime" }, ["Worked:", hrs((Number(t.otHours) || 0) + (Number(t.holidayHours) || 0), t.rates)], null, null,
       ["T&H:", hrs(t.otHours, t.rates)], null, ["D:", hrs(t.holidayHours, t.rates)],
-    ]));
+    ], shiftRows));
     out.push(para("", { after: 240 }));
     const box = (w, text) => cell(w, para(run(text, { sz: 9 }), { jc: "center" }), { box: true, v: "center" });
     out.push(table([1300, 900, 1500, 900, 1500, 900, 3800], [{

@@ -18,7 +18,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
   const headWeek = ["S","M","T","W","T","F","S"];
   const periodHolidays = holidaysInPeriod(period);
   const stats = rotationStats(entries, period, rotationAnchor);
-  const shiftCount = totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10;
+  const shiftCount = totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10 + (totals.cal.sd || 0);
   const todayKey = ymd(new Date());
   // Legend entries only for what this period actually shows.
   const anyHoliday = days.some((d) => { const e = entries[ymd(d)]; return e?.holiday == null ? isJamaicaHoliday(d) : e.holiday; });
@@ -26,6 +26,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
   const orderlyCount = totals.duties?.orderly || 0;
   const exchForCount = totals.duties?.exchangeFor || 0;
   const exchLeaveCount = totals.exchangedShifts || 0;
+  const anyStraightDay = days.some((d) => entries[ymd(d)]?.sd);
 
   const grid = (
     <>
@@ -47,9 +48,11 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
           const isOff = slot === "off" && !has;
           const hours = totals.dayHours[key] || 0;
           const holidayHrs = totals.dayHolidayHours[key] || 0;
-          // Hours differ from the standard ones (a short shift, or a shift
-          // given away): show the day's real total under the chips.
-          const partial = has && SHIFTS.some((s) => e[s.k] && (!worksShift(e, s.k) || effHours(e, s.k) !== stdHours(s.k)));
+          // Hours differ from the standard ones (a short shift, a shift
+          // given away, or overtime after a Straight Day): show the day's
+          // real total under the chips.
+          const sdOt = sdOtHours(e);
+          const partial = has && (sdOt > 0 || SHIFTS.some((s) => e[s.k] && (!worksShift(e, s.k) || effHours(e, s.k) !== stdHours(s.k))));
           const isHighlighted = highlight && highlight.has(key);
           const canCopy = !compact && !!copyDay;
           const isClipboardSource = canCopy && clipboard && clipboard.srcKey === key;
@@ -58,7 +61,8 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
           const dateStr = (isToday ? "Today, " : "") + d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
           const shiftList = SHIFTS.filter((s) => e?.[s.k]).map((s) => {
             const duty = shiftDuty(e, s.k);
-            return (extras.includes(s.k) ? "extra " : "") + s.label + (duty ? ` (${DUTY_TYPES[duty].label})` : "");
+            return (extras.includes(s.k) ? "overtime " : "") + SHIFT_LABEL[s.k] + (duty ? ` (${DUTY_TYPES[duty].label})` : "")
+              + (s.k === "sd" && sdOt > 0 ? ` with ${fmtHM(sdOt)} overtime after` : "");
           });
           const ariaLabel = has
             ? `${dateStr}: ${shiftList.join(", ")}, ${inMinutes(totals.rates) ? fmtHM(hours) : `${fmtH0(hours)} hours`}${isHol ? ", holiday" : ""}`
@@ -128,6 +132,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
         <Legend color="var(--am)" label="7AM" />
         <Legend color="var(--sp1)" label="3PM" />
         <Legend color="var(--sp2)" label="10PM" />
+        {anyStraightDay && <Legend color="var(--sd)" label="Straight Day (SD)" />}
         {stats.extra > 0 && <Legend color="var(--extra)" label="Extra" />}
         {anyHoliday && <Legend color="var(--holiday)" label="Holiday" dot />}
         {leaveCount > 0 && <Legend outline label="Leave" />}
@@ -138,9 +143,10 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
         {!compact && shiftCount > 0 && <div style={{ fontSize: 12, color: "var(--ink-faint)", marginLeft: "auto" }}>Hold a day to copy it</div>}
       </div>
 
-      {(totals.holidayHours > 0 || leaveCount > 0 || exchForCount > 0 || exchLeaveCount > 0) && (
+      {(totals.holidayHours > 0 || anyStraightDay || leaveCount > 0 || exchForCount > 0 || exchLeaveCount > 0) && (
         <div style={{ fontSize: 11.5, color: "var(--ink-faint)", padding: compact ? "6px 0 0" : "0 16px 12px", lineHeight: 1.5 }}>
           {totals.holidayHours > 0 && <div>* includes holiday hours (paid ×2)</div>}
+          {anyStraightDay && <div>SD Straight Day: 8:30AM to 4:30PM, hours only (no SP1, SP2, meal or taxi). Overtime after it counts in the day's hours.</div>}
           {leaveCount > 0 && <div>Leave (VL vacation · DL departmental · SL sick · TO time off): hours count, no allowances.</div>}
           {exchForCount > 0 && <div>EXF exchange for: covering someone's shift, paid as normal.</div>}
           {exchLeaveCount > 0 && <div>EXL exchange leave: someone covers your shift, no hours or allowances.</div>}
@@ -221,7 +227,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
 
       {rotationAnchor && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>
-          <span style={{ flex: 1 }}>Rotation saved: 7AM → 3PM → 10PM → Off. Shifts outside it show as <span style={{ color: "var(--extra)", fontWeight: 600 }}>extra</span>.</span>
+          <span style={{ flex: 1 }}>Rotation saved: 7AM → 3PM → 10PM → Off. Shifts outside it show as <span style={{ color: "var(--extra)", fontWeight: 600 }}>extra</span> (overtime) unless you switch that off in the day.</span>
           <button onClick={onClearRotation} style={{ ...linkBtn(), whiteSpace: "nowrap" }}>Stop</button>
         </div>
       )}
@@ -251,7 +257,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
 }
 
 /* One shift on a calendar day: a labelled chip, so colour is never the only
-   cue. Extra shifts (outside the rotation) use the extra colour and a "+".
+   cue. Extra (overtime) shifts use the extra colour and a "+".
    Leave shows as a dashed outline with its code (VL, DL, SL, TO), since it
    earns no allowance; exchange leave (EXL) as a faint dotted outline, since
    it isn't worked at all. Orderly (ORD) and exchange for (EXF) are worked

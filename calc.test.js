@@ -853,6 +853,7 @@ for (let pm10 = 0; pm10 <= 30; pm10 += 3) {
     am7: { n: 1, h: 8 },
     pm3: { n: 0, h: 0 },
     pm10: { n: 1, h: 9 },
+    sd: { n: 0, h: 0 },
   });
   const noAnchor = agg(withExtra);
   assert.strictEqual(noAnchor.extraShifts, 0);
@@ -1475,6 +1476,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
     am7: false,
     pm3: true,
     pm10: true,
+    sd: false,
     holiday: null,
     dist: { am7: "S", pm3: "L", pm10: "S" },
     hours: { pm3: "5" },
@@ -1836,6 +1838,293 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.strictEqual(snaps[0].period, "Jun 16 – Jul 15, 2026");
   assert.strictEqual(snaps[1].periodKey, undefined);
   assert.strictEqual(snaps[1].reconcile, undefined);
+  // A pay slip check keeps its text and numbers, nothing that can't be shown.
+  const [checked] = H.sanitizeSnapshots([
+    {
+      at: "2026-07-01T00:00:00.000Z",
+      totals: { grand: 5 },
+      reconcile: { grand: "5", sp1: 2, notes: { a: 1 }, meal: NaN },
+    },
+  ]);
+  assert.deepStrictEqual(checked.reconcile, { grand: "5", sp1: 2 });
+}
+
+// ----- Straight Day, overtime after it, and overtime marks -----
+{
+  const H = require("./helpers.jsx");
+  const Doc = require("./crewdoc.jsx");
+  const SD = (opts = {}) => ({
+    ...D(opts),
+    sd: true,
+    ...(opts.sdOt != null ? { sdOt: opts.sdOt } : {}),
+    ...(opts.duty ? { duty: opts.duty } : {}),
+  });
+
+  // 8:30AM–4:30PM: 8h, no SP1, SP2, meal or taxi; ×2 on a public holiday.
+  let t = agg({ [PLAIN]: SD() });
+  assert.strictEqual(t.totalHours, 8);
+  assert.strictEqual(t.cal.sd, 1);
+  assert.strictEqual(t.allowanceSubtotal, 0);
+  assert.strictEqual(t.holidayHours, 0);
+  t = agg({ [HOL]: SD() });
+  assert.strictEqual(t.holidayHours, 8);
+  holNear(t.holidayPay, 16000);
+  assert.ok(hasShifts({ sd: true }));
+
+  // Overtime after it: in the day's hours, and split at midnight for
+  // holiday pay (up to 7h 30m from 4:30PM on the day, the rest after).
+  t = agg({ [PLAIN]: SD({ sdOt: "2.5" }) });
+  assert.strictEqual(t.totalHours, 10.5);
+  assert.strictEqual(t.dayHours[PLAIN], 10.5);
+  assert.strictEqual(t.sdOtHours, 2.5);
+  assert.strictEqual(t.sdOtDays, 1);
+  t = agg({ [PREV]: SD({ sdOt: 10 }) });
+  assert.strictEqual(t.totalHours, 18);
+  assert.strictEqual(
+    t.holidayHours,
+    2.5,
+    "the part after midnight is the holiday's",
+  );
+  t = agg({ [HOL]: SD({ sdOt: 10 }) });
+  assert.strictEqual(t.holidayHours, 15.5, "8h + 7h 30m on the holiday");
+  // None on leave, given away or without a Straight Day; at most 16h.
+  assert.strictEqual(H.sdOtHours(SD({ sdOt: 3, duty: { sd: "sick" } })), 0);
+  assert.strictEqual(
+    H.sdOtHours(SD({ sdOt: 3, duty: { sd: "exchangeLeave" } })),
+    0,
+  );
+  assert.strictEqual(H.sdOtHours({ ...D(), sdOt: 3 }), 0);
+  assert.strictEqual(H.sdOtHours(SD({ sdOt: 40 })), 16);
+  assert.strictEqual(H.sdOtHours(SD({ sdOt: "" })), 0);
+  t = agg({ [PLAIN]: SD({ sdOt: 3, duty: { sd: "vacation" } }) });
+  assert.strictEqual(t.totalHours, 8);
+  assert.strictEqual(t.leaveHours, 8);
+  // Counted in minutes, it's whole minutes too.
+  t = agg2(
+    { [PLAIN]: SD({ sdOt: "0.333333" }) },
+    { ...HOL_RATES, otUnit: "minutes" },
+    HOL_BASEPAY,
+  );
+  assert.strictEqual(Math.round(t.sdOtHours * 60), 20);
+  assert.strictEqual(Math.round(t.totalHours * 60), 500);
+  // Over the threshold, it's paid as overtime like any other hour.
+  const full = {};
+  for (const d of H.periodDays(HOL_PERIOD)) {
+    if (ymd(d) !== HOL) full[ymd(d)] = D({ am7: 1 });
+  }
+  const before = agg(full);
+  const after = agg({
+    ...full,
+    [PLAIN]: { ...full[PLAIN], sd: true, sdOt: "2" },
+  });
+  holNear(after.otHours - before.otHours, 10);
+  holNear(after.overtimePay - before.overtimePay, 15000);
+
+  // Overtime marks: by default a shift the rotation doesn't call for is
+  // overtime; a mark set by hand wins either way, with a rotation or not.
+  const ANCHOR = "2026-05-18"; // 7AM; the 20th is a 10PM, the 21st off
+  assert.strictEqual(rotationSlot("2026-05-21", ANCHOR), "off");
+  assert.ok(H.isOvertimeShift(SD(), "sd", "off"));
+  assert.ok(H.isOvertimeShift(D({ pm3: 1 }), "pm3", "off"));
+  assert.ok(!H.isOvertimeShift(D({ am7: 1 }), "am7", "am7"));
+  assert.ok(
+    !H.isOvertimeShift({ ...D({ pm3: 1 }), ot: { pm3: false } }, "pm3", "off"),
+  );
+  assert.ok(
+    H.isOvertimeShift({ ...D({ am7: 1 }), ot: { am7: true } }, "am7", "am7"),
+  );
+  assert.ok(
+    H.isOvertimeShift({ ...D({ pm3: 1 }), ot: { pm3: true } }, "pm3", null),
+  );
+  // A given-away shift never is; a stray or malformed mark is ignored.
+  assert.ok(
+    !H.isOvertimeShift(
+      { ...D({ pm3: 1 }), duty: { pm3: "exchangeLeave" }, ot: { pm3: true } },
+      "pm3",
+      null,
+    ),
+  );
+  assert.ok(!H.isOvertimeShift({ ...D(), ot: { pm3: true } }, "pm3", null));
+  assert.strictEqual(H.otSet({ ot: { pm3: "yes" } }, "pm3"), null);
+  const marked = {
+    "2026-05-20": { ...D({ pm10: 1 }), ot: { pm10: true } },
+    "2026-05-21": { ...SD({ sdOt: "2.5" }), ot: { sd: false } },
+    "2026-05-22": D({ pm3: 1 }), // a 7AM day: its 3PM is extra
+  };
+  const withRot = aggregate(
+    marked,
+    HOL_PERIOD,
+    "basic",
+    "S",
+    HOL_COUNTS,
+    HOL_BASEPAY,
+    HOL_RATES,
+    ANCHOR,
+  );
+  assert.strictEqual(withRot.extraShifts, 2);
+  assert.deepStrictEqual(withRot.extraBy.pm3, { n: 1, h: 7 });
+  assert.deepStrictEqual(withRot.extraBy.pm10, { n: 1, h: 9 });
+  assert.strictEqual(withRot.extraBy.sd.n, 0);
+  assert.strictEqual(withRot.grand, agg(marked).grand, "marks never pay");
+  assert.strictEqual(agg(marked).extraShifts, 1, "no rotation: marks only");
+  assert.strictEqual(rotationStats(marked, HOL_PERIOD, null).extra, 1);
+  assert.strictEqual(rotationStats(marked, HOL_PERIOD, ANCHOR).extra, 2);
+  assert.ok(
+    /OT after Straight Day\s+2h\s30m/.test(summaryText(withRot, "x")),
+    "summary lists overtime after a Straight Day",
+  );
+
+  // Backups: Straight Days, marks and overtime survive; junk doesn't.
+  const clean = H.sanitizeEntries({
+    "2026-05-21": {
+      sd: true,
+      sdOt: "2.5",
+      ot: { sd: false, pm3: "no" },
+      hours: { sd: "6" },
+      duty: { sd: "orderly" },
+    },
+    "2026-05-22": { pm3: true, sdOt: "3" },
+    "2026-05-23": { sd: true, sdOt: "-1" },
+  });
+  assert.deepStrictEqual(clean["2026-05-21"], {
+    ...blankDay(),
+    sd: true,
+    sdOt: "2.5",
+    ot: { sd: false },
+    hours: { sd: "6" },
+    duty: { sd: "orderly" },
+  });
+  assert.strictEqual(clean["2026-05-22"].sdOt, undefined);
+  assert.strictEqual(clean["2026-05-23"].sdOt, undefined);
+
+  // The watch: a mark or overtime on its own is a real difference for one
+  // person; copying your day brings its shifts and marks, not your overtime.
+  const crewDay = D({ pm3: 1 });
+  assert.ok(!H.sameEntry(crewDay, { ...crewDay, ot: { pm3: true } }));
+  assert.ok(!H.sameEntry(SD(), SD({ sdOt: "1" })));
+  assert.ok(H.sameEntry(SD(), SD({ sdOt: "" })));
+  const one = H.setMemberDay(
+    { "2026-05-22": crewDay },
+    H.newMember("A", "1"),
+    "2026-05-22",
+    { ...crewDay, ot: { pm3: false } },
+  );
+  assert.deepStrictEqual(one.days["2026-05-22"].ot, { pm3: false });
+  const copied = H.crewDayFrom({ ...SD({ sdOt: "2" }), ot: { sd: false } });
+  assert.ok(copied.sd);
+  assert.deepStrictEqual(copied.ot, { sd: false });
+  assert.strictEqual(copied.sdOt, undefined);
+  const cleanCrew = H.sanitizeCrew({
+    entries: { "2026-05-21": { sd: 1, sdOt: "x", hours: 5, dist: "L" } },
+    members: [
+      {
+        id: "a",
+        days: {
+          "2026-05-22": { pm3: "yes", ot: { pm3: true } },
+          "2026-05-23": null,
+        },
+      },
+    ],
+  });
+  assert.deepStrictEqual(cleanCrew.entries["2026-05-21"], {
+    ...blankDay(),
+    sd: true,
+  });
+  assert.deepStrictEqual(cleanCrew.members[0].days["2026-05-22"], {
+    ...blankDay(),
+    pm3: true,
+    ot: { pm3: true },
+  });
+  assert.strictEqual(cleanCrew.members[0].days["2026-05-23"], null);
+
+  // Record sheets: a Straight Day goes under Overtime unless marked
+  // otherwise, gets its own row, and overtime after it is in Remarks.
+  const ents = {
+    "2026-05-20": { ...D({ pm10: 1 }), ot: { pm10: true } },
+    "2026-05-21": SD({ sdOt: "2.5" }),
+    "2026-05-22": { ...SD(), ot: { sd: false } },
+  };
+  const sheet = H.shiftSheet(ents, HOL_PERIOD, ANCHOR);
+  assert.deepStrictEqual(
+    sheet.overtime.sd.map((x) => x.d),
+    ["21/5/26"],
+  );
+  assert.deepStrictEqual(
+    sheet.regular.sd.map((x) => x.d),
+    ["22/5/26"],
+  );
+  assert.deepStrictEqual(
+    sheet.overtime.pm10.map((x) => x.d),
+    ["20/5/26"],
+  );
+  const flat = H.shiftSheet(ents, HOL_PERIOD, null);
+  assert.strictEqual(flat.overtime.sd.length, 0);
+  assert.deepStrictEqual(
+    flat.overtime.pm10.map((x) => x.d),
+    ["20/5/26"],
+  );
+  const crew = {
+    ...H.blankCrew(),
+    entries: ents,
+    rotationAnchor: ANCHOR,
+    members: [H.newMember("A", "1")],
+  };
+  const snap = H.crewSnapshot(crew, HOL_PERIOD, DEFAULT_RATES, DEFAULT_TAX);
+  const xml = Doc.documentXml(snap);
+  assert.ok(xml.includes("8:30am-4:30pm"));
+  assert.ok(xml.includes("OT after Straight Day: 2h\u00a030m"));
+  assert.strictEqual(xml.split("S/P 1").length, 2, "side boxes once a sheet");
+  const plain = H.crewSnapshot(
+    { ...crew, entries: { "2026-05-20": D({ pm10: 1 }) } },
+    HOL_PERIOD,
+    DEFAULT_RATES,
+    DEFAULT_TAX,
+  );
+  assert.ok(!Doc.documentXml(plain).includes("8:30am-4:30pm"));
+  const back = H.sanitizeCrewHistory(
+    JSON.parse(JSON.stringify([{ ...snap, at: "2026-06-01T00:00:00.000Z" }])),
+  );
+  assert.deepStrictEqual(
+    back[0].rows[0].sheet.overtime.sd,
+    snap.rows[0].sheet.overtime.sd,
+  );
+  assert.strictEqual(back[0].rows[0].totals.sdOtHours, 2.5);
+  // Hours that don't move pay still mark a saved watch as changed.
+  const less = H.crewSnapshot(
+    { ...crew, entries: { ...ents, "2026-05-21": SD({ sdOt: "1" }) } },
+    HOL_PERIOD,
+    DEFAULT_RATES,
+    DEFAULT_TAX,
+  );
+  assert.strictEqual(less.rows[0].totals.grand, snap.rows[0].totals.grand);
+  assert.notStrictEqual(H.crewSnapSig(less), H.crewSnapSig(snap));
+  const rows = H.crewRows(crew, HOL_PERIOD, DEFAULT_RATES, DEFAULT_TAX);
+  const csv = H.crewCsv(rows, "x").split("\r\n");
+  const head = csv[0].split(",");
+  const cells = csv[1].split(",");
+  assert.strictEqual(cells[head.indexOf("Straight Day")], "2");
+  assert.strictEqual(cells[head.indexOf("OT after Straight Day")], "2.50");
+  const txt = H.crewText(rows, "x");
+  assert.ok(txt.includes("SD 2") && txt.includes("2h\u00a030m overtime after"));
+
+  // Calendar file: 8:30AM to 4:30PM, then the overtime from 4:30PM (9h
+  // runs to 1:30AM the next day).
+  const ics = toICS({ [PLAIN]: SD({ sdOt: "9" }) });
+  assert.ok(ics.includes("DTSTART;TZID=America/Jamaica:20260520T083000"));
+  assert.ok(ics.includes("DTEND;TZID=America/Jamaica:20260520T163000"));
+  assert.ok(ics.includes("SUMMARY:Straight Day"));
+  assert.ok(ics.includes("DTEND;TZID=America/Jamaica:20260521T013000"));
+
+  // Templates keep Straight Days.
+  const dow = fromYmd(PLAIN).getDay();
+  const tdays = extractTemplateFromWeek({ [PLAIN]: SD() }, HOL_PERIOD);
+  assert.strictEqual(tdays[dow].sd, true);
+  const applied = applyTemplate({ days: tdays }, HOL_PERIOD);
+  assert.ok(applied[PLAIN].sd && !applied[PLAIN].am7);
+  assert.strictEqual(
+    H.sanitizeTemplates([{ days: tdays }])[0].days[dow].sd,
+    true,
+  );
 }
 
 // ----- Service worker -----

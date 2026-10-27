@@ -302,7 +302,10 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
         <Row label="Overtime pay (×1.5)" value={fmt(t.overtimePay)} />
         <Sub label="Extra Hours subtotal" value={fmt(t.extraSubtotal)} />
         {Number(t.extraShifts) > 0 && (
-          <Row label={`Extra shifts ×${t.extraShifts} · outside rotation`} value={fmtHM(t.extraHours)} faint />
+          <Row label={`Extra shifts ×${t.extraShifts} · overtime shifts`} value={fmtHM(t.extraHours)} faint />
+        )}
+        {Number(t.sdOtHours) > 0 && (
+          <Row label="Overtime after Straight Day" value={fmtHM(t.sdOtHours)} faint />
         )}
 
         <DutySummary totals={t} style={{ marginTop: 14 }} />
