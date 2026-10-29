@@ -97,7 +97,7 @@ The bottom bar has three tabs: **Home**, **Watch** and **History**. Home is one 
    - **Short** or **Long**: one distance for every shift this period.
    - **Varies**: set Short/Long per shift in the day editor. New shifts start with the distance you had selected. Long shifts show a striped bar.
 4. **Use shortcuts when you can** (the buttons above the calendar).
-   - **Auto-fill**: rotation fill (tap any day you work a 7AM, as in the Home setup), single-shift patterns (Straight Day included), partial periods, keep existing days. A rotation fill saves the rotation.
+   - **Auto-fill**: rotation fill (tap any day you work a 7AM, as in the Home setup), single-shift patterns (Straight Day included), partial periods, keep existing days. A rotation fill saves the rotation. A filled day keeps a public holiday setting you changed by hand, with keep off too (Templates do the same); only a rotation with keep off, which replaces the whole period, clears them.
    - **Setup**: the three setup questions again.
    - **Templates**: save the current week pattern and apply it to any period with one tap.
    - **Long-press a day** with shifts to copy it, then tap empty days to paste.

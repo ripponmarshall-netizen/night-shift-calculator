@@ -109,7 +109,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.25";
+const APP_VERSION = "3.26";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -273,10 +273,11 @@ function fmtHM(n) {
   if (!h) return `${r}m`;
   return h.toLocaleString("en-JM") + "h" + (r ? `\u00a0${r}m` : "");
 }
-/* The same, compact for a calendar cell: 13h40, 9h, 45m. */
+/* The same, compact for a calendar cell: 13h40, 7h05, 9h, 45m. Minutes
+   keep two digits, or 7h 5m would read as 7h5 (like 7h50). */
 function fmtHMc(n) {
   const t = fmtHM(n);
-  return t.includes("h") ? t.replace(/\u00a0(\d+)m$/, "$1") : t;
+  return t.includes("h") ? t.replace(/\u00a0(\d+)m$/, (_, m) => m.padStart(2, "0")) : t;
 }
 /* Overtime can be counted in hours (decimal, the default) or to the minute.
    The choice travels with the rates handed to aggregate() as otUnit, so a
@@ -580,16 +581,17 @@ function totalsEntries(period, t, dist) {
 }
 
 /* Write generated days into the saved map. keep=true leaves days that
-   already have shifts alone; otherwise each generated day replaces its date.
-   Days the fill doesn't cover are never touched. With keep, a day holding
-   only a holiday override is filled but keeps that override (it's the
-   person's own choice; dropping it would silently change holiday pay). */
+   already have shifts alone; otherwise each generated day replaces its
+   date's shifts. Days the fill doesn't cover are never touched. A filled
+   day keeps its holiday override either way: like a pasted day, it belongs
+   to the date, not the shifts (it's the person's own choice; dropping it
+   would silently change holiday pay). */
 function fillDays(entries, fill, keep) {
   const out = { ...entries };
   for (const [k, v] of Object.entries(fill)) {
     const cur = out[k];
     if (keep && hasShifts(cur)) continue;
-    out[k] = keep && cur && cur.holiday != null && v && v.holiday == null ? { ...v, holiday: cur.holiday } : v;
+    out[k] = cur && cur.holiday != null && v && v.holiday == null ? { ...v, holiday: cur.holiday } : v;
   }
   return out;
 }

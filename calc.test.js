@@ -949,6 +949,9 @@ for (let pm10 = 0; pm10 <= 30; pm10 += 3) {
   assert.strictEqual(fmtHMc(13 + 2 / 3), "13h40");
   assert.strictEqual(fmtHMc(9), "9h");
   assert.strictEqual(fmtHMc(0.75), "45m");
+  // Single-digit minutes keep two digits: 7h 5m is 7h05, never 7h5 (7h50?).
+  assert.strictEqual(fmtHMc(7 + 5 / 60), "7h05");
+  assert.strictEqual(fmtHMc(13 + 1 / 60), "13h01");
   const mt = summaryText(m, "x");
   assert.ok(mt.includes("Overtime ×1.5 · 10h\u00a010m"), "summary in h m");
   assert.ok(
@@ -1295,6 +1298,47 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.deepStrictEqual(kept.z, { am7: true });
   assert.deepStrictEqual(fillDays(logged, fill, false).a, { am7: true });
   assert.deepStrictEqual(logged.a, { pm3: true }); // input not mutated
+  // Without keep (Auto-fill one shift type, or a template, with "Keep days"
+  // off), a day's shifts are replaced but its holiday override stays, as
+  // when a day is pasted: Heroes Day marked "Not a holiday" mustn't turn
+  // back into holiday ×2 pay because the day was refilled.
+  {
+    const p = periodFor(fromYmd("2026-10-20"));
+    const before = {
+      "2026-10-19": { ...blankDay(), am7: true, holiday: false },
+      "2026-10-20": { ...blankDay(), pm10: true, holiday: true },
+    };
+    const refill = autofillPattern(p, {
+      startKey: "2026-10-16",
+      pattern: "pm3",
+      days: "rest",
+      defaultDist: "S",
+    });
+    const replaced = fillDays(before, refill, false);
+    assert.strictEqual(replaced["2026-10-19"].holiday, false);
+    assert.ok(replaced["2026-10-19"].pm3 && !replaced["2026-10-19"].am7);
+    assert.strictEqual(replaced["2026-10-20"].holiday, true);
+    assert.ok(replaced["2026-10-20"].pm3 && !replaced["2026-10-20"].pm10);
+    const r = aggregate(
+      replaced,
+      p,
+      "basic",
+      "S",
+      {},
+      { monthly: 173330 },
+      DEFAULT_RATES,
+    );
+    assert.strictEqual(r.holidayHours, 7); // only the 20th's 3PM, set by hand
+    // Templates take the same path.
+    const tpl = applyTemplate(
+      { days: { 1: { pm3: true, dist: {} } } }, // Mondays
+      p,
+    );
+    assert.strictEqual(
+      fillDays(before, tpl, false)["2026-10-19"].holiday,
+      false,
+    );
+  }
 
   // rateEntryAt agrees with ratesAt, and is null before the first entry.
   const hist = [

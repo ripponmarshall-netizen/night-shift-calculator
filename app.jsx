@@ -754,7 +754,7 @@ function AboutView({ onBack, rates }) {
         <GuideSection id="settings" open={openGuide} onToggle={toggle} title="Settings and backup" detail="The gear at the top">
           <GuideSteps steps={[
             <>{b("Rates")}: SP1, SP2, meal, taxi and the overtime threshold. They save as you type. {b("Count overtime in")} switches between decimal hours (6.5h) and minutes (6h 30m): in minutes every shift counts to the whole minute.</>,
-            <>{b("Past rates")}: when rates change, save the old ones with the date they started, so earlier periods stay right.</>,
+            <>{b("Past rates")}: before you change a rate, save the current ones with the date they started; after the change, save the new ones with the date they start. Each period uses the saved rates in force on its first day, so earlier periods stay right.</>,
             <>{b("Backup")}: save everything to a file before you change phones, restore it on the new one, add the period's shifts to your phone's calendar (.ics), or reset this period.</>,
             <>{b("Theme")}: dark, light, or follow your phone.</>,
           ]} />
