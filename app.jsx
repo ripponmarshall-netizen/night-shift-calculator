@@ -772,8 +772,8 @@ function AboutView({ onBack, rates }) {
               ? `Minutes over ${fmtHM(r.threshold)} in the period (not counting holiday time) × hourly rate ÷ 60 × 1.5`
               : `Hours over ${r.threshold} in the period (not counting holiday hours) × hourly rate × 1.5`} />
             <GuideRule label="Extra shifts" value="Overtime shifts: outside your saved rotation, or marked overtime in the day. Their time is shown on its own, but it's already in your total hours, so it isn't paid twice." />
-            <GuideRule label="Straight Day" value="8:30AM to 4:30PM, 8h. Hours only: no SP1, SP2, meal or taxi. Overtime after it counts in your total hours (or holiday hours on a public holiday)." />
-            <GuideRule label="Holiday" value="Every hour you work on a public holiday is paid × 2 the hourly rate, your regular shift included. A 10PM counts by the day each part falls on: 2h before midnight, 7h after." />
+            <GuideRule label="Straight Day" value="8:30AM to 4:30PM, 8h. Hours only: no SP1, SP2, meal or taxi. It overlaps a 7AM and a 3PM, so it can't share a day with either. Overtime after it counts in your total hours (or holiday hours on a public holiday), and ends by 10PM if a 10PM follows." />
+            <GuideRule label="Holiday" value="Every hour you work on a public holiday is paid × 2 the hourly rate, your regular shift included. A 10PM counts by the day each part falls on: 2h before midnight, 7h after. A shorter or longer one counts from 10PM (out at 3AM is 2h + 3h)." />
             <GuideRule label="Leave" value="Hours count as ordinary hours (never × 2); no SP1, SP2, meal or taxi." last />
           </div>
           <GuideNote>The numbers above are the rates for the period on screen. Check them against your pay slip in Settings.</GuideNote>

@@ -48,6 +48,11 @@ const {
   DEFAULT_RATES,
   jamaicaHolidays,
   isJamaicaHoliday,
+  toggleShift,
+  clashingShifts,
+  sdOtMax,
+  SD_OT_BEFORE_PM10,
+  MAX_SD_OT,
 } = require("./helpers.jsx");
 
 function round2(n) {
@@ -356,13 +361,30 @@ assert.strictEqual(r.totalHours, 24);
 r = agg({ [PLAIN]: D({ pm10: 1, hours: { pm10: 24 } }) });
 assert.strictEqual(r.totalHours, 24);
 
-// pm10 partial on a holiday (am7 + pm10): pm10 total 6h, ratio 6/9, so its
-// pre-midnight leg is 2*6/9 = 1.333h of holiday pay, on top of the 7AM's 8h.
-// The other 4.667h land on the 26th, an ordinary day.
+// pm10 partial on a holiday (am7 + pm10): pm10 total 6h, counted from its
+// 10PM start, so 10PM–midnight (2h) is holiday pay, on top of the 7AM's 8h.
+// The other 4h (midnight–4AM) land on the 26th, an ordinary day.
 r = agg({ [HOL]: D({ am7: 1, pm10: 1, holiday: true, hours: { pm10: 6 } }) });
-holNear(r.holidayHours, 8 + (2 * 6) / 9);
+holNear(r.holidayHours, 8 + 2);
 assert.strictEqual(r.totalHours, 8 + 6);
 assert.strictEqual(r.cal.pm10, 1); // 6 > 4.5 => full allowance credit
+
+// A short 10PM the night before a holiday: in from 10PM, left at 3AM (5h).
+// Midnight–3AM (3h) is on the holiday; 10PM–midnight isn't.
+r = agg({ [PREV]: D({ pm10: 1, hours: { pm10: "5" } }) });
+holNear(r.holidayHours, 3);
+assert.strictEqual(r.totalHours, 5);
+// Shorter than 2h: all of it is before midnight, none on the holiday.
+r = agg({ [PREV]: D({ pm10: 1, hours: { pm10: "1.5" } }) });
+holNear(r.holidayHours, 0);
+// Held over to 10AM (12h) on a holiday's eve: 2h before midnight, 10h on it.
+r = agg({ [PREV]: D({ pm10: 1, hours: { pm10: "12" } }) });
+holNear(r.holidayHours, 10);
+// The standard 9h still splits 2h + 7h.
+r = agg({ [PREV]: D({ pm10: 1 }) });
+holNear(r.holidayHours, 7);
+r = agg({ [HOL]: D({ pm10: 1, holiday: true }) });
+holNear(r.holidayHours, 2);
 
 // pm10 worked half or less (4h <= 4.5) earns no allowance credit.
 r = agg({ [PLAIN]: D({ pm10: 1, hours: { pm10: 4 } }) });
@@ -932,12 +954,12 @@ for (let pm10 = 0; pm10 <= 30; pm10 += 3) {
   const s = aggM(one("6.666667"));
   assert.strictEqual(Math.round(s.totalHours * 60 * 1e6) / 1e6, 400);
   // Holiday hours also go to the minute: the 7AM's 480 + the 10PM's
-  // pre-midnight leg, 107 (2 × 8/9 h)...
+  // pre-midnight leg, 120 (10PM to midnight)...
   const hol = aggM({ [HOL]: D({ am7: 1, pm10: 1, hours: { pm10: "8" } }) });
-  assert.strictEqual(Math.round(hol.holidayHours * 60 * 1e6) / 1e6, 587);
-  // ...and the night before, the rest of the 10PM's 480: 373 after midnight.
+  assert.strictEqual(Math.round(hol.holidayHours * 60 * 1e6) / 1e6, 600);
+  // ...and the night before, the rest of the 10PM's 480: 360 after midnight.
   const eve = aggM({ [PREV]: D({ pm10: 1, hours: { pm10: "8" } }) });
-  assert.strictEqual(Math.round(eve.holidayHours * 60 * 1e6) / 1e6, 373);
+  assert.strictEqual(Math.round(eve.holidayHours * 60 * 1e6) / 1e6, 360);
   // Formatting.
   assert.strictEqual(fmtHM(0), "0m");
   assert.strictEqual(fmtHM(0.75), "45m");
@@ -2271,3 +2293,45 @@ swChecks.then(
     process.exitCode = 1;
   },
 );
+
+// Day editor: shifts that overlap can't share a day.
+{
+  const day = () => ({ ...blankDay() });
+  // A Straight Day (8:30AM–4:30PM) overlaps a 7AM and a 3PM, not a 10PM.
+  let e = toggleShift(toggleShift(day(), "am7", "S"), "pm3", "S");
+  assert.deepStrictEqual(clashingShifts(e, "sd"), ["am7", "pm3"]);
+  e = { ...e, hours: { am7: "6", pm3: "5" }, duty: { pm3: "vacation" }, ot: { am7: true } };
+  e = toggleShift(e, "sd", "S");
+  assert.strictEqual(e.sd, true);
+  assert.strictEqual(e.am7, false);
+  assert.strictEqual(e.pm3, false);
+  // The removed shifts' own settings go with them.
+  assert.strictEqual(e.hours, undefined);
+  assert.strictEqual(e.duty, undefined);
+  assert.strictEqual(e.ot, undefined);
+  // Ticking a 7AM back takes the Straight Day (and its overtime) off.
+  e = toggleShift({ ...e, sdOt: "3" }, "am7", "L");
+  assert.strictEqual(e.am7, true);
+  assert.strictEqual(e.sd, false);
+  assert.strictEqual(e.sdOt, undefined);
+  assert.strictEqual(e.dist.am7, "L");
+  // 7AM, 3PM and 10PM follow on from each other: all three can be worked.
+  e = toggleShift(toggleShift(toggleShift(day(), "am7", "S"), "pm3", "S"), "pm10", "S");
+  assert.ok(e.am7 && e.pm3 && e.pm10);
+  assert.deepStrictEqual(clashingShifts(e, "pm10"), []);
+  // A Straight Day and a 10PM can share a day, but overtime after the
+  // Straight Day ends when the 10PM starts: 5h 30m at most.
+  e = toggleShift(day(), "sd", "S");
+  assert.strictEqual(sdOtMax(e), MAX_SD_OT);
+  e = toggleShift({ ...e, sdOt: "8" }, "pm10", "S");
+  assert.strictEqual(e.sdOt, String(SD_OT_BEFORE_PM10));
+  assert.strictEqual(sdOtMax(e), SD_OT_BEFORE_PM10);
+  // Overtime already inside that stays as typed.
+  e = toggleShift({ ...toggleShift(day(), "sd", "S"), sdOt: "4" }, "pm10", "S");
+  assert.strictEqual(e.sdOt, "4");
+  // Unticking a shift drops only its own settings.
+  e = toggleShift({ ...day(), pm3: true, pm10: true, hours: { pm3: "6", pm10: "8" } }, "pm3", "S");
+  assert.strictEqual(e.pm3, false);
+  assert.deepStrictEqual(e.hours, { pm10: "8" });
+  console.log("shift overlap tests passed");
+}
