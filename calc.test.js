@@ -2300,7 +2300,12 @@ swChecks.then(
   // A Straight Day (8:30AM–4:30PM) overlaps a 7AM and a 3PM, not a 10PM.
   let e = toggleShift(toggleShift(day(), "am7", "S"), "pm3", "S");
   assert.deepStrictEqual(clashingShifts(e, "sd"), ["am7", "pm3"]);
-  e = { ...e, hours: { am7: "6", pm3: "5" }, duty: { pm3: "vacation" }, ot: { am7: true } };
+  e = {
+    ...e,
+    hours: { am7: "6", pm3: "5" },
+    duty: { pm3: "vacation" },
+    ot: { am7: true },
+  };
   e = toggleShift(e, "sd", "S");
   assert.strictEqual(e.sd, true);
   assert.strictEqual(e.am7, false);
@@ -2316,7 +2321,11 @@ swChecks.then(
   assert.strictEqual(e.sdOt, undefined);
   assert.strictEqual(e.dist.am7, "L");
   // 7AM, 3PM and 10PM follow on from each other: all three can be worked.
-  e = toggleShift(toggleShift(toggleShift(day(), "am7", "S"), "pm3", "S"), "pm10", "S");
+  e = toggleShift(
+    toggleShift(toggleShift(day(), "am7", "S"), "pm3", "S"),
+    "pm10",
+    "S",
+  );
   assert.ok(e.am7 && e.pm3 && e.pm10);
   assert.deepStrictEqual(clashingShifts(e, "pm10"), []);
   // A Straight Day and a 10PM can share a day, but overtime after the
@@ -2330,7 +2339,11 @@ swChecks.then(
   e = toggleShift({ ...toggleShift(day(), "sd", "S"), sdOt: "4" }, "pm10", "S");
   assert.strictEqual(e.sdOt, "4");
   // Unticking a shift drops only its own settings.
-  e = toggleShift({ ...day(), pm3: true, pm10: true, hours: { pm3: "6", pm10: "8" } }, "pm3", "S");
+  e = toggleShift(
+    { ...day(), pm3: true, pm10: true, hours: { pm3: "6", pm10: "8" } },
+    "pm3",
+    "S",
+  );
   assert.strictEqual(e.pm3, false);
   assert.deepStrictEqual(e.hours, { pm10: "8" });
   console.log("shift overlap tests passed");
