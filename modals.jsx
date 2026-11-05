@@ -15,33 +15,19 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
   const isAutoHoliday = !!autoHolName;
   const isHol = entry.holiday == null ? isAutoHoliday : entry.holiday;
   const [showHol, setShowHol] = useStateM(entry.holiday != null);
-  const toggle = (k) => onChange((e) => {
-    const next = { ...e, [k]: !e[k], dist: { ...e.dist } };
-    // Turning on: use the distance in effect, in every mode, so a later switch
-    // to "Varies" keeps a Long commuter's shifts Long. A Straight Day earns
-    // no taxi, so it has none.
-    if (!e[k] && k !== "sd") next.dist[k] = defaultDist || "S";
-    // turning off: drop any stale hours override or duty mark so neither can
-    // silently re-apply when the shift is ticked again
-    if (e[k] && e.hours && e.hours[k] != null) {
-      const hours = { ...e.hours };
-      delete hours[k];
-      next.hours = Object.keys(hours).length ? hours : undefined;
-    }
-    if (e[k] && e.duty && e.duty[k] != null) {
-      const duty = { ...e.duty };
-      delete duty[k];
-      next.duty = Object.keys(duty).length ? duty : undefined;
-    }
-    // ...and the same for an overtime mark, and a Straight Day's overtime.
-    if (e[k] && e.ot && e.ot[k] != null) {
-      const ot = { ...e.ot };
-      delete ot[k];
-      next.ot = Object.keys(ot).length ? ot : undefined;
-    }
-    if (e[k] && k === "sd") delete next.sdOt;
-    return next;
-  });
+  // Ticking a shift takes off any it overlaps (a Straight Day and a 7AM or
+  // 3PM), and trims overtime after a Straight Day to end by a 10PM's start
+  // (toggleShift). Either says so, with Undo.
+  const toggle = (k) => {
+    const before = entry;
+    const clash = before[k] ? [] : clashingShifts(before, k);
+    const trims = !before[k] && k === "pm10" && before.sd && Number(before.sdOt) > SD_OT_BEFORE_PM10;
+    onChange((e) => toggleShift(e, k, defaultDist));
+    const notes = [];
+    if (clash.length) notes.push(`Took the ${clash.map((c) => SHIFT_LABEL[c]).join(" and ")} off: it overlaps the ${SHIFT_LABEL[k]}`);
+    if (trims) notes.push(`Overtime after the Straight Day now ends at 10PM (${fmtHM(SD_OT_BEFORE_PM10)})`);
+    if (notes.length) showToast(notes.join(". "), { action: { label: "Undo", onClick: () => onChange(() => before) } });
+  };
   const setDuty = (k, v) => onChange((e) => {
     const duty = { ...(e.duty || {}) };
     if (v) duty[k] = v; else delete duty[k];
@@ -54,8 +40,9 @@ function DayModal({ dayKey, entry: liveEntry, mode, slot, defaultDist, onClose, 
     return { ...e, ot: Object.keys(ot).length ? ot : undefined };
   });
   const setSdOt = (raw) => onChange((e) => {
+    // Up to 16h, or until 10PM when a 10PM follows the same day.
     let v = sanitizeDecimal(raw);
-    if (Number(v) > MAX_SD_OT) v = String(MAX_SD_OT);
+    if (Number(v) > sdOtMax(e)) v = String(sdOtMax(e));
     const next = { ...e };
     if (v === "") delete next.sdOt; else next.sdOt = v;
     return next;
@@ -166,7 +153,7 @@ function ShiftBlock({ sh, entry, mode, slot, onToggle, onHours, onDist, onDuty, 
           {sh.k === "sd" && (
             <Collapse open={pay === "full"}>
               <HoursMinutesRow
-                label="Overtime after 4:30PM" raw={entry.sdOt != null ? String(entry.sdOt) : ""} std={0}
+                label={entry.pm10 ? "Overtime after 4:30PM (to 10PM)" : "Overtime after 4:30PM"} raw={entry.sdOt != null ? String(entry.sdOt) : ""} std={0}
                 ariaHours="Overtime hours after the Straight Day" ariaMinutes="Overtime minutes after the Straight Day"
                 onChange={onSdOt}
               />

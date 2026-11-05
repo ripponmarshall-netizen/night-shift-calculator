@@ -70,6 +70,49 @@ function sdOtHours(e) {
   return v == null || v === "" || !(Number(v) > 0) ? 0 : Math.min(MAX_SD_OT, Number(v));
 }
 
+/* Shifts that can't share a day because their times overlap: a Straight
+   Day (8:30AM–4:30PM) runs into the end of a 7AM (to 3PM) and the start of
+   a 3PM (from 3PM). 7AM, 3PM and 10PM follow on from each other, so any
+   mix of those is fine. Overtime after a Straight Day runs from 4:30PM, so
+   with a 10PM the same day it ends by 10PM: 5h 30m at most. */
+const SHIFT_CLASHES = { am7: ["sd"], pm3: ["sd"], pm10: [], sd: ["am7", "pm3"] };
+const SD_OT_BEFORE_PM10 = 5.5;
+const sdOtMax = (e) => (e && e.pm10 ? SD_OT_BEFORE_PM10 : MAX_SD_OT);
+/* The shifts ticked on a day that ticking `k` would overlap. */
+const clashingShifts = (e, k) => (SHIFT_CLASHES[k] || []).filter((c) => !!(e && e[c]));
+
+/* A day with one shift taken off, along with its own settings (hours,
+   duty, overtime mark, and a Straight Day's overtime), so none of them
+   silently re-applies when the shift is ticked again. */
+function withoutShift(e, k) {
+  const next = { ...e, [k]: false, dist: { ...e.dist } };
+  for (const m of ["hours", "duty", "ot"]) {
+    if (e[m] && e[m][k] != null) {
+      const rest = { ...e[m] };
+      delete rest[k];
+      next[m] = Object.keys(rest).length ? rest : undefined;
+    }
+  }
+  if (k === "sd") delete next.sdOt;
+  return next;
+}
+
+/* Tick or untick one shift in the day editor. Ticking a shift takes off
+   any it overlaps (see SHIFT_CLASHES), so a day never counts the same
+   hours twice, and trims overtime after a Straight Day that would run past
+   a 10PM's start. A new shift gets the taxi distance in effect; a Straight
+   Day has none. */
+function toggleShift(e, k, defaultDist) {
+  if (e[k]) return withoutShift(e, k);
+  let next = { ...e, dist: { ...e.dist } };
+  for (const c of clashingShifts(e, k)) next = withoutShift(next, c);
+  next[k] = true;
+  if (k !== "sd") next.dist[k] = defaultDist || "S";
+  const cap = sdOtMax(next);
+  if (next.sdOt != null && next.sdOt !== "" && Number(next.sdOt) > cap) next.sdOt = String(cap);
+  return next;
+}
+
 /* Overtime shifts (extra shifts). By default a worked shift the rotation
    doesn't call for is overtime: an off day's shift, or a second shift on a
    working day. The day editor can set it per shift by hand, as a sparse map
@@ -109,7 +152,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.26";
+const APP_VERSION = "3.27";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -698,11 +741,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     }
     if (work.pm10) {
       if (credit.pm10) calPm10++;
-      // Single editable total; split the pre-midnight vs carryover legs
-      // proportionally so the holiday rule scales (default 9 → 2h pre-midnight).
+      // Single editable total, counted from the 10PM start: the first 2h
+      // (or all of a shorter shift) fall before midnight, the rest after.
+      // So leaving at 3AM is 2h + 3h, and staying on to 10AM is 2h + 10h.
       const tot = hrsOf(e, "pm10");
-      const ratio = PM10_TOTAL > 0 ? tot / PM10_TOTAL : 0;
-      const startSeg = byMin ? toMin(SHIFT_HOURS.pm10_start * ratio) / 60 : SHIFT_HOURS.pm10_start * ratio;
+      const startSeg = Math.min(SHIFT_HOURS.pm10_start, tot);
       h += tot;
       // Both legs stay on this (start) day's total, holiday hours included.
       if (!onLeave.pm10) {
@@ -1415,7 +1458,7 @@ function toICS(entries) {
 
 const _exports = {
   SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, SHIFT_KEYS, stdHours, effHours,
-  SD_OT_SAME_DAY, MAX_SD_OT, sdOtHours, otSet, autoOvertime, isOvertimeShift,
+  SD_OT_SAME_DAY, MAX_SD_OT, sdOtHours, SHIFT_CLASHES, SD_OT_BEFORE_PM10, sdOtMax, clashingShifts, withoutShift, toggleShift, otSet, autoOvertime, isOvertimeShift,
   LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
   SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL, JFB_LOGO,
