@@ -152,7 +152,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.27";
+const APP_VERSION = "3.28";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -518,14 +518,87 @@ function rotationEntries(period, am7Anchor, dist) {
 }
 
 /* ----- saved rotation -----
-   The person's rotation is stored as one anchor: any "YYYY-MM-DD" they work a
-   7AM. The 4-day cycle runs unbroken across pay periods, so the same anchor
-   gives the slot for any date. Display only; pay is never derived from it. */
+   A rotation is one anchor: any "YYYY-MM-DD" the person works a 7AM. The
+   4-day cycle runs unbroken from it, so one anchor gives the slot for any
+   date. Display only; pay is never derived from it.
+   Rotations change, so what's saved is a plan: a list of
+   { from, anchor } sorted by from, each holding from its first day
+   ("YYYY-MM-DD", or "" for since always) until the next one starts. anchor
+   null means no rotation then. Setting a rotation for a pay period starts a
+   new entry on that period's first day, so earlier periods keep the
+   rotation they had. Every reader below also takes a bare anchor string
+   (one rotation for all time) or null. */
 const ROTATION_SLOTS = ["am7", "pm3", "pm10", "off"];
+const isDayKey = (k) => typeof k === "string" && /^\d{4}-\d{2}-\d{2}$/.test(k);
+
+/* The anchor in effect on a date key, or null. */
+function anchorAt(plan, key) {
+  if (!plan) return null;
+  if (typeof plan === "string") return plan;
+  let a = null;
+  for (const r of plan) {
+    if (r.from <= key) a = r.anchor; else break;
+  }
+  return a;
+}
+
+/* The anchor in effect for a pay period (set per period, so its first day
+   speaks for it). */
+const periodRotation = (plan, period) => anchorAt(plan, ymd(period.start));
+
+/* The most recent rotation in the plan, for pickers to start from on a
+   period that has none of its own. */
+function latestAnchor(plan) {
+  if (!plan || typeof plan === "string") return plan || null;
+  for (let i = plan.length - 1; i >= 0; i--) if (plan[i].anchor) return plan[i].anchor;
+  return null;
+}
+
+/* Any shape (a plan, a bare anchor, null, or a hand-edited backup) as a
+   clean plan: valid entries only, sorted, one per day, and no entry that
+   repeats the rotation before it. */
+function sanitizeRotations(v) {
+  if (isDayKey(v)) return [{ from: "", anchor: v }];
+  if (!Array.isArray(v)) return [];
+  const byFrom = new Map();
+  for (const r of v) {
+    if (!r || typeof r !== "object") continue;
+    const from = r.from === "" || r.from == null ? "" : r.from;
+    if (from !== "" && !isDayKey(from)) continue;
+    if (r.anchor != null && !isDayKey(r.anchor)) continue;
+    byFrom.set(from, r.anchor || null);
+  }
+  const out = [];
+  let prev = null;
+  for (const from of [...byFrom.keys()].sort()) {
+    const anchor = byFrom.get(from);
+    // The same cycle from a different 7AM is still the same rotation.
+    const same = prev && anchor
+      ? ((dayOffset(fromYmd(prev), fromYmd(anchor)) % 4) + 4) % 4 === 0
+      : prev === anchor;
+    if (same) continue;
+    out.push({ from, anchor });
+    prev = anchor;
+  }
+  return out;
+}
+
+/* The plan with a rotation (anchor, or null to stop) set for one pay period
+   and on until the next change already saved after it. Earlier periods are
+   never touched. */
+function setRotationFrom(plan, period, anchor) {
+  const from = ymd(period.start);
+  const list = sanitizeRotations(plan).filter((r) => r.from !== from);
+  return sanitizeRotations([...list, { from, anchor: anchor || null }]);
+}
+
+/* Whether a plan has a rotation for this pay period. */
+const hasRotationIn = (plan, period) => !!periodRotation(plan, period);
 
 /* The rotation slot for a date key: "am7" | "pm3" | "pm10" | "off", or null
-   when no rotation is saved. */
-function rotationSlot(key, anchor) {
+   when no rotation holds that day. */
+function rotationSlot(key, plan) {
+  const anchor = anchorAt(plan, key);
   if (!anchor) return null;
   const i = dayOffset(fromYmd(anchor), fromYmd(key));
   return ROTATION_SLOTS[((i % 4) + 4) % 4];
@@ -552,8 +625,10 @@ function rotationStats(entries, period, anchor) {
   return { extra, off };
 }
 
-/* The first day in the period the rotation puts on a 7AM (for pickers). */
-function am7InPeriod(period, anchor) {
+/* The first day in the period the rotation puts on a 7AM (for pickers):
+   the period's own rotation, or else the latest one saved. */
+function am7InPeriod(period, plan) {
+  const anchor = periodRotation(plan, period) || latestAnchor(plan);
   if (!anchor) return null;
   const d = periodDays(period).find((x) => rotationSlot(ymd(x), anchor) === "am7");
   return d ? ymd(d) : null;
@@ -649,7 +724,7 @@ function mergePeriodFill(entries, period, fill, replace) {
 }
 
 /* ----- aggregate (calculation engine) ----- */
-/* anchor (optional): the saved rotation, so shifts outside it can be counted
+/* anchor (optional): the saved rotation plan (or one anchor), so shifts outside it can be counted
    as extra shifts. rates.otUnit "minutes" counts every shift to the whole
    minute and overtime on whole minutes over the threshold. */
 function aggregate(entries, period, mode, basicDistance, counts, basePay, rates, anchor) {
@@ -869,7 +944,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
    an extra shift), or null for a crew day they didn't work. Their own pay
    and taxi distance go with them. Pay is the same aggregate() run on each
    member's merged calendar, with one Short/Long distance per person. */
-function blankCrew() { return { entries: {}, members: [], rotationAnchor: null, sortBy: "name", watch: "", station: "" }; }
+function blankCrew() { return { entries: {}, members: [], rotations: [], sortBy: "name", watch: "", station: "" }; }
 function newMember(name, empNo) {
   return {
     id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
@@ -962,7 +1037,9 @@ function sanitizeCrew(c) {
   return {
     entries: dayMap(c.entries, false),
     members,
-    rotationAnchor: typeof c.rotationAnchor === "string" && isKey(c.rotationAnchor) ? c.rotationAnchor : null,
+    // rotationAnchor: one rotation for all time, from before rotations
+    // were saved per period.
+    rotations: sanitizeRotations(Array.isArray(c.rotations) ? c.rotations : c.rotationAnchor),
     sortBy: c.sortBy === "empNo" ? "empNo" : "name",
     watch: str(c.watch, 30), station: str(c.station, 40),
   };
@@ -1005,8 +1082,9 @@ function shiftSheet(entries, period, anchor) {
   const blank = () => ({ am7: [], pm3: [], pm10: [], sd: [] });
   const regular = blank(), overtime = blank();
   let cycleStart = null;
-  if (anchor) {
-    const off = dayOffset(fromYmd(anchor), period.start);
+  const periodAnchor = periodRotation(anchor, period);
+  if (periodAnchor) {
+    const off = dayOffset(fromYmd(periodAnchor), period.start);
     cycleStart = addDays(period.start, -(((off % 4) + 4) % 4));
   }
   for (const d of periodDays(period)) {
@@ -1028,11 +1106,11 @@ function shiftSheet(entries, period, anchor) {
 /* One row per person for the crew report, in the given order. */
 function crewRows(crew, period, rates, tax) {
   return sortMembers(crew.members, crew.sortBy).map((m) => {
-    const t = memberTotals(crew.entries, m, period, rates, crew.rotationAnchor);
+    const t = memberTotals(crew.entries, m, period, rates, crew.rotations);
     const hasBasic = Number(t.monthlyBasic) > 0 && !!tax?.enabled;
     return {
       member: m, totals: t, net: hasBasic ? estimateNet(t, tax).net : null,
-      sheet: shiftSheet(memberEntries(crew.entries, m), period, crew.rotationAnchor),
+      sheet: shiftSheet(memberEntries(crew.entries, m), period, crew.rotations),
     };
   });
 }
@@ -1469,6 +1547,7 @@ const _exports = {
   blankDay, sanitizeEntries, clearPeriodEntries, autofillPattern, aggregate,
   rotationEntries, totalsError, totalsEntries, fillDays, mergePeriodFill,
   ROTATION_SLOTS, rotationSlot, extraShiftKeys, rotationStats, am7InPeriod,
+  anchorAt, periodRotation, latestAnchor, sanitizeRotations, setRotationFrom, hasRotationIn,
   sanitizeRates, sanitizeRatesHistory, sanitizeTemplates, sanitizeSnapshots,
   calcTax, estimateNet, rateEntryAt, ratesAt, applyTemplate, extractTemplateFromWeek, toICS,
   blankCrew, newMember, memberEntries, memberTotals, sameEntry, setMemberDay, memberDiffKeys,

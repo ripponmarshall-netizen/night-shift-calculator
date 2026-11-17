@@ -32,8 +32,10 @@ function App() {
   const [theme, setTheme] = useState(initial.theme || "auto");
   const [otUnit, setOtUnit] = useState(OT_UNITS.includes(initial.otUnit) ? initial.otUnit : "hours");
   const [onboarded, setOnboarded] = useState(initial.onboarded ?? false);
-  // Any date the person works a 7AM; drives Off days and extra-shift colour.
-  const [rotationAnchor, setRotationAnchor] = useState(initial.rotationAnchor || null);
+  // The rotation plan: which 7AM cycle holds from which pay period on
+  // (see setRotationFrom). Drives Off days and extra-shift colour. Older
+  // saves kept one rotationAnchor for all time.
+  const [rotations, setRotations] = useState(() => sanitizeRotations(Array.isArray(initial.rotations) ? initial.rotations : initial.rotationAnchor));
   // Several people on the same shift (Crew tab): a shared calendar plus each
   // person's own days, pay and taxi distance.
   const [crew, setCrew] = useState(() => sanitizeCrew(initial.crew) || blankCrew());
@@ -89,8 +91,8 @@ function App() {
   useEffect(() => { window.nscSplashDone?.(); }, []);
 
   useEffect(() => {
-    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotationAnchor, crew, crewHistory });
-  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotationAnchor, crew, crewHistory]);
+    saveState({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotations, crew, crewHistory });
+  }, [mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, snapshots, theme, otUnit, onboarded, rotations, crew, crewHistory]);
 
   useEffect(() => {
     const mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: light)") : null;
@@ -111,8 +113,8 @@ function App() {
   }, [theme]);
 
   const totals = useMemo(
-    () => aggregate(entries, period, mode, basicDistance, counts, basePay, calcRates, rotationAnchor),
-    [entries, period, mode, basicDistance, counts, basePay, calcRates, rotationAnchor]
+    () => aggregate(entries, period, mode, basicDistance, counts, basePay, calcRates, rotations),
+    [entries, period, mode, basicDistance, counts, basePay, calcRates, rotations]
   );
 
   const setEntry = (key, updater) => {
@@ -274,7 +276,7 @@ function App() {
   };
 
   const exportJson = () => {
-    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, otUnit, snapshots, onboarded, rotationAnchor, crew, crewHistory }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ mode, periodAnchor, entries, basicDistance, defaultDist, counts, basePay, rates, tax, ratesHistory, templates, theme, otUnit, snapshots, onboarded, rotations, crew, crewHistory }, null, 2)], { type: "application/json" });
     downloadBlob(blob, `night-shift-${periodAnchor}.json`);
   };
   const importJson = () => {
@@ -336,7 +338,9 @@ function App() {
         if (oneOf(obj.otUnit, OT_UNITS)) setOtUnit(obj.otUnit);
         if (Array.isArray(obj.snapshots)) setSnapshots(sanitizeSnapshots(obj.snapshots));
         if (typeof obj.onboarded === "boolean") setOnboarded(obj.onboarded);
-        if (obj.rotationAnchor === null || (typeof obj.rotationAnchor === "string" && /^\d{4}-\d{2}-\d{2}$/.test(obj.rotationAnchor))) setRotationAnchor(obj.rotationAnchor);
+        if (Array.isArray(obj.rotations) || obj.rotationAnchor === null || typeof obj.rotationAnchor === "string") {
+          setRotations(sanitizeRotations(Array.isArray(obj.rotations) ? obj.rotations : obj.rotationAnchor));
+        }
         const importedCrew = sanitizeCrew(obj.crew);
         if (importedCrew) setCrew(importedCrew);
         if (Array.isArray(obj.crewHistory)) setCrewHistory(sanitizeCrewHistory(obj.crewHistory));
@@ -355,8 +359,9 @@ function App() {
      state and engine do the rest. replace clears only this period's days. */
   const applySimpleSetup = ({ fill, replace, basePay: bp, dist, counts: c, anchor, keepTaxi }) => {
     setEntries((prev) => mergePeriodFill(prev, period, fill, replace));
-    // Rotation answers save the rotation; totals don't follow one, so clear it.
-    if (anchor !== undefined) setRotationAnchor(anchor);
+    // Rotation answers save the rotation; totals don't follow one, so clear
+    // it. Either way only from this period on: earlier periods keep theirs.
+    if (anchor !== undefined) setRotations((r) => setRotationFrom(r, period, anchor));
     setBasePay(bp);
     // keepTaxi (Home's one-tap rotation fill): no taxi question was asked,
     // so the Short / Long / Varies choice stays as it was.
@@ -450,7 +455,7 @@ function App() {
       ? rotationEntries(period, opts.am7Key, opts.defaultDist)
       : autofillPattern(period, opts);
     if (opts.pattern === "rotation") {
-      setRotationAnchor(opts.am7Key);
+      setRotations((r) => setRotationFrom(r, period, opts.am7Key));
       // A rotation covers the whole period, so without "keep" it replaces
       // the period like the Home setup does; otherwise shifts left on the
       // new off days would linger as extras and still be paid.
@@ -497,7 +502,7 @@ function App() {
           totals={totals} tax={tax} rates={calcRates}
           ratesEffective={ratesEffectiveLabel}
           onboarded={onboarded}
-          rotationAnchor={rotationAnchor}
+          rotationAnchor={rotations}
           saveStatus={saveStatus}
           clipboard={clipboard}
           onWizardChange={setWizardOpen}
@@ -508,9 +513,9 @@ function App() {
           onAutofill={() => setAutofillOpen(true)}
           onTemplates={() => setTemplatesOpen(true)}
           onClearRotation={() => {
-            const prev = rotationAnchor;
-            setRotationAnchor(null);
-            showToast("Rotation stopped. Your shifts are unchanged.", { action: { label: "Undo", onClick: () => setRotationAnchor(prev) } });
+            const prev = rotations;
+            setRotations((r) => setRotationFrom(r, period, null));
+            showToast("Rotation stopped from this period on. Your shifts are unchanged.", { action: { label: "Undo", onClick: () => setRotations(prev) } });
           }}
           onSaveSnapshot={saveSnapshot}
           onCopyShare={copySummary}
@@ -525,7 +530,7 @@ function App() {
         <CrewView
           period={period}
           crew={crew} setCrew={setCrew}
-          myEntries={entries} myRotation={rotationAnchor}
+          myEntries={entries} myRotation={rotations}
           rates={calcRates} tax={tax}
           saved={crewHistory.find((s) => s.periodKey === periodKey(period))}
           onSave={saveCrew}
@@ -576,7 +581,7 @@ function App() {
           dayKey={openDay}
           entry={entries[openDay] || blankDay()}
           mode={mode}
-          slot={rotationSlot(openDay, rotationAnchor)}
+          slot={rotationSlot(openDay, rotations)}
           defaultDist={mode === "advanced" ? defaultDist : basicDistance}
           onClose={() => setOpenDay(null)}
           onChange={(updater) => setEntry(openDay, updater)}
@@ -604,7 +609,7 @@ function App() {
           onClose={() => setSettingsOpen(false)}
         />
       )}
-      {autofillOpen && <AutofillModal period={period} mode={mode} defaultDist={mode === "advanced" ? defaultDist : basicDistance} rotationAnchor={rotationAnchor} existing={entries} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
+      {autofillOpen && <AutofillModal period={period} mode={mode} defaultDist={mode === "advanced" ? defaultDist : basicDistance} rotationAnchor={rotations} existing={entries} onApply={applyAutofill} onClose={() => setAutofillOpen(false)} />}
       {templatesOpen && (
         <TemplatesModal
           templates={templates}

@@ -101,16 +101,19 @@ function HomeView(props) {
   // to Varies, new shifts start at the distance Varies seeds them with, and
   // the taxi choice itself is left alone. Like every rotation fill it keeps
   // what's already there (here, any holiday changed by hand).
+  // rotationAnchor is the saved plan; this period's own rotation, else the
+  // one in effect when it starts (the latest before it).
+  const thisRotation = periodRotation(rotationAnchor, period);
   const fillRotation = () => {
     onApply({
-      fill: rotationEntries(period, rotationAnchor, mode === "advanced" ? defaultDist || "S" : basicDistance),
+      fill: rotationEntries(period, thisRotation, mode === "advanced" ? defaultDist || "S" : basicDistance),
       replace: false, basePay, dist: basicDistance, keepTaxi: true,
-      counts: { pm3: "", pm10: "", am7: "" }, anchor: rotationAnchor,
+      counts: { pm3: "", pm10: "", am7: "" }, anchor: thisRotation,
     });
     showToast("Rotation filled for this period");
   };
-  const canQuickFill = !wizard && shiftDays === 0 && !!rotationAnchor;
-  const welcome = shiftDays === 0 && !(Number(basePay.monthly) > 0) && !rotationAnchor;
+  const canQuickFill = !wizard && shiftDays === 0 && !!thisRotation;
+  const welcome = shiftDays === 0 && !(Number(basePay.monthly) > 0) && !latestAnchor(rotationAnchor);
 
   // The calendar folds shut to one line; the choice sticks on this device.
   const [calOpen, setCalOpen] = useUiPref("calendarOpen", true);

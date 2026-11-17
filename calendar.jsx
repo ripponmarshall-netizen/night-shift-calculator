@@ -225,7 +225,7 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
           calendar opens instead of appearing all at once. */}
       <div key={opens}>{grid}</div>
 
-      {rotationAnchor && (
+      {hasRotationIn(rotationAnchor, period) && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px 12px", borderTop: "1px solid var(--line-soft)", fontSize: 12.5, color: "var(--ink-dim)" }}>
           <span style={{ flex: 1 }}>Rotation saved: 7AM → 3PM → 10PM → Off. Shifts outside it show as <span style={{ color: "var(--extra)", fontWeight: 600 }}>extra</span> (overtime) unless you switch that off in the day.</span>
           <button onClick={onClearRotation} style={{ ...linkBtn(), whiteSpace: "nowrap" }}>Stop</button>
