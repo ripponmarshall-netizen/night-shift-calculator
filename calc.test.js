@@ -1519,7 +1519,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   assert.strictEqual(clean.members[0].basePay.monthly, "1000");
   assert.strictEqual(clean.members[0].dist, "S");
   assert.deepStrictEqual(clean.members[0].days, { "2026-05-16": null });
-  assert.strictEqual(clean.rotationAnchor, null);
+  assert.deepStrictEqual(clean.rotations, []);
   assert.strictEqual(clean.sortBy, "empNo");
   assert.deepStrictEqual(H.sanitizeCrew(H.blankCrew()), H.blankCrew());
 
@@ -1604,7 +1604,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   const crew = H.blankCrew();
   crew.watch = "D WATCH";
   crew.station = "Port Antonio";
-  crew.rotationAnchor = "2026-06-19";
+  crew.rotations = H.sanitizeRotations("2026-06-19");
   crew.entries = rotationEntries(p, "2026-06-19", "S");
   const a = {
     ...H.newMember("Lloyd <Johnson> & Co", "87004"),
@@ -1630,7 +1630,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   const sheet = H.shiftSheet(
     H.memberEntries(crew.entries, a),
     p,
-    crew.rotationAnchor,
+    crew.rotations,
   );
   assert.deepStrictEqual(sheet.regular.pm3[0], {
     d: "16/6/26",
@@ -2132,7 +2132,7 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
   const crew = {
     ...H.blankCrew(),
     entries: ents,
-    rotationAnchor: ANCHOR,
+    rotations: H.sanitizeRotations(ANCHOR),
     members: [H.newMember("A", "1")],
   };
   const snap = H.crewSnapshot(crew, HOL_PERIOD, DEFAULT_RATES, DEFAULT_TAX);
@@ -2347,4 +2347,102 @@ swChecks.then(
   assert.strictEqual(e.pm3, false);
   assert.deepStrictEqual(e.hours, { pm10: "8" });
   console.log("shift overlap tests passed");
+}
+
+// Rotation history: changing the rotation for one pay period leaves every
+// earlier period on the rotation it had.
+{
+  const H = require("./helpers.jsx");
+  const may = periodFor(fromYmd("2026-05-20")); // May 16 – Jun 15
+  const jun = periodFor(fromYmd("2026-06-20")); // Jun 16 – Jul 15
+  const jul = periodFor(fromYmd("2026-07-20")); // Jul 16 – Aug 15
+  const A = "2026-05-22",
+    B = "2026-06-17"; // B is A's cycle moved by a day
+  assert.notStrictEqual(rotationSlot("2026-06-17", A), "am7");
+
+  // A rotation saved before plans existed holds for all time.
+  let plan = H.sanitizeRotations(A);
+  assert.deepStrictEqual(plan, [{ from: "", anchor: A }]);
+  assert.strictEqual(
+    rotationSlot("2020-01-01", plan),
+    rotationSlot("2020-01-01", A),
+  );
+
+  // Change it for June: May keeps A, June and later take B.
+  plan = H.setRotationFrom(plan, jun, B);
+  assert.deepStrictEqual(plan, [
+    { from: "", anchor: A },
+    { from: "2026-06-16", anchor: B },
+  ]);
+  for (const d of H.periodDays(may))
+    assert.strictEqual(rotationSlot(ymd(d), plan), rotationSlot(ymd(d), A));
+  for (const d of H.periodDays(jun))
+    assert.strictEqual(rotationSlot(ymd(d), plan), rotationSlot(ymd(d), B));
+  assert.strictEqual(H.periodRotation(plan, jul), B);
+  assert.strictEqual(am7InPeriod(may, plan), am7InPeriod(may, A));
+
+  // May's extra-shift count is unchanged by June's new rotation.
+  const mayFill = rotationEntries(may, A, "S");
+  assert.strictEqual(rotationStats(mayFill, may, plan).extra, 0);
+  assert.deepStrictEqual(
+    aggregate(mayFill, may, "basic", "S", {}, {}, DEFAULT_RATES, plan)
+      .extraShifts,
+    aggregate(mayFill, may, "basic", "S", {}, {}, DEFAULT_RATES, A).extraShifts,
+  );
+
+  // Stop it for July only: June keeps B.
+  plan = H.setRotationFrom(plan, jul, null);
+  assert.strictEqual(H.periodRotation(plan, jun), B);
+  assert.strictEqual(H.periodRotation(plan, jul), null);
+  assert.strictEqual(rotationSlot("2026-07-20", plan), null);
+  assert.strictEqual(H.hasRotationIn(plan, jul), false);
+  assert.strictEqual(H.latestAnchor(plan), B);
+  // The picker on a period with none starts from the latest rotation.
+  assert.strictEqual(rotationSlot(am7InPeriod(jul, plan), B), "am7");
+
+  // Going back and changing May leaves June's own rotation alone.
+  plan = H.setRotationFrom(plan, may, B);
+  assert.strictEqual(H.periodRotation(plan, may), B);
+  assert.strictEqual(H.periodRotation(plan, jun), B);
+  assert.strictEqual(H.periodRotation(plan, H.shiftPeriod(may, -1)), A);
+
+  // Setting the rotation a period already has adds nothing; the same cycle
+  // from another 7AM counts as the same.
+  const same = H.setRotationFrom([{ from: "", anchor: A }], jun, "2026-05-26");
+  assert.deepStrictEqual(same, [{ from: "", anchor: A }]);
+  // First rotation ever holds from its period, not before.
+  const first = H.setRotationFrom([], jun, B);
+  assert.deepStrictEqual(first, [{ from: "2026-06-16", anchor: B }]);
+  assert.strictEqual(H.periodRotation(first, may), null);
+
+  // Bad shapes from a hand-edited backup are dropped.
+  assert.deepStrictEqual(H.sanitizeRotations("soon"), []);
+  assert.deepStrictEqual(H.sanitizeRotations(null), []);
+  assert.deepStrictEqual(
+    H.sanitizeRotations([
+      { from: "x", anchor: A },
+      { from: "2026-06-16", anchor: "y" },
+      3,
+      { from: "2026-07-16", anchor: B },
+    ]),
+    [{ from: "2026-07-16", anchor: B }],
+  );
+
+  // Record sheet columns follow the period's own rotation.
+  const plan2 = H.setRotationFrom(H.sanitizeRotations(A), jun, B);
+  const junFill = rotationEntries(jun, B, "S");
+  const sheet = H.shiftSheet(junFill, jun, plan2);
+  assert.strictEqual(Object.values(sheet.overtime).flat().length, 0);
+  assert.deepStrictEqual(sheet, H.shiftSheet(junFill, jun, B));
+
+  // A crew saved with one rotationAnchor comes back as a plan.
+  assert.deepStrictEqual(
+    H.sanitizeCrew({
+      ...H.blankCrew(),
+      rotations: undefined,
+      rotationAnchor: A,
+    }).rotations,
+    [{ from: "", anchor: A }],
+  );
+  console.log("rotation history tests passed");
 }

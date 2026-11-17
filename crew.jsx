@@ -35,8 +35,8 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
   React.useLayoutEffect(() => { window.scrollTo?.(0, 0); }, [openId]);
 
   const crewTotals = useMemoW(
-    () => aggregate(crew.entries, period, "basic", "S", null, {}, rates, crew.rotationAnchor),
-    [crew.entries, period, rates, crew.rotationAnchor]
+    () => aggregate(crew.entries, period, "basic", "S", null, {}, rates, crew.rotations),
+    [crew.entries, period, rates, crew.rotations]
   );
   const rows = useMemoW(() => crewRows(crew, period, rates, tax), [crew, period, rates, tax]);
   // The crew's result as it would be saved; compared with the saved one.
@@ -53,14 +53,15 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
     // periods while the toast is up survive.
     const before = {};
     for (const d of periodDays(period)) if (crew.entries[ymd(d)]) before[ymd(d)] = crew.entries[ymd(d)];
-    const beforeAnchor = crew.rotationAnchor;
+    const beforeRotations = crew.rotations;
     setCrew((c) => ({
       ...c,
       entries: mergePeriodFill(c.entries, period, fill, true),
-      ...(anchor !== undefined ? { rotationAnchor: anchor } : {}),
+      // A rotation is set from this period on; earlier periods keep theirs.
+      ...(anchor !== undefined ? { rotations: setRotationFrom(c.rotations, period, anchor) } : {}),
     }));
     showToast(message, { action: { label: "Undo", onClick: () => setCrew((c) => ({
-      ...c, entries: { ...clearPeriodEntries(c.entries, period), ...before }, rotationAnchor: beforeAnchor,
+      ...c, entries: { ...clearPeriodEntries(c.entries, period), ...before }, rotations: beforeRotations,
     })) } });
   };
   const copyMine = () => {
@@ -70,7 +71,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
       if (day) fill[ymd(d)] = day;
     }
     if (!Object.values(fill).some(hasShifts)) { showToast("No shifts on your own calendar this period"); return; }
-    replacePeriod(fill, myRotation || null, "Watch shifts copied from yours");
+    replacePeriod(fill, periodRotation(myRotation, period), "Watch shifts copied from yours");
   };
   const clearCrew = async () => {
     const ok = await askConfirm({
@@ -168,7 +169,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
               </div>
               <div style={{ padding: "0 12px" }}>
                 <Calendar compact period={period} entries={crew.entries} mode="basic" totals={crewTotals}
-                  rotationAnchor={crew.rotationAnchor} onOpenDay={(d) => setDayEdit({ who: "crew", key: ymd(d) })} />
+                  rotationAnchor={crew.rotations} onOpenDay={(d) => setDayEdit({ who: "crew", key: ymd(d) })} />
               </div>
               <div style={{ padding: "6px 16px 14px", fontSize: 12, color: "var(--ink-dim)" }}>
                 <span className="mono" style={{ color: "var(--ink)" }}>{crewTotals.cal.am7}</span> 7AM ·{" "}
@@ -186,7 +187,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
               onAdd={addMember} onOpen={setOpenId} />
 
             {rows.length > 0 && (
-              <CrewTotals snap={live} crew={crew} saveStatus={saveStatus}
+              <CrewTotals snap={live} crew={crew} period={period} saveStatus={saveStatus}
                 onDetails={(k, v) => setCrew((c) => ({ ...c, [k]: v }))}
                 onSave={() => onSave(live)} />
             )}
@@ -200,7 +201,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
           dayKey={dayEdit.key}
           entry={editEntry || blankDay()}
           mode="basic"
-          slot={rotationSlot(dayEdit.key, crew.rotationAnchor)}
+          slot={rotationSlot(dayEdit.key, crew.rotations)}
           defaultDist={editing === "crew" ? "S" : editing.dist}
           onClose={() => setDayEdit(null)}
           onChange={onDayChange}
@@ -208,7 +209,7 @@ function CrewView({ period, crew, setCrew, myEntries, myRotation, rates, tax, sa
         />
       )}
       {fillOpen && (
-        <CrewFillModal period={period} anchor={crew.rotationAnchor || myRotation}
+        <CrewFillModal period={period} anchor={periodRotation(crew.rotations, period) || periodRotation(myRotation, period) || latestAnchor(crew.rotations) || latestAnchor(myRotation)}
           onApply={(key) => replacePeriod(rotationEntries(period, key, "S"), key, "Watch rotation filled")}
           onClose={() => setFillOpen(false)} />
       )}
@@ -332,7 +333,7 @@ function crewExports(snap) {
 const crewSum = (rows, f) => (rows || []).reduce((a, r) => a + (Number(r.totals?.[f]) || 0), 0);
 
 /* ----- the whole crew: totals, the report and saving it ----- */
-function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
+function CrewTotals({ snap, crew, period, saveStatus, onDetails, onSave }) {
   const rows = snap.rows;
   const allow = crewSum(rows, "allowanceSubtotal"), gross = crewSum(rows, "grand");
   const anyBase = rows.some((r) => Number(r.totals.baseSubtotal) > 0);
@@ -359,7 +360,7 @@ function CrewTotals({ snap, crew, saveStatus, onDetails, onSave }) {
           <button onClick={out.csv} style={ghostBtn()}>Download CSV</button>
         </div>
         <div style={{ fontSize: 12, color: "var(--ink-faint)", marginTop: 8, lineHeight: 1.45 }}>
-          {crew.rotationAnchor
+          {hasRotationIn(crew.rotations, period)
             ? "Shifts on the watch rotation go under Regular Time, each 4-day cycle in its own column; shifts outside it, or marked overtime in the day, go under Overtime."
             : "No watch rotation is saved, so shifts go under Regular Time unless marked overtime in the day. Use Fill rotation to split out overtime."}
           {" "}The CSV has one row per person and opens in Excel, Numbers or Google Sheets.
@@ -430,7 +431,7 @@ function CrewHistory({ list, onDelete }) {
 /* ----- one person ----- */
 function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeriod, onBack, onChange, onOpenDay, onRemove }) {
   const entries = useMemoW(() => memberEntries(crew.entries, m), [crew.entries, m]);
-  const t = useMemoW(() => memberTotals(crew.entries, m, period, rates, crew.rotationAnchor), [crew.entries, m, period, rates, crew.rotationAnchor]);
+  const t = useMemoW(() => memberTotals(crew.entries, m, period, rates, crew.rotations), [crew.entries, m, period, rates, crew.rotations]);
   const diffs = memberDiffKeys(m, period);
   const showNet = netApplies(t, tax);
   const net = showNet ? estimateNet(t, tax).net : null;
@@ -489,7 +490,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
               The watch's shifts, plus {m.name ? `${m.name}'s` : "this person's"} own changes. Tap a day to mark leave, a swap or an extra shift.
             </div>
             <div style={{ padding: "0 12px 12px" }}>
-              <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotationAnchor} onOpenDay={onOpenDay} />
+              <Calendar compact period={period} entries={entries} mode="basic" totals={t} rotationAnchor={crew.rotations} onOpenDay={onOpenDay} />
             </div>
             {diffs.length > 0 && (
               <div style={{ padding: "8px 16px 14px", borderTop: "1px solid var(--line-soft)" }}>
