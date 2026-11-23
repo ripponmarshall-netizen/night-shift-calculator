@@ -185,15 +185,20 @@ function HomeView(props) {
             onAddPay={() => openSetting("pay")} onReviewRoster={() => openSetting("roster")}
           />
           {calendar}
-          <div ref={settingsRef} style={{ scrollMarginTop: "calc(var(--safe-top) + 80px)" }}>
-            <Card style={{ padding: "4px 18px" }}>
-              <TaxiFold mode={mode} basicDistance={basicDistance} onChange={onDistance} totals={totals}
-                open={fold === "taxi"} onToggle={() => setFold(fold === "taxi" ? null : "taxi")} />
-              <BasePayFold basePay={basePay} setBasePay={setBasePay}
-                open={fold === "pay"} onToggle={() => setFold(fold === "pay" ? null : "pay")} />
-              <CrossCheckFold counts={counts} setCounts={setCounts} totals={totals} onShowCalendar={highlightCalendar} last
-                open={fold === "roster"} onToggle={() => setFold(fold === "roster" ? null : "roster")} />
-            </Card>
+          {/* One grid cell for both, so on an iPad they stack under the
+              result beside the calendar. */}
+          <div>
+            <ShiftBreakdown totals={totals} onOpenDay={onOpenDay} />
+            <div ref={settingsRef} style={{ scrollMarginTop: "calc(var(--safe-top) + 80px)" }}>
+              <Card style={{ padding: "4px 18px" }}>
+                <TaxiFold mode={mode} basicDistance={basicDistance} onChange={onDistance} totals={totals}
+                  open={fold === "taxi"} onToggle={() => setFold(fold === "taxi" ? null : "taxi")} />
+                <BasePayFold basePay={basePay} setBasePay={setBasePay}
+                  open={fold === "pay"} onToggle={() => setFold(fold === "pay" ? null : "pay")} />
+                <CrossCheckFold counts={counts} setCounts={setCounts} totals={totals} onShowCalendar={highlightCalendar} last
+                  open={fold === "roster"} onToggle={() => setFold(fold === "roster" ? null : "roster")} />
+              </Card>
+            </div>
           </div>
         </div>
       )}
@@ -301,9 +306,9 @@ function CrossCheckFold({ counts, setCounts, totals, onShowCalendar, open, onTog
   return (
     <FoldRow title="Check against roster" detail={detail} warn={totals.hasMismatch} open={open} onToggle={onToggle} last={last}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
-        <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.cal.pm3} flag={totals.mismatch.pm3} />
-        <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.cal.pm10} flag={totals.mismatch.pm10} />
-        <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.cal.am7} flag={totals.mismatch.am7} />
+        <CountInput label="3PM" color="var(--sp1)" value={counts.pm3} onChange={(v) => setC("pm3", v)} expected={totals.roster.pm3} flag={totals.mismatch.pm3} />
+        <CountInput label="10PM" color="var(--sp2)" value={counts.pm10} onChange={(v) => setC("pm10", v)} expected={totals.roster.pm10} flag={totals.mismatch.pm10} />
+        <CountInput label="7AM" color="var(--am)" value={counts.am7} onChange={(v) => setC("am7", v)} expected={totals.roster.am7} flag={totals.mismatch.am7} />
       </div>
       {totals.hasMismatch && (
         <button onClick={onShowCalendar} style={{

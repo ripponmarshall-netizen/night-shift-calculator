@@ -1868,3 +1868,167 @@ input.nsc-switch:checked::before {
     grid-column: 2;
   }
 }
+
+/* Shift breakdown (breakdown.jsx): a table of the shift types, then every
+   shift on its own line. The number columns are sized in em, so they line
+   up at any text size; on a phone under 360px wide the allowances drop
+   under the time instead of squeezing the shift names. */
+.nsc-bd-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 3.4em 5.2em 6.4em;
+  gap: 2px 8px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px dashed var(--line-soft);
+  font-size: 13px;
+}
+.nsc-bd-head {
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+.nsc-bd-num {
+  text-align: right;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.nsc-bd-head .nsc-bd-num {
+  color: var(--ink-faint);
+}
+.nsc-bd-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--ink);
+}
+.nsc-bd-swatch {
+  flex-shrink: 0;
+  align-self: center;
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+}
+/* Overtime after a Straight Day: the Straight Day's colour, hatched, so it
+   reads apart from the Straight Day itself without leaning on colour. */
+.nsc-bd-swatch.is-hatched,
+.nsc-bd-hatch {
+  background: repeating-linear-gradient(
+    135deg,
+    var(--c) 0 3px,
+    color-mix(in oklab, var(--c) 35%, transparent) 3px 5px
+  );
+}
+.nsc-bd-plus {
+  margin-left: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--extra);
+}
+.nsc-bd-notes {
+  grid-column: 1 / -1;
+  padding-left: 11px;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+}
+.nsc-bd-total {
+  border-bottom: none;
+  border-top: 1px solid var(--line);
+  margin-top: -1px;
+}
+.nsc-bd-total .nsc-bd-name,
+.nsc-bd-total .nsc-bd-num {
+  font-weight: 700;
+}
+@media (max-width: 359px) {
+  .nsc-bd-row {
+    grid-template-columns: minmax(0, 1fr) 3.4em 5.2em;
+  }
+  .nsc-bd-money {
+    grid-column: 2 / -1;
+  }
+  /* A shift type that earns no allowance needs no second line. */
+  .nsc-bd-money.is-none {
+    display: none;
+  }
+}
+.nsc-bd-shift {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--bg-2);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+}
+.nsc-bd-shift.is-tappable {
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    var(--press);
+}
+/* As wide as its card: it gives only slightly under the finger. */
+.nsc-bd-shift.is-tappable:active {
+  scale: 0.985;
+}
+@media (hover: hover) {
+  .nsc-bd-shift.is-tappable:hover {
+    background: var(--bg-3);
+  }
+}
+/* Given away on exchange leave: not worked, so it stands back. */
+.nsc-bd-shift.is-given {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.nsc-bd-date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 30px;
+}
+
+/* Home's facts under the total: small pills that wrap, each a value and
+   what it is, settling in one after another. */
+.nsc-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.nsc-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  animation: nscPopIn 0.5s var(--ease-bouncy) backwards;
+}
+.nsc-fact:nth-child(2) {
+  animation-delay: 40ms;
+}
+.nsc-fact:nth-child(3) {
+  animation-delay: 80ms;
+}
+.nsc-fact:nth-child(n + 4) {
+  animation-delay: 120ms;
+}
+.nsc-fact-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}

@@ -356,6 +356,14 @@ function SnapshotDetail({ snap, theme, onClose, onReconcile }) {
             )}
           </div>
         )}
+
+        {/* Every shift the result was worked out from. A period saved
+            before the shift log was kept has only its totals. */}
+        {Array.isArray(t.shifts) ? <ShiftBreakdown totals={t} bare /> : Number(t.totalHours) > 0 && (
+          <div style={{ marginTop: 14, padding: "10px 12px", borderRadius: 10, background: "var(--bg-2)", fontSize: 12.5, color: "var(--ink-dim)", lineHeight: 1.5 }}>
+            Saved before the app kept a shift-by-shift breakdown. Open {snap.period} on Home and tap <strong style={{ color: "var(--ink)" }}>Save changes</strong> to add it.
+          </div>
+        )}
     </ModalFrame>
   );
 }

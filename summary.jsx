@@ -44,12 +44,8 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
   const extra = totals.extraShifts || 0;
   // Time worked on after a Straight Day ended (older saves have none).
   const sdOt = Number(totals.sdOtHours) || 0;
-  const counts = [
-    [totals.cal.pm3, "3PM"],
-    [totals.cal.pm10, "10PM"],
-    [totals.cal.am7, "7AM"],
-    [totals.cal.sd, "Straight Day"],
-  ].filter(([c]) => c > 0).map(([c, l]) => `${c} × ${l}`);
+  // Shifts worked, short ones included (leave has its own fact).
+  const worked = (totals.shifts || []).filter((s) => !s.given && !isLeave(s.duty)).length;
 
   return (
     <Card style={{ padding: 20 }}>
@@ -182,17 +178,23 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
         <div style={{ fontSize: 12, color: "var(--ink-faint)", padding: "8px 2px 0" }}>Tap a line marked ƒ to see how it's worked out.</div>
       </Collapse>
 
-      <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12, lineHeight: 1.5 }}>
-        {shiftDays > 0 ? `${counts.length ? counts.join(" · ") + " · " : ""}${fmtDur(totals.totalHours, totals.rates)}` : "No shifts logged yet"}
-        {extra > 0 && <> · <span style={{ color: "var(--extra)", fontWeight: 600 }}>{extra} extra ({fmtHM(totals.extraHours)})</span></>}
-        {sdOt > 0 && ` · ${fmtHM(sdOt)} after Straight Day`}
-        {totals.holidayHours > 0 && ` · ${fmtDur(totals.holidayHours, totals.rates)} holiday`}
-        {totals.otHours > 0 && ` · ${fmtDur(totals.otHours, totals.rates)} overtime`}
-        {totals.leaveShifts > 0 && ` · ${totals.leaveShifts} on leave`}
-        {totals.duties?.orderly > 0 && ` · ${totals.duties.orderly} orderly`}
-        {totals.duties?.exchangeFor > 0 && ` · ${totals.duties.exchangeFor} exchange for`}
-        {totals.exchangedShifts > 0 && ` · ${totals.exchangedShifts} exchange leave`}
-      </div>
+      {/* The period at a glance; the shift breakdown has every line. */}
+      {shiftDays > 0 ? (
+        <div className="nsc-facts" style={{ marginTop: 12 }}>
+          <Fact value={worked} label={worked === 1 ? "shift" : "shifts"} />
+          <Fact value={fmtDur(totals.totalHours, totals.rates)} label="total" />
+          {extra > 0 && <Fact value={extra} label={`extra · ${fmtHM(totals.extraHours)}`} tone="var(--extra)" />}
+          {sdOt > 0 && <Fact value={fmtHM(sdOt)} label="after SD" />}
+          {totals.holidayHours > 0 && <Fact value={fmtDur(totals.holidayHours, totals.rates)} label="holiday" tone="var(--holiday)" />}
+          {totals.otHours > 0 && <Fact value={fmtDur(totals.otHours, totals.rates)} label="overtime" />}
+          {totals.leaveShifts > 0 && <Fact value={totals.leaveShifts} label="on leave" />}
+          {totals.duties?.orderly > 0 && <Fact value={totals.duties.orderly} label="orderly" />}
+          {totals.duties?.exchangeFor > 0 && <Fact value={totals.duties.exchangeFor} label="exchange for" />}
+          {totals.exchangedShifts > 0 && <Fact value={totals.exchangedShifts} label="exchange leave" />}
+        </div>
+      ) : (
+        <div style={{ fontSize: 13, color: "var(--ink-dim)", marginTop: 12 }}>No shifts logged yet</div>
+      )}
 
       {totals.hasMismatch && (
         <button onClick={onReviewRoster} style={{
@@ -208,6 +210,17 @@ function PaySummary({ period, totals, mode, basicDistance, tax, shiftDays, saveS
 
       {math && <MathPopover {...math} onClose={() => setMath(null)} />}
     </Card>
+  );
+}
+
+/* One figure about the period, as a small pill: the value, then what it
+   is. tone marks the kind (extra, holiday) with a dot, never the text. */
+function Fact({ value, label, tone }) {
+  return (
+    <span className="nsc-fact">
+      {tone && <span aria-hidden className="nsc-fact-dot" style={{ background: tone }} />}
+      <span className="mono" style={{ color: "var(--ink)", fontWeight: 600 }}>{value}</span> {label}
+    </span>
   );
 }
 

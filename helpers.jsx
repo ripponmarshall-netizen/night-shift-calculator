@@ -141,6 +141,34 @@ const SHIFTS = [
   { k: "sd", label: "SD", color: "var(--sd)" },
 ];
 const SHIFT_LABEL = { am7: "7AM", pm3: "3PM", pm10: "10PM", sd: "Straight Day" };
+/* The shifts of one day in the order they start (7AM, Straight Day at
+   8:30AM, 3PM, 10PM), for the shift log. Each starts at SHIFT_START,
+   minutes after midnight on its own day. */
+const SHIFT_ORDER = ["am7", "sd", "pm3", "pm10"];
+const SHIFT_START = { am7: 7 * 60, sd: 8 * 60 + 30, pm3: 15 * 60, pm10: 22 * 60 };
+
+/* A time of day from minutes after midnight (wrapping past it): 7AM, 3PM,
+   4:30PM, 12AM. The JFB writes shift times this way. */
+function clockLabel(min) {
+  const m = ((Math.round(Number(min) || 0) % 1440) + 1440) % 1440;
+  const h = Math.floor(m / 60), r = m % 60;
+  return `${h % 12 || 12}${r ? ":" + pad(r) : ""}${h < 12 ? "AM" : "PM"}`;
+}
+/* When a line of the shift log ran: "10PM–7AM", or "10PM–3AM" for a 10PM
+   cut short. Like the holiday split, a shift counts from its usual start
+   for as long as it ran. The overtime after a Straight Day runs on from
+   4:30PM. A shift given away shows the time it would have run. */
+function shiftSpan(s) {
+  const k = s?.k;
+  if (!Object.prototype.hasOwnProperty.call(SHIFT_START, k)) return "";
+  const h = Number(s.given ? s.givenHours : s.hours);
+  const len = Math.round((Number.isFinite(h) && h >= 0 ? h : stdHours(k)) * 60);
+  return `${clockLabel(SHIFT_START[k])}–${clockLabel(SHIFT_START[k] + len)}`;
+}
+function afterSpan(s) {
+  const end = SHIFT_START.sd + Math.round(stdHours("sd") * 60);
+  return `${clockLabel(end)}–${clockLabel(end + Math.round((Number(s?.after) || 0) * 60))}`;
+}
 
 const DEFAULT_RATES = {
   sp1: 66.6,        // 4 hrs × $16.65/hr per 3PM shift
@@ -152,7 +180,7 @@ const DEFAULT_RATES = {
 };
 const STORAGE = "nsc:v3";
 // Shown in the footer on every screen. Bump with each release (see README).
-const APP_VERSION = "3.28";
+const APP_VERSION = "3.29";
 // One credit line and contact address, shared by every footer and About.
 const APP_CREDIT = "Workflow Coaching and Optimisation · Portland Division";
 const CONTACT_EMAIL = "ripponmarshall@yahoo.com";
@@ -409,8 +437,47 @@ function summaryText(totals, periodStr, net) {
   if (net != null && Number.isFinite(net) && Math.round(net) !== Math.round(totals.grand)) {
     lines.push(row("Estimated Net", fmt(net), 2));
   }
-  lines.push(rule("═"), "— Night Shift Calculator · Estimate only");
+  lines.push(rule("═"));
+  lines.push(...shiftLogText(totals.shifts, totals.rates, row, rule));
+  lines.push("— Night Shift Calculator · Estimate only");
   return lines.join("\n");
+}
+
+/* The shift breakdown as text lines for summaryText: the shifts per type,
+   then one line per shift. A record of time and of which shift earned
+   what; its hours and money are already in the pay lines. None for a
+   result saved before the shift log was kept. */
+function shiftLogText(list, rates, row, rule) {
+  if (!Array.isArray(list) || !list.length) return [];
+  const b = shiftBreakdown(list);
+  const dur = (n) => fmtDur(n, rates);
+  const x = (n) => (n ? ` (${n} extra)` : "");
+  const out = [row("SHIFTS", `${b.total.n} · ${dur(b.total.hours)}`)];
+  for (const r of b.rows) {
+    if (r.n) out.push(row(`${SHIFT_LABEL[r.k]} ×${r.n}${x(r.extra)}`, dur(r.hours), 2));
+  }
+  if (b.after.days) out.push(row(`OT after Straight Day ×${b.after.days}`, dur(b.after.hours), 2));
+  out.push("  " + rule("─").slice(2), row(`Total ×${b.total.n}${x(b.total.extra)}`, dur(b.total.hours), 2));
+  if (b.total.extra) out.push(row("Extra shift time", dur(b.total.extraHours), 2));
+  if (b.total.leave) out.push(row(`On leave ×${b.total.leave}`, "no allowance", 2));
+  if (b.total.hol > 0) out.push(row("Holiday time (×2)", dur(b.total.hol), 2));
+  if (b.total.given) out.push(row(`Swapped out ×${b.total.given}`, "not counted", 2));
+  out.push("", "SHIFT LOG  (+ extra · * holiday)");
+  for (const s of list) {
+    const d = fromYmd(s.date);
+    const day = `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()]} ${d.getDate()}`;
+    const label = (s.extra ? "+" : "") + (SHIFTS.find((sh) => sh.k === s.k)?.label || s.k) + (s.hol > 0 ? "*" : "");
+    const notes = [
+      s.duty && DUTY_TYPES[s.duty]?.code,
+      s.short && "short",
+      !s.given && Math.abs(Number(s.hours) - stdHours(s.k)) > 1e-9 && shiftSpan(s),
+      s.hol > 0 && `hol ${dur(s.hol)}`,
+      Number(s.after) > 0 && `+${dur(s.after)} after`,
+    ].filter(Boolean).join(", ");
+    out.push(row(`${day.padEnd(6)}  ${label.padEnd(6)}${notes}`, s.given ? "—" : dur(s.hours), 2));
+  }
+  out.push(rule("═"));
+  return out;
 }
 
 /* ----- entries ----- */
@@ -764,6 +831,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
   const days = periodDays(period);
   const dayHours = {}; // key -> hours for stripe viz
   const dayHolidayHours = {};
+  // The shift log: one line per shift on the calendar, in date order and
+  // then in the order the shifts start, with what each counted for. Its
+  // hours, holiday hours, allowances and extra shifts add up to the totals
+  // returned below (calc.test.js holds it to that). See shiftBreakdown.
+  const shifts = [];
 
   for (const d of days) {
     const key = ymd(d);
@@ -771,6 +843,8 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     if (!e) continue;
     const isHol = e.holiday == null ? isJamaicaHoliday(d) : e.holiday;
     let h = 0, hHol = 0;
+    // Each shift's own hours and holiday hours, for the log.
+    const own = {};
 
     // Only shifts actually worked count below; one given away on exchange
     // leave is as if it weren't on the calendar (no hours, no allowance).
@@ -805,6 +879,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       const ha = hrsOf(e, "am7");
       h += ha;
       if (isHol && !onLeave.am7) hHol += ha;
+      own.am7 = { h: ha, hol: isHol && !onLeave.am7 ? ha : 0 };
       if (credit.am7) { if (e.dist?.am7 === "L") longAm7++; else shortAm7++; }
     }
     if (work.pm3) {
@@ -812,6 +887,7 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       const hp3 = hrsOf(e, "pm3");
       h += hp3;
       if (isHol && !onLeave.pm3) hHol += hp3;
+      own.pm3 = { h: hp3, hol: isHol && !onLeave.pm3 ? hp3 : 0 };
       if (credit.pm3) { if (e.dist?.pm3 === "L") longPm3++; else shortPm3++; }
     }
     if (work.pm10) {
@@ -822,10 +898,11 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       const tot = hrsOf(e, "pm10");
       const startSeg = Math.min(SHIFT_HOURS.pm10_start, tot);
       h += tot;
+      own.pm10 = { h: tot, hol: 0 };
       // Both legs stay on this (start) day's total, holiday hours included.
       if (!onLeave.pm10) {
-        if (isHol) hHol += startSeg;
-        if (nextHol) hHol += tot - startSeg;
+        if (isHol) { hHol += startSeg; own.pm10.hol += startSeg; }
+        if (nextHol) { hHol += tot - startSeg; own.pm10.hol += tot - startSeg; }
       }
       if (credit.pm10) { if (e.dist?.pm10 === "L") longPm10++; else shortPm10++; }
       if (credit.pm10 && credit.pm3) {
@@ -842,24 +919,52 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
       const hs = hrsOf(e, "sd");
       h += hs;
       if (isHol && !onLeave.sd) hHol += hs;
+      own.sd = { h: hs, hol: isHol && !onLeave.sd ? hs : 0 };
     }
     // Overtime straight after it runs from 4:30PM, so like a 10PM each part
     // goes by the day it falls on: up to 7h 30m on this day, the rest after
     // midnight. All of it stays on this day's total.
     const after = byMin ? toMin(sdOtHours(e)) / 60 : sdOtHours(e);
+    let afterHol = 0;
     if (after > 0) {
       const sameDay = Math.min(after, SD_OT_SAME_DAY);
       h += after;
-      if (isHol) hHol += sameDay;
-      if (nextHol) hHol += after - sameDay;
+      if (isHol) { hHol += sameDay; afterHol += sameDay; }
+      if (nextHol) { hHol += after - sameDay; afterHol += after - sameDay; }
       sdOtTotal += after;
       sdOtDays++;
     }
 
-    for (const k of extraShiftKeys(e, rotationSlot(key, anchor))) {
+    const extraKeys = extraShiftKeys(e, rotationSlot(key, anchor));
+    for (const k of extraKeys) {
       const hx = hrsOf(e, k);
       extraBy[k].n++; extraBy[k].h += hx;
       extraShifts++; extraHours += hx;
+    }
+
+    // This day's lines in the shift log. Allowances are each shift's own
+    // share of the totals: SP1 on a 3PM, SP2 on a 10PM, meal on both, and
+    // taxi at the distance in effect, except on a day with both a 3PM and
+    // a 10PM, which pays no taxi on either (the same-day deduction).
+    const pair = credit.pm3 && credit.pm10;
+    for (const k of SHIFT_ORDER) {
+      if (!e[k]) continue;
+      const duty = shiftDuty(e, k);
+      const s = { date: key, k, hours: own[k] ? own[k].h : 0, hol: own[k] ? own[k].hol : 0 };
+      if (duty) s.duty = duty;
+      if (!work[k]) { s.given = true; s.givenHours = hrsOf(e, k); }
+      if (extraKeys.includes(k)) s.extra = true;
+      if (work[k] && !onLeave[k] && !credit[k]) s.short = true;
+      if (credit[k] && (k === "pm3" || k === "pm10")) {
+        const dist = mode === "basic" ? (basicDistance === "L" ? "L" : "S") : (e.dist?.[k] === "L" ? "L" : "S");
+        s.dist = dist;
+        if (k === "pm3") s.sp1 = R.sp1; else s.sp2 = R.sp2;
+        s.meal = R.meal;
+        if (pair) s.pair = true;
+        else s.taxi = dist === "L" ? R.taxiLong : R.taxiShort;
+      }
+      if (k === "sd" && after > 0) { s.after = after; s.afterHol = afterHol; }
+      shifts.push(s);
     }
 
     totalHours += h;
@@ -914,10 +1019,15 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
   // cross-check, so it can never flag a mismatch.
   const given = (v) => v != null && v !== "";
   const c = counts || {};
+  // A roster lists the shifts worked, a short one included (it earns no
+  // allowance, but it was still on the roster); leave and shifts given
+  // away aren't worked.
+  const roster = { am7: 0, pm3: 0, pm10: 0 };
+  for (const s of shifts) if (s.k in roster && !s.given && !isLeave(s.duty)) roster[s.k]++;
   const mismatch = {
-    pm3: given(c.pm3) && Number(c.pm3) !== calPm3,
-    pm10: given(c.pm10) && Number(c.pm10) !== calPm10,
-    am7: given(c.am7) && Number(c.am7) !== cal7am,
+    pm3: given(c.pm3) && Number(c.pm3) !== roster.pm3,
+    pm10: given(c.pm10) && Number(c.pm10) !== roster.pm10,
+    am7: given(c.am7) && Number(c.am7) !== roster.am7,
   };
   const hasMismatch = mismatch.pm3 || mismatch.pm10 || mismatch.am7;
 
@@ -932,10 +1042,79 @@ function aggregate(entries, period, mode, basicDistance, counts, basePay, rates,
     duties, leaveShifts, leaveHours, exchangedShifts, exchangedHours,
     extraShifts, extraHours, extraBy,
     sdOtHours: sdOtTotal, sdOtDays,
+    shifts,
     grand,
-    mismatch, hasMismatch,
+    roster, mismatch, hasMismatch,
     rates, mode, basicDistance,
   };
+}
+
+/* ----- shift breakdown -----
+   The shift log (totals.shifts) summed per shift type, for the breakdown
+   on Home, a watch member's page and a saved result. Per type: n, the
+   shifts that count toward hours (worked or on leave; one given away on
+   exchange leave is counted apart, as given); extra, the overtime shifts
+   among them, and their hours; hours and holiday hours; leave and short
+   (half or less: no allowance) shifts; and the allowances they earned.
+   Overtime after a Straight Day is its own line (after), and total adds
+   everything up, so total.hours is the period's total hours. */
+function shiftBreakdown(list) {
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const blank = (k) => ({ k, n: 0, extra: 0, hours: 0, extraHours: 0, hol: 0, leave: 0, short: 0, given: 0, givenHours: 0, allow: 0 });
+  const by = {};
+  for (const k of SHIFT_KEYS) by[k] = blank(k);
+  const total = blank("all");
+  const after = { days: 0, hours: 0, hol: 0 };
+  for (const s of Array.isArray(list) ? list : []) {
+    const row = s && by[s.k];
+    if (!row) continue;
+    for (const r of [row, total]) {
+      if (s.given) { r.given++; r.givenHours += num(s.givenHours); continue; }
+      r.n++;
+      r.hours += num(s.hours);
+      r.hol += num(s.hol);
+      if (s.extra) { r.extra++; r.extraHours += num(s.hours); }
+      if (isLeave(s.duty)) r.leave++;
+      if (s.short) r.short++;
+      r.allow += num(s.sp1) + num(s.sp2) + num(s.meal) + num(s.taxi);
+    }
+    if (num(s.after) > 0) { after.days++; after.hours += num(s.after); after.hol += num(s.afterHol); }
+  }
+  total.hours += after.hours;
+  total.hol += after.hol;
+  return { rows: SHIFT_KEYS.map((k) => by[k]).filter((r) => r.n > 0 || r.given > 0), after, total };
+}
+
+/* What a saved shift log is compared on, so History can tell when a
+   saved result's breakdown no longer matches the calendar (a shift moved
+   to another day, say, with the same pay). */
+function shiftLogSig(list) {
+  const c = (v) => Math.round((Number(v) || 0) * 100);
+  return JSON.stringify((Array.isArray(list) ? list : []).map((s) => [
+    s.date, s.k, c(s.hours), c(s.hol), !!s.extra, s.duty || "", !!s.given, !!s.short,
+    c(s.sp1) + c(s.sp2) + c(s.meal) + c(s.taxi), c(s.after),
+  ]));
+}
+
+/* A shift log from storage or a backup file, in the shape the breakdown
+   reads: known shift keys and dates, numbers that are finite and >= 0,
+   and flags that are true or absent. Anything else is dropped, so a
+   hand-edited file can't break a saved result. */
+function sanitizeShiftLog(list) {
+  if (!Array.isArray(list)) return undefined;
+  const n = (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined);
+  const out = [];
+  for (const s of list) {
+    if (!isPlainObj(s) || !DATE_KEY.test(String(s.date)) || !SHIFT_KEYS.includes(s.k)) continue;
+    const r = { date: s.date, k: s.k, hours: n(s.hours) || 0, hol: n(s.hol) || 0 };
+    if (typeof s.duty === "string" && Object.prototype.hasOwnProperty.call(DUTY_TYPES, s.duty)) r.duty = s.duty;
+    for (const f of ["extra", "short", "pair", "given"]) if (s[f] === true) r[f] = true;
+    if (r.given) r.givenHours = n(s.givenHours) || 0;
+    if (s.dist === "S" || s.dist === "L") r.dist = s.dist;
+    for (const f of ["sp1", "sp2", "meal", "taxi", "after", "afterHol"]) if (n(s[f]) !== undefined) r[f] = s[f];
+    out.push(r);
+  }
+  return out;
 }
 
 /* ----- crew (several people on the same shift) -----
@@ -1124,7 +1303,8 @@ function crewSnapshot(crew, period, rates, tax, rows) {
     periodKey: periodKey(period), period: periodLabel(period),
     watch: crew.watch || "", station: crew.station || "",
     rows: (rows || crewRows(crew, period, rates, tax)).map(({ member: m, totals, net, sheet }) => {
-      const { dayHours, dayHolidayHours, mismatch, ...kept } = totals;
+      // The record sheet (below) already lists every shift by date.
+      const { dayHours, dayHolidayHours, mismatch, shifts, ...kept } = totals;
       return {
         member: { id: m.id, name: m.name, empNo: m.empNo, rank: m.rank || "", dist: m.dist },
         totals: { ...kept, rates: { ...totals.rates } }, net, sheet,
@@ -1206,7 +1386,10 @@ function crewCsv(rows, periodStr) {
   };
   const n2 = (v) => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2);
   const head = ["Period", "Name", "Employee no.", "Rank", "Taxi", "7AM", "3PM", "10PM", "Straight Day", "Leave shifts", "Exchanged out", "Hours", "OT after Straight Day",
-    "SP1", "SP2", "Meal", "Taxi allowance", "Allowances", "Monthly basic", "Compulsory", "Holiday pay", "Overtime pay", "Gross", "Est. net"];
+    "SP1", "SP2", "Meal", "Taxi allowance", "Allowances", "Monthly basic", "Compulsory", "Holiday pay", "Overtime pay", "Gross", "Est. net",
+    // Added later, so they come last: a sheet built on the columns above
+    // keeps working.
+    "Extra shifts", "Extra shift hours", "Holiday hours", "Overtime hours"];
   const lines = [head.map(cell).join(",")];
   for (const { member: m, totals: t, net } of rows) {
     lines.push([
@@ -1215,6 +1398,7 @@ function crewCsv(rows, periodStr) {
       n2(t.sp1), n2(t.sp2), n2(t.meal), n2(t.taxi), n2(t.allowanceSubtotal),
       n2(t.monthlyBasic), n2(t.compulsory), n2(t.holidayPay), n2(t.overtimePay), n2(t.grand),
       net == null ? "" : n2(net),
+      Number(t.extraShifts) || 0, n2(t.extraHours), n2(t.holidayHours), n2(t.otHours),
     ].map(cell).join(","));
   }
   return lines.join("\r\n") + "\r\n";
@@ -1236,7 +1420,9 @@ function crewText(rows, periodStr) {
     allow += Number(t.allowanceSubtotal) || 0; gross += Number(t.grand) || 0;
     lines.push("", (m.rank ? `${m.rank} ` : "") + (m.name || "Unnamed") + (m.empNo ? ` · #${m.empNo}` : ""));
     lines.push(`  7AM ${t.cal.am7} · 3PM ${t.cal.pm3} · 10PM ${t.cal.pm10}${t.cal.sd > 0 ? ` · SD ${t.cal.sd}` : ""} · ${fmtDur(t.totalHours, t.rates)}`);
+    if (t.extraShifts > 0) lines.push(`  ${t.extraShifts} extra shift${t.extraShifts === 1 ? "" : "s"} · ${fmtHM(t.extraHours)}`);
     if (t.sdOtHours > 0) lines.push(`  ${fmtHM(t.sdOtHours)} overtime after Straight Day`);
+    if (t.holidayHours > 0) lines.push(`  ${fmtDur(t.holidayHours, t.rates)} holiday (×2)`);
     const off = [t.leaveShifts > 0 && `${t.leaveShifts} on leave`, t.exchangedShifts > 0 && `${t.exchangedShifts} exchanged out`].filter(Boolean);
     if (off.length) lines.push("  " + off.join(" · "));
     lines.push(row("Allowances", fmt(t.allowanceSubtotal)));
@@ -1384,6 +1570,12 @@ function sanitizeSnapshots(list) {
     if (!at || seenAt.has(at)) at = new Date(i).toISOString();
     seenAt.add(at);
     const out = { ...s, at };
+    // The shift log is drawn line by line, so it keeps only clean lines.
+    if ("shifts" in out.totals) {
+      const log = sanitizeShiftLog(out.totals.shifts);
+      out.totals = { ...out.totals };
+      if (log) out.totals.shifts = log; else delete out.totals.shifts;
+    }
     if (typeof out.periodKey !== "string" || !DATE_KEY.test(out.periodKey)) delete out.periodKey;
     if (typeof out.period !== "string") out.period = out.periodKey ? periodLabel(periodFor(fromYmd(out.periodKey))) : "Saved result";
     // A pay slip check keeps only text and numbers: History shows its
@@ -1538,7 +1730,9 @@ const _exports = {
   SHIFT_HOURS, PM10_TOTAL, MAX_SHIFT_HOURS, SHIFT_KEYS, stdHours, effHours,
   SD_OT_SAME_DAY, MAX_SD_OT, sdOtHours, SHIFT_CLASHES, SD_OT_BEFORE_PM10, sdOtMax, clashingShifts, withoutShift, toggleShift, otSet, autoOvertime, isOvertimeShift,
   LEAVE_TYPES, DUTY_TYPES, DUTY_KEYS, LEAVE_KEYS, shiftDuty, isLeave, isGivenAway, worksShift, hasShifts,
-  SHIFTS, SHIFT_LABEL, DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
+  SHIFTS, SHIFT_LABEL, SHIFT_ORDER, SHIFT_START, clockLabel, shiftSpan, afterSpan,
+  shiftBreakdown, shiftLogSig, sanitizeShiftLog,
+  DEFAULT_RATES, DEFAULT_TAX, STORAGE, APP_VERSION,
   APP_CREDIT, CONTACT_EMAIL, JFB_LOGO,
   pad, ymd, fromYmd, effDate, addDays, sameDay, monthName, monthNameLong,
   periodFor, shiftPeriod, periodLabel, periodKey, periodDays,

@@ -543,6 +543,7 @@ function CrewPersonPage({ period, crew, member: m, dupe, rates, tax, onShiftPeri
               <button onClick={onRemove} style={{ ...ghostBtn(), color: "var(--holiday)" }}>Remove from watch</button>
             </div>
           </Card>
+          <ShiftBreakdown totals={t} onOpenDay={onOpenDay} />
         </div>
       </div>
     </main>
