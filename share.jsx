@@ -12,12 +12,6 @@ function renderSnapshotCanvas(snap, theme = "dark") {
       && window.matchMedia("(prefers-color-scheme: light)").matches;
     theme = prefersLight ? "light" : "dark";
   }
-  const W = 1080, H = 1350;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-
   const isDark = theme !== "light";
   const colors = isDark ? {
     bg: "#000000",
@@ -46,7 +40,28 @@ function renderSnapshotCanvas(snap, theme = "dark") {
     sp2: "#8944ab",
     am: "#248a3d",
   };
+  // The shift colours, as on the calendar.
+  colors.shift = isDark
+    ? { am7: colors.am, pm3: colors.sp1, pm10: colors.sp2, sd: "#40c8e0", extra: "#ff375f" }
+    : { am7: colors.am, pm3: colors.sp1, pm10: colors.sp2, sd: "#00809a", extra: "#d30f45" };
 
+  // Laid out twice: once on a scratch canvas to see how tall it runs (a
+  // period with extra shifts and leave has more lines), then for real at
+  // that height. Never shorter than the 4:5 card it has always been.
+  const W = 1080;
+  const scratch = document.createElement("canvas");
+  scratch.width = 1;
+  scratch.height = 1;
+  const H = Math.max(1350, paintSnapshot(scratch.getContext("2d"), snap, colors, isDark, W, 1350));
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  paintSnapshot(canvas.getContext("2d"), snap, colors, isDark, W, H);
+  return canvas;
+}
+
+/* Draw the saved result at W × H. Returns the height it needs. */
+function paintSnapshot(ctx, snap, colors, isDark, W, H) {
   // bg
   ctx.fillStyle = colors.bg;
   ctx.fillRect(0, 0, W, H);
@@ -114,7 +129,7 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   drawLine(ctx, `OT hours · ${hrs(snap.totals.otHours)}`, fmt(snap.totals.overtimePay), pad + 70, y, W - 2 * pad - 140, colors); y += 50;
 
   // Leave and exchanges: a record only (their effect is already in the
-  // totals above). One line each, while there's room above the footer.
+  // totals above). One line each; the image grows to fit them.
   const plural = (n) => `${n} shift${n === 1 ? "" : "s"}`;
   const extraN = Number(snap.totals.extraShifts) || 0;
   const sdOt = Number(snap.totals.sdOtHours) || 0;
@@ -129,10 +144,51 @@ function renderSnapshotCanvas(snap, theme = "dark") {
     coverN > 0 && [`Exchange for · ${plural(coverN)}`, "paid as normal"],
   ].filter(Boolean);
   for (const [label, value] of notes) {
-    if (y >= H - pad - 110) break;
     drawLine(ctx, label, value, pad + 70, y, W - 2 * pad - 140, colors);
     y += 38;
   }
+
+  // Shifts per type, and each extra shift by date (a saved result from
+  // before the shift log was kept has none to show).
+  const log = Array.isArray(snap.totals.shifts) ? snap.totals.shifts : [];
+  if (log.length) {
+    if (notes.length) y += 12;
+    const b = shiftBreakdown(log);
+    const dur = (n) => fmtDur(n, snap.totals.rates);
+    y = drawSection(ctx, "Shifts", `${b.total.n} · ${dur(b.total.hours)}`, pad + 50, y, W - 2 * pad - 100, colors.faint, colors);
+    for (const r of b.rows) {
+      if (!r.n) continue;
+      drawSwatch(ctx, pad + 70, y, colors.shift[r.k]);
+      const bits = [`${SHIFT_LABEL[r.k]} × ${r.n}`, r.extra && `${r.extra} extra`, r.hol > 0 && `${dur(r.hol)} holiday`].filter(Boolean);
+      drawLine(ctx, bits.join(" · "), dur(r.hours), pad + 92, y, W - 2 * pad - 162, colors);
+      y += 38;
+    }
+    if (b.after.days) {
+      drawLine(ctx, `OT after Straight Day · ${b.after.days} day${b.after.days === 1 ? "" : "s"}`, dur(b.after.hours), pad + 92, y, W - 2 * pad - 162, colors);
+      y += 38;
+    }
+    const extras = log.filter((s) => s.extra);
+    if (extras.length) {
+      y += 8;
+      ctx.fillStyle = colors.faint;
+      ctx.font = `600 20px ${FIG}`;
+      ctx.fillText("EXTRA SHIFTS", pad + 70, y);
+      y += 34;
+      const MAX = 10;
+      for (const s of extras.slice(0, extras.length > MAX ? MAX - 1 : MAX)) {
+        const d = fromYmd(s.date);
+        drawSwatch(ctx, pad + 70, y, colors.shift.extra);
+        const day = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        drawLine(ctx, `${day} · ${SHIFT_LABEL[s.k]} · ${shiftSpan(s)}`, dur(s.hours), pad + 92, y, W - 2 * pad - 162, colors);
+        y += 38;
+      }
+      if (extras.length > MAX) {
+        drawLine(ctx, `and ${extras.length - (MAX - 1)} more`, "", pad + 92, y, W - 2 * pad - 162, colors);
+        y += 38;
+      }
+    }
+  }
+  const needed = y + 40 + pad + 60;
 
   // footer
   ctx.fillStyle = colors.faint;
@@ -141,7 +197,14 @@ function renderSnapshotCanvas(snap, theme = "dark") {
   ctx.fillText("Night Shift Calculator · Estimate only · Saved " + new Date(snap.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }), W / 2, H - pad - 60);
   ctx.textAlign = "left";
 
-  return canvas;
+  return needed;
+}
+
+/* A shift's colour mark beside its line. */
+function drawSwatch(ctx, x, y, color) {
+  drawRoundedRect(ctx, x, y + 3, 6, 20, 3);
+  ctx.fillStyle = color;
+  ctx.fill();
 }
 
 function drawSection(ctx, label, subtotal, x, y, w, accent, colors) {
@@ -158,7 +221,8 @@ function drawSection(ctx, label, subtotal, x, y, w, accent, colors) {
   ctx.fillText(label, x + 32, y + 28);
   ctx.font = `700 28px ${FIG}`;
   ctx.textAlign = "right";
-  ctx.fillText(fmt(subtotal), x + w - 16, y + 28);
+  // A money subtotal, or a figure already in words ("24 · 191h").
+  ctx.fillText(typeof subtotal === "string" ? subtotal : fmt(subtotal), x + w - 16, y + 28);
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
   return y + 76;

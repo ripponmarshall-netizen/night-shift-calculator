@@ -154,8 +154,9 @@ function App() {
   };
 
   /* Is this period already in History, and does it still match? Compared on
-     the result, so moving a shift to another day with the same pay isn't a
-     change. */
+     the result and on its shift log, so moving a shift to another day
+     counts as a change even when the pay comes out the same: the saved
+     breakdown lists each shift by date. */
   const saveStatus = useMemo(() => {
     const saved = snapshots.find((s) => s.periodKey === periodKey(period));
     if (!saved) return { state: "none" };
@@ -167,7 +168,11 @@ function App() {
     // belong in the saved record, so a change to them counts too.
     const same = keys.every((k) => near(saved.totals?.[k], totals[k]))
       && DUTY_KEYS.every((k) => near(saved.totals?.duties?.[k], totals.duties[k]));
-    return { state: same ? "saved" : "changed", at: saved.at };
+    // Saved before the shift log was kept: saving again adds it.
+    const noLog = !Array.isArray(saved.totals?.shifts);
+    if (same && noLog && totals.shifts.length) return { state: "changed", at: saved.at, reason: "breakdown" };
+    const sameLog = noLog || shiftLogSig(saved.totals.shifts) === shiftLogSig(totals.shifts);
+    return { state: same && sameLog ? "saved" : "changed", at: saved.at };
   }, [snapshots, period, totals]);
 
   /* Undo puts back only what was removed, so a period saved while the
@@ -732,9 +737,10 @@ function AboutView({ onBack, rates }) {
           <GuideSteps steps={[
             <>The big number is your {b("estimated gross")} (or {b("estimated allowances")} until a monthly basic is set). The bar under it splits it into Allowance, Base and Extra.</>,
             <>Tap {b("Allowances")}, {b("Base pay")} or {b("Extra hours")} to open its lines, and {b("ƒ")} on a line to see exactly how it was worked out.</>,
+            <>{b("Shift breakdown")} (under the calendar): each shift type with how many you worked, how many were {b("extra")}, the time and the allowances they earned. Open {b("Every shift")} for each one's date, times, hours, holiday time and allowances, and tap one to change that day.</>,
             <>Tap {b("after tax")} under the total to see NIS, NHT, Education Tax and PAYE. Meal and taxi are tax-free. Set the rates in Settings → Tax.</>,
             <>Logging shifts further down? The total floats above the tabs. Tap it to jump back up.</>,
-            <>{b("Check against roster")} (under the calendar): type your roster's counts and the app tells you if the calendar disagrees. It never changes the pay.</>,
+            <>{b("Check against roster")} (under the calendar): type your roster's counts and the app tells you if the calendar disagrees. A shift you left early still counts as on the roster; leave and exchange leave don't. It never changes the pay.</>,
           ]} />
         </GuideSection>
 
@@ -751,8 +757,8 @@ function AboutView({ onBack, rates }) {
           <GuideSteps steps={[
             <>Every period you save shows in {b("History")}, with ▲ / ▼ against the one before and a year-to-date summary.</>,
             <>Drag across the trend line or the month columns to read any period.</>,
-            <>Open a saved period to download or copy it as an image, or tap {b("Check against pay slip")} and type what you were paid. The app shows the difference line by line.</>,
-            <>Saving a period again replaces it. The save button says {b("Save changes")} when the period has changed since.</>,
+            <>Open a saved period to see its shift breakdown, download or copy it as an image, or tap {b("Check against pay slip")} and type what you were paid. The app shows the difference line by line.</>,
+            <>Saving a period again replaces it. The save button says {b("Save changes")} when the period has changed since, a shift moved to another day included.</>,
           ]} />
         </GuideSection>
 

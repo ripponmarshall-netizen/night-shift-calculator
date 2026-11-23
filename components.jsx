@@ -782,8 +782,9 @@ function SaveRow({ status, onSave, onCopy }) {
         <button onClick={onCopy} style={ghostBtn()}>Copy summary</button>
       </div>
       {state !== "none" && (
-        <div style={{ fontSize: 12, marginTop: 8, color: state === "changed" ? "var(--warn)" : "var(--ink-faint)" }}>
-          {state === "changed" ? `Changed since you saved it on ${when}.` : `Saved to History on ${when}.`}
+        <div style={{ fontSize: 12, marginTop: 8, color: state === "changed" && status.reason !== "breakdown" ? "var(--warn)" : "var(--ink-faint)" }}>
+          {status.reason === "breakdown" ? `Saved on ${when}, before shift breakdowns. Save again to add one to History.`
+            : state === "changed" ? `Changed since you saved it on ${when}.` : `Saved to History on ${when}.`}
         </div>
       )}
     </div>

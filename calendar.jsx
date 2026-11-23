@@ -18,7 +18,12 @@ function Calendar({ period, entries, mode, onOpenDay, totals, highlight, onAutof
   const headWeek = ["S","M","T","W","T","F","S"];
   const periodHolidays = holidaysInPeriod(period);
   const stats = rotationStats(entries, period, rotationAnchor);
-  const shiftCount = totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10 + (totals.cal.sd || 0);
+  // Shifts worked (leave is counted on its own beside it). The cal counts
+  // only hold shifts that earn their allowance, which leaves out a short
+  // one (half its hours or less) that was still worked.
+  const shiftCount = Array.isArray(totals.shifts)
+    ? totals.shifts.filter((s) => !s.given && !isLeave(s.duty)).length
+    : totals.cal.am7 + totals.cal.pm3 + totals.cal.pm10 + (totals.cal.sd || 0);
   const todayKey = ymd(new Date());
   // Legend entries only for what this period actually shows.
   const anyHoliday = days.some((d) => { const e = entries[ymd(d)]; return e?.holiday == null ? isJamaicaHoliday(d) : e.holiday; });

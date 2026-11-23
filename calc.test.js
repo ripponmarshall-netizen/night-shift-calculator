@@ -799,6 +799,24 @@ for (let pm10 = 0; pm10 <= 30; pm10 += 3) {
   );
   assert.strictEqual(r2.mismatch.pm3, true);
   assert.strictEqual(r2.mismatch.pm10, false);
+  // A 3PM left early is still a 3PM on the roster (it only loses its
+  // allowance); one on leave isn't worked.
+  const short = D({ pm3: 1 });
+  short.hours = { pm3: "3" };
+  const leave = D({ pm3: 1 });
+  leave.duty = { pm3: "sick" };
+  const r3 = aggregate(
+    { [PLAIN]: short, "2026-05-21": leave },
+    HOL_PERIOD,
+    "basic",
+    "S",
+    { pm3: "1" },
+    HOL_BASEPAY,
+    HOL_RATES,
+  );
+  assert.strictEqual(r3.cal.pm3, 0, "no allowance for either");
+  assert.strictEqual(r3.roster.pm3, 1);
+  assert.strictEqual(r3.hasMismatch, false);
 }
 
 // Saved rotation: slot for any date from one 7AM anchor, both directions and
@@ -2191,6 +2209,272 @@ assert.ok(/^[^@\s]+@[^@\s]+\.[a-z]+$/.test(CONTACT_EMAIL));
     H.sanitizeTemplates([{ days: tdays }])[0].days[dow].sd,
     true,
   );
+}
+
+// ----- Shift log and breakdown -----
+// Every line of the shift log is a shift's own share of the totals, so the
+// log adds up to them exactly, whatever is on the calendar.
+{
+  const H = require("./helpers.jsx");
+  let seed = 7;
+  const rnd = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  const pick = (a) => a[Math.floor(rnd() * a.length)];
+  const near = (a, b, msg) =>
+    assert.ok(Math.abs(a - b) < 1e-6, `${msg}: ${a} vs ${b}`);
+  const sum = (list, f) => list.reduce((a, s) => a + (Number(f(s)) || 0), 0);
+  const p = H.periodFor(new Date(2026, 11, 20)); // holds Christmas and Boxing Day
+  for (let run = 0; run < 300; run++) {
+    const entries = {};
+    for (const d of H.periodDays(p)) {
+      if (rnd() < 0.3) continue;
+      const e = H.blankDay();
+      for (const k of ["am7", "pm3", "pm10"]) e[k] = rnd() < 0.4;
+      if (!e.am7 && !e.pm3 && rnd() < 0.2) e.sd = true;
+      for (const k of H.SHIFT_KEYS) {
+        if (!e[k]) continue;
+        e.dist[k] = rnd() < 0.5 ? "L" : "S";
+        if (rnd() < 0.25) {
+          e.hours = { ...e.hours, [k]: String(Math.round(rnd() * 140) / 10) };
+        }
+        if (rnd() < 0.2) e.duty = { ...e.duty, [k]: pick(H.DUTY_KEYS) };
+        if (rnd() < 0.15) e.ot = { ...e.ot, [k]: rnd() < 0.5 };
+      }
+      if (e.sd && rnd() < 0.5) e.sdOt = String(Math.round(rnd() * 100) / 10);
+      if (rnd() < 0.08) e.holiday = rnd() < 0.5;
+      entries[H.ymd(d)] = e;
+    }
+    const rates = {
+      ...H.DEFAULT_RATES,
+      otUnit: rnd() < 0.5 ? "minutes" : "hours",
+    };
+    const t = H.aggregate(
+      entries,
+      p,
+      rnd() < 0.5 ? "basic" : "advanced",
+      rnd() < 0.5 ? "L" : "S",
+      null,
+      { monthly: "200000", compulsory: "" },
+      rates,
+      rnd() < 0.6 ? "2026-12-16" : null,
+    );
+    const log = t.shifts;
+    near(
+      sum(log, (s) => s.hours + (s.after || 0)),
+      t.totalHours,
+      "hours",
+    );
+    near(
+      sum(log, (s) => s.hol + (s.afterHol || 0)),
+      t.holidayHours,
+      "hol",
+    );
+    for (const f of ["sp1", "sp2", "meal", "taxi"]) {
+      near(
+        sum(log, (s) => s[f]),
+        t[f],
+        f,
+      );
+    }
+    assert.strictEqual(log.filter((s) => s.extra).length, t.extraShifts);
+    near(
+      sum(
+        log.filter((s) => s.extra),
+        (s) => s.hours,
+      ),
+      t.extraHours,
+      "x",
+    );
+    assert.strictEqual(log.filter((s) => s.given).length, t.exchangedShifts);
+    near(
+      sum(log, (s) => s.givenHours),
+      t.exchangedHours,
+      "given hours",
+    );
+    assert.strictEqual(
+      log.filter((s) => H.isLeave(s.duty)).length,
+      t.leaveShifts,
+    );
+    assert.strictEqual(log.filter((s) => s.sp1).length, t.cal.pm3);
+    assert.strictEqual(log.filter((s) => s.sp2).length, t.cal.pm10);
+    assert.strictEqual(log.filter((s) => s.pair).length, t.cal.sameDayPair * 2);
+    assert.ok(log.every((s) => !s.given || s.hours === 0));
+    // The breakdown adds up to the same totals.
+    const b = H.shiftBreakdown(log);
+    near(b.total.hours, t.totalHours, "breakdown hours");
+    near(b.total.hol, t.holidayHours, "breakdown holiday hours");
+    near(b.total.allow, t.sp1 + t.sp2 + t.meal + t.taxi, "breakdown money");
+    near(b.after.hours, t.sdOtHours, "breakdown OT after SD");
+    assert.strictEqual(b.after.days, t.sdOtDays);
+    assert.strictEqual(b.total.extra, t.extraShifts);
+    assert.strictEqual(
+      b.rows.reduce((a, r) => a + r.n + r.given, 0),
+      log.length,
+    );
+    // A saved log comes back from storage unchanged.
+    assert.deepStrictEqual(
+      H.sanitizeShiftLog(JSON.parse(JSON.stringify(log))),
+      log,
+    );
+    assert.strictEqual(
+      H.shiftLogSig(JSON.parse(JSON.stringify(log))),
+      H.shiftLogSig(log),
+    );
+  }
+
+  // In date order, and in the order the shifts start within a day.
+  const day = H.blankDay();
+  day.pm10 = true;
+  day.pm3 = true;
+  day.am7 = true;
+  const two = H.blankDay();
+  two.sd = true;
+  two.sdOt = "2.5";
+  const t = H.aggregate(
+    { "2026-12-18": day, "2026-12-17": two },
+    p,
+    "basic",
+    "S",
+    null,
+    {},
+    H.DEFAULT_RATES,
+  );
+  assert.deepStrictEqual(
+    t.shifts.map((s) => s.date.slice(8) + s.k),
+    ["17sd", "18am7", "18pm3", "18pm10"],
+  );
+  // The 3PM and 10PM share a day: meal on both, no taxi on either.
+  const [, , pm3, pm10] = t.shifts;
+  assert.ok(pm3.pair && pm10.pair && !pm3.taxi && !pm10.taxi);
+  assert.strictEqual(pm3.sp1, H.DEFAULT_RATES.sp1);
+  assert.strictEqual(pm10.meal, H.DEFAULT_RATES.meal);
+  assert.ok(!t.shifts[1].sp1 && !t.shifts[1].meal, "a 7AM earns none");
+  // Times: from the usual start, for as long as it ran.
+  assert.strictEqual(H.shiftSpan(t.shifts[0]), "8:30AM–4:30PM");
+  assert.strictEqual(H.afterSpan(t.shifts[0]), "4:30PM–7PM");
+  assert.strictEqual(H.shiftSpan(pm10), "10PM–7AM");
+  assert.strictEqual(H.shiftSpan({ k: "pm10", hours: 5 }), "10PM–3AM");
+  assert.strictEqual(
+    H.shiftSpan({ k: "pm3", hours: 4 + 40 / 60 }),
+    "3PM–7:40PM",
+  );
+  assert.strictEqual(
+    H.shiftSpan({ k: "pm3", hours: 0, given: true, givenHours: 7 }),
+    "3PM–10PM",
+  );
+  assert.strictEqual(H.clockLabel(0), "12AM");
+  assert.strictEqual(H.clockLabel(12 * 60), "12PM");
+  assert.strictEqual(H.shiftSpan({ k: "nope" }), "");
+
+  // A 10PM the night before Christmas: 2h on the 24th, 7h holiday.
+  const eve = H.blankDay();
+  eve.pm10 = true;
+  const xmas = H.aggregate(
+    { "2026-12-24": eve },
+    p,
+    "basic",
+    "S",
+    null,
+    {},
+    H.DEFAULT_RATES,
+  );
+  assert.strictEqual(xmas.shifts[0].hol, 7);
+  assert.strictEqual(xmas.shifts[0].hours, 9);
+
+  // Short and given-away shifts say so.
+  const short = H.blankDay();
+  short.pm3 = true;
+  short.hours = { pm3: "3" };
+  short.pm10 = true;
+  short.duty = { pm10: "exchangeLeave" };
+  const st = H.aggregate(
+    { "2026-12-18": short },
+    p,
+    "basic",
+    "S",
+    null,
+    {},
+    H.DEFAULT_RATES,
+  ).shifts;
+  assert.ok(st[0].short && !st[0].sp1 && !st[0].meal && st[0].hours === 3);
+  assert.ok(st[1].given && st[1].givenHours === 9 && st[1].hours === 0);
+  const sb = H.shiftBreakdown(st);
+  assert.strictEqual(sb.total.n, 1);
+  assert.strictEqual(sb.total.given, 1);
+  assert.strictEqual(sb.total.short, 1);
+
+  // A saved result keeps only clean lines of its log.
+  const [snap] = H.sanitizeSnapshots([
+    {
+      at: "2026-12-20T00:00:00.000Z",
+      totals: {
+        grand: 1,
+        shifts: [
+          { date: "2026-12-18", k: "pm3", hours: 7, hol: 0, sp1: 66.6 },
+          { date: "bad", k: "pm3", hours: 7 },
+          { date: "2026-12-18", k: "zz", hours: 7 },
+          { date: "2026-12-18", k: "am7", hours: -3, extra: "yes", sp1: {} },
+          "junk",
+        ],
+      },
+    },
+  ]);
+  assert.deepStrictEqual(snap.totals.shifts, [
+    { date: "2026-12-18", k: "pm3", hours: 7, hol: 0, sp1: 66.6 },
+    { date: "2026-12-18", k: "am7", hours: 0, hol: 0 },
+  ]);
+  const [noLog] = H.sanitizeSnapshots([{ totals: { shifts: "x" } }]);
+  assert.ok(!("shifts" in noLog.totals));
+  // A shift moved to another day changes the log's signature.
+  const moved = JSON.parse(JSON.stringify(t.shifts));
+  moved[0].date = "2026-12-19";
+  assert.notStrictEqual(H.shiftLogSig(moved), H.shiftLogSig(t.shifts));
+  // Watch saves leave the log out (the record sheet lists the shifts).
+  const crew = { ...H.blankCrew(), entries: { "2026-12-18": day } };
+  crew.members = [H.newMember("A", "1")];
+  const cs = H.crewSnapshot(crew, p, H.DEFAULT_RATES, H.DEFAULT_TAX);
+  assert.ok(!("shifts" in cs.rows[0].totals));
+
+  // The text summary lists the shifts per type and every shift; a result
+  // saved before the log was kept has neither.
+  const rot = H.rotationEntries(p, "2026-12-16", "S");
+  rot["2026-12-19"] = { ...H.blankDay(), pm3: true };
+  rot["2026-12-22"].hours = { pm10: "5" };
+  const rt = H.aggregate(rot, p, "basic", "S", null, {}, H.DEFAULT_RATES, [
+    { from: "", anchor: "2026-12-16" },
+  ]);
+  const txt = H.summaryText(rt, "x");
+  assert.ok(/SHIFTS\s+\d+ · /.test(txt), txt);
+  assert.ok(/3PM ×\d+ \(1 extra\)/.test(txt), "extra shifts per type");
+  assert.ok(/Sat 19 {2}\+3PM\s+7h/.test(txt), "the extra 3PM in the log");
+  assert.ok(/Tue 22 {2}10PM {2}10PM–3AM\s+5h/.test(txt), "a short 10PM");
+  assert.ok(!/NaN|undefined/.test(txt));
+  const legacy = { ...rt };
+  delete legacy.shifts;
+  assert.ok(!/SHIFT LOG/.test(H.summaryText(legacy, "x")));
+  // The watch CSV adds extra shifts and hours as its last columns.
+  const csvRows = H.crewRows(
+    { ...crew, entries: rot, rotations: [{ from: "", anchor: "2026-12-16" }] },
+    p,
+    H.DEFAULT_RATES,
+    H.DEFAULT_TAX,
+  );
+  const [head, first] = H.crewCsv(csvRows, "x")
+    .split("\r\n")
+    .map((l) => l.split(","));
+  assert.deepStrictEqual(head.slice(-4), [
+    "Extra shifts",
+    "Extra shift hours",
+    "Holiday hours",
+    "Overtime hours",
+  ]);
+  assert.strictEqual(head.indexOf("Est. net"), 23, "older columns stay put");
+  assert.strictEqual(first[head.indexOf("Extra shifts")], "1");
+  assert.strictEqual(first[head.indexOf("Extra shift hours")], "7.00");
+  assert.ok(/1 extra shift · 7h/.test(H.crewText(csvRows, "x")));
+  console.log("shift log tests passed");
 }
 
 // ----- Service worker -----
